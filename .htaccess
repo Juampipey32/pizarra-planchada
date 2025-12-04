@@ -1,0 +1,18 @@
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteBase /
+
+    # 1. Redirigir la raiz (domain.com/) a public/index.html
+    RewriteRule ^$ public/index.html [L]
+
+    # 2. Si la peticion no empieza por "public/" Y no es para "api/", reescribirla a la carpeta public/
+    RewriteCond %{REQUEST_URI} !^/public/
+    RewriteCond %{REQUEST_URI} !^/api/
+    RewriteRule ^(.*)$ public/$1 [L]
+
+    # 3. Rutas limpias para la API PHP imitando paths de Node:
+    RewriteRule ^api/bookings/?$ api/bookings/index.php [L,QSA]
+    RewriteRule ^api/bookings/upload/?$ api/bookings/upload.php [L,QSA]
+    RewriteRule ^api/bookings/([0-9]+)/?$ api/bookings/manage.php?id=$1 [L,QSA]
+    RewriteRule ^api/products/([0-9]+)/?$ api/products/manage.php?id=$1 [L,QSA]
+</IfModule>

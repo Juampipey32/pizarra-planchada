@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - Pizarra Produccion</title>
+    <link rel="icon" href="data:;base64,iVBORw0KGgo=">
+    <style>
+        :root { color-scheme: dark; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: radial-gradient(circle at 20% 20%, #2c2c2c, #121212 45%);
+            color: #ffffff;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+        .login-container {
+            background-color: #1f2933;
+            padding: 2.25rem;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+            width: 100%;
+            max-width: 420px;
+            border: 1px solid #24303c;
+        }
+        h1 {
+            text-align: center;
+            margin-bottom: 1.5rem;
+            letter-spacing: 0.02em;
+        }
+        .form-group { margin-bottom: 1rem; }
+        label {
+            display: block;
+            margin-bottom: 0.4rem;
+            font-weight: 600;
+            color: #cbd5e1;
+        }
+        input {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid #364150;
+            border-radius: 6px;
+            background-color: #111827;
+            color: white;
+            box-sizing: border-box;
+        }
+        input:focus {
+            outline: 2px solid #2563eb;
+            border-color: transparent;
+        }
+        button {
+            width: 100%;
+            padding: 0.85rem;
+            background: linear-gradient(90deg, #2563eb, #1d4ed8);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 1rem;
+            margin-top: 0.5rem;
+            font-weight: 700;
+            letter-spacing: 0.01em;
+        }
+        button:hover { background: linear-gradient(90deg, #1d4ed8, #1e3a8a); }
+        .error {
+            color: #fb7185;
+            text-align: center;
+            margin-top: 1rem;
+            display: none;
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <h1>Iniciar Sesion</h1>
+        <form id="loginForm" autocomplete="on">
+            <div class="form-group">
+                <label for="username">Usuario</label>
+                <input type="text" id="username" name="username" required>
+            </div>
+            <div class="form-group">
+                <label for="password">Contrasena</label>
+                <input type="password" id="password" name="password" required>
+            </div>
+            <button type="submit">Entrar</button>
+            <p class="error" id="errorMessage"></p>
+        </form>
+    </div>
+
+    <script>
+        const form = document.getElementById('loginForm');
+        const errorMsg = document.getElementById('errorMessage');
+
+        // Si ya hay token, redirigir directo al dashboard
+        if (localStorage.getItem('token')) {
+            window.location.href = '/dashboard.html';
+        }
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            errorMsg.style.display = 'none';
+
+            const username = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value.trim();
+
+            if (!username || !password) {
+                errorMsg.textContent = 'Completa usuario y contrasena.';
+                errorMsg.style.display = 'block';
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/auth/login.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    localStorage.setItem('token', data.token);
+                    localStorage.setItem('role', data.role);
+                    window.location.href = '/dashboard.html';
+                } else {
+                    errorMsg.textContent = data.error || 'Credenciales invalidas';
+                    errorMsg.style.display = 'block';
+                }
+            } catch (err) {
+                errorMsg.textContent = 'Error de conexion';
+                errorMsg.style.display = 'block';
+            }
+        });
+    </script>
+</body>
+</html>

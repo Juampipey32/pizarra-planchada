@@ -1,0 +1,725 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pizarra Logística</title>
+    <link rel="icon" href="data:;base64,iVBORw0KGgo=">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        /* Custom scrollbar for better look */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+    </style>
+</head>
+
+<body class="bg-slate-100 h-screen flex flex-col font-sans text-slate-900 overflow-hidden">
+
+    <!-- Header -->
+    <header class="bg-white border-b border-slate-200 px-4 py-3 flex justify-between items-center shadow-sm z-40">
+        <div class="flex items-center gap-2">
+            <div class="bg-blue-600 p-1.5 rounded text-white shadow-lg shadow-blue-200">
+                <i data-lucide="truck" class="w-5 h-5"></i>
+            </div>
+            <h1 class="text-lg font-bold text-slate-800 hidden md:block">Logística <span
+                    class="text-blue-600">Pro</span></h1>
+        </div>
+
+        <div class="flex items-center bg-slate-100 rounded-lg p-0.5 border border-slate-200 shadow-inner">
+            <button id="prevDay" class="p-1.5 hover:bg-white rounded transition text-slate-500"><i
+                    data-lucide="chevron-left" class="w-4 h-4"></i></button>
+            <div
+                class="flex items-center gap-2 px-4 py-1 min-w-[180px] justify-center font-semibold text-sm text-slate-700">
+                <i data-lucide="calendar" class="w-3 h-3 text-blue-500"></i>
+                <span id="currentDateDisplay" class="capitalize">Hoy</span>
+            </div>
+            <button id="nextDay" class="p-1.5 hover:bg-white rounded transition text-slate-500"><i
+                    data-lucide="chevron-right" class="w-4 h-4"></i></button>
+        </div>
+
+        <div class="flex items-center gap-2">
+            <span id="userRoleDisplay"
+                class="text-xs font-bold px-2 py-1 rounded bg-slate-200 text-slate-600 uppercase"></span>
+            <a id="adminLink" href="/admin-products.html" class="hidden text-xs font-bold px-2 py-1 rounded bg-amber-100 text-amber-700 border border-amber-200">Productos</a>
+            <button id="logoutBtn" class="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-full transition"
+                title="Cerrar Sesion">
+                <i data-lucide="log-out" class="w-5 h-5"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Grid -->
+    <main class="flex-1 overflow-auto relative" id="mainContainer">
+        <div class="min-w-[800px] h-full">
+            <!-- Grid Header (Resources) -->
+            <div class="grid grid-cols-[60px_repeat(5,1fr)] sticky top-0 z-30 bg-slate-50 border-b border-slate-200 shadow-sm"
+                id="gridHeader">
+                <div class="p-3 border-r border-slate-200 flex justify-center items-center">
+                    <i data-lucide="clock" class="w-4 h-4 text-slate-300"></i>
+                </div>
+                <!-- Resources injected by JS -->
+            </div>
+
+            <!-- Grid Body (Time Slots) -->
+            <div class="pb-20" id="gridBody">
+                <!-- Slots injected by JS -->
+            </div>
+        </div>
+    </main>
+
+    <!-- Booking Modal (Create) -->
+    <div id="bookingModal"
+        class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50 p-4 backdrop-blur-sm">
+        <div
+            class="bg-white rounded-xl shadow-2xl w-full max-w-lg overflow-hidden animate-in fade-in zoom-in duration-200">
+            <div class="bg-blue-600 p-4 flex justify-between items-center text-white">
+                <h3 class="font-bold text-lg flex items-center gap-2"><i data-lucide="plus" class="w-5 h-5"></i> Nueva
+                    Carga</h3>
+                <button onclick="closeModal('bookingModal')"><i data-lucide="x" class="w-6 h-6"></i></button>
+            </div>
+            <div class="p-6">
+                <!-- Tabs -->
+                <div class="flex border-b border-slate-200 mb-4" id="modalTabs">
+                    <button onclick="setModalMode('drop')"
+                        class="flex-1 pb-2 text-sm font-medium text-blue-600 border-b-2 border-blue-600"
+                        id="tabDrop">Subir PDF</button>
+                    <button onclick="setModalMode('manual')" class="flex-1 pb-2 text-sm font-medium text-slate-400"
+                        id="tabManual">Manual</button>
+                </div>
+
+                <!-- Drop Zone -->
+                <div id="modeDrop" class="space-y-4">
+                    <div id="dropZone"
+                        class="border-2 border-dashed border-slate-300 rounded-xl h-40 flex flex-col items-center justify-center transition-all cursor-pointer relative hover:border-blue-500 hover:bg-blue-50">
+                        <input type="file" id="pdfInput" accept=".pdf"
+                            class="absolute inset-0 w-full h-full opacity-0 cursor-pointer">
+                        <div id="dropContent" class="text-center text-slate-500">
+                            <i data-lucide="upload-cloud" class="w-8 h-8 mx-auto mb-2"></i>
+                            Arrastra PDF aquí
+                        </div>
+                        <div id="uploadingSpinner" class="hidden animate-pulse text-blue-600 font-bold">Procesando...
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Manual Form -->
+                <form id="bookingForm" class="space-y-4 hidden">
+                    <input type="hidden" id="newResourceId">
+                    <input type="hidden" id="newTimeSlotHour">
+                    <input type="hidden" id="newTimeSlotMinute">
+
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Hora</label>
+                            <div id="timeSlotDisplay" class="text-sm bg-slate-100 p-2 rounded">--:--</div>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Carga (Kg)</label>
+                            <input type="number" id="newKg" class="w-full p-2 border border-slate-300 rounded">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Cliente</label>
+                        <input type="text" id="newClient" required class="w-full p-2 border border-slate-300 rounded">
+                    </div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Cod Cliente</label>
+                            <input type="text" id="newClientCode" class="w-full p-2 border border-slate-300 rounded" placeholder="ej: C4099">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 uppercase mb-1">N° Pedido</label>
+                            <input type="text" id="newOrderNumber" class="w-full p-2 border border-slate-300 rounded" placeholder="ej: 918.284">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Detalle</label>
+                        <textarea id="newDescription"
+                            class="w-full p-2 border border-slate-300 rounded h-16"></textarea>
+                    </div>
+                    <div class="bg-slate-50 p-3 rounded grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Tiempo</label>
+                            <select id="newDuration" class="w-full p-2 border border-blue-200 rounded">
+                                <option value="30">30m</option>
+                                <option value="60">1h</option>
+                                <option value="90">1h 30m</option>
+                                <option value="120">2h</option>
+                                <option value="150">2h 30m</option>
+                                <option value="180">3h</option>
+                                <option value="240">4h</option>
+                                <option value="300">5h</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Prioridad</label>
+                            <select id="newColor" class="w-full p-2 border border-slate-300 rounded">
+                                <option value="blue">Normal</option>
+                                <option value="red">Urgente</option>
+                                <option value="green">Lista</option>
+                                <option value="orange">Espera</option>
+                            </select>
+                        </div>
+                    </div>
+                    <button type="submit"
+                        class="w-full bg-blue-600 text-white font-bold py-3 rounded hover:bg-blue-700">Confirmar</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Modal -->
+    <div id="editModal" class="fixed inset-0 bg-black/60 hidden items-center justify-center z-50 p-4 backdrop-blur-sm">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg overflow-hidden animate-in zoom-in duration-200">
+            <div class="bg-slate-800 p-4 flex justify-between items-center text-white">
+                <h3 class="font-bold text-lg flex items-center gap-2"><i data-lucide="edit-2" class="w-4 h-4"></i>
+                    Editar Carga</h3>
+                <button onclick="closeModal('editModal')"><i data-lucide="x" class="w-6 h-6"></i></button>
+            </div>
+            <form id="editForm" class="p-6 space-y-4">
+                <input type="hidden" id="editId">
+                <div class="grid grid-cols-2 gap-4">
+                    <div><label class="block text-xs font-bold text-slate-500 uppercase mb-1">Cliente</label><input
+                            type="text" id="editClient" class="w-full p-2 border border-slate-300 rounded font-bold">
+                    </div>
+                    <div><label class="block text-xs font-bold text-slate-500 uppercase mb-1">Carga (Kg)</label><input
+                            type="number" id="editKg" class="w-full p-2 border border-slate-300 rounded"></div>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div><label class="block text-xs font-bold text-slate-500 uppercase mb-1">Cod Cliente</label><input
+                            type="text" id="editClientCode" class="w-full p-2 border border-slate-300 rounded"></div>
+                    <div><label class="block text-xs font-bold text-slate-500 uppercase mb-1">N° Pedido</label><input
+                            type="text" id="editOrderNumber" class="w-full p-2 border border-slate-300 rounded"></div>
+                </div>
+                <div><label class="block text-xs font-bold text-slate-500 uppercase mb-1">Detalle</label><textarea
+                        id="editDescription" class="w-full p-2 border border-slate-300 rounded text-sm h-16"></textarea>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4 bg-slate-50 p-3 rounded border border-slate-200">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Duración</label>
+                        <select id="editDuration"
+                            class="w-full p-2 border border-blue-200 rounded font-bold text-blue-900">
+                            <option value="30">30m</option>
+                            <option value="60">1h</option>
+                            <option value="90">1h 30m</option>
+                            <option value="120">2h</option>
+                            <option value="150">2h 30m</option>
+                            <option value="180">3h</option>
+                            <option value="240">4h</option>
+                            <option value="300">5h</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Prioridad</label>
+                        <select id="editColor" class="w-full p-2 border border-slate-300 rounded">
+                            <option value="blue">Normal</option>
+                            <option value="red">Urgente</option>
+                            <option value="green">Lista</option>
+                            <option value="orange">Espera</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Real Time Controls -->
+                <div class="border-t-2 border-slate-100 pt-4 mt-2">
+                    <h4 class="text-sm font-bold text-slate-700 mb-3 flex items-center gap-2"><i data-lucide="clock"
+                            class="w-4 h-4 text-slate-400"></i> Control de Operaciones (Real)</h4>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div><label
+                                class="block text-xs font-bold text-green-600 uppercase mb-1 flex items-center gap-1"><i
+                                    data-lucide="play-circle" class="w-3 h-3"></i> Ingreso Real</label><input
+                                type="time" id="editRealStartTime"
+                                class="w-full p-2 border border-green-200 bg-green-50 rounded font-mono text-sm"></div>
+                        <div><label
+                                class="block text-xs font-bold text-red-600 uppercase mb-1 flex items-center gap-1"><i
+                                    data-lucide="stop-circle" class="w-3 h-3"></i> Egreso Real</label><input type="time"
+                                id="editRealEndTime"
+                                class="w-full p-2 border border-red-200 bg-red-50 rounded font-mono text-sm"></div>
+                    </div>
+                </div>
+
+                <div class="flex gap-2 pt-2">
+                    <button type="button" id="deleteBtn"
+                        class="px-4 py-2 text-red-500 hover:bg-red-50 border border-red-200 rounded">Eliminar</button>
+                    <button type="submit"
+                        class="flex-1 bg-slate-900 text-white font-bold py-2 rounded shadow hover:bg-slate-800">Guardar
+                        Cambios</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Logic -->
+    <script>
+        // Constants
+        const RESOURCES = [
+            { id: 'p1', name: 'Puerta 1', type: 'dock' },
+            { id: 'p2', name: 'Puerta 2', type: 'dock' },
+            { id: 'p3', name: 'Puerta 3', type: 'dock' },
+            { id: 'p4', name: 'Puerta 4', type: 'dock' },
+            { id: 'sampi', name: 'Sampi', type: 'machinery' },
+        ];
+        const START_HOUR = 4;
+        const END_HOUR = 20;
+        const formatKg = (kg) => {
+            if (!kg || Number.isNaN(kg)) return '';
+            const val = Math.round(parseFloat(kg) * 100) / 100;
+            return `${val}kg`;
+        };
+        let productMap = {};
+
+        // State
+        let currentDate = new Date();
+        let bookings = [];
+        let userRole = localStorage.getItem('role') || 'VISUALIZADOR';
+        let token = localStorage.getItem('token');
+
+        async function loadProductCoefficients() {
+            try {
+                const res = await fetch('/api/products', { headers: { 'Authorization': `Bearer ${token}` } });
+                if (!res.ok) return;
+                const data = await res.json();
+                productMap = {};
+                data.forEach(p => { productMap[p.code] = parseFloat(p.coefficient); });
+            } catch (_) {
+                // ignore, we fall back to coef 1
+            }
+        }
+
+        function suggestDuration(kgTotal) {
+            if (!kgTotal || kgTotal <= 0) return 30;
+            const minutes = Math.ceil(((kgTotal / 2000) * 60) / 30) * 30;
+            return Math.max(30, minutes);
+        }
+
+        // PDF parsing now delegated to backend (upload.php) to avoid CDN/worker issues on hosting.
+
+        // Init
+        document.addEventListener('DOMContentLoaded', () => {
+            if (!token) window.location.href = '/index.html';
+
+            document.getElementById('userRoleDisplay').textContent = userRole;
+            const adminLink = document.getElementById('adminLink');
+            if (userRole === 'VENDEDOR') {
+                adminLink.classList.remove('hidden');
+            }
+            lucide.createIcons();
+            renderGridHeader();
+            renderGridBody();
+            loadBookings();
+            loadProductCoefficients();
+
+            // Event Listeners
+            document.getElementById('prevDay').onclick = () => changeDate(-1);
+            document.getElementById('nextDay').onclick = () => changeDate(1);
+            document.getElementById('logoutBtn').onclick = () => {
+                localStorage.clear();
+                window.location.href = '/index.html';
+            };
+
+            // Modal Events
+            document.getElementById('pdfInput').onchange = handleFileUpload;
+            document.getElementById('bookingForm').onsubmit = handleCreateBooking;
+            document.getElementById('editForm').onsubmit = handleUpdateBooking;
+            document.getElementById('deleteBtn').onclick = handleDeleteBooking;
+
+            // Auto-calc duration based on kg (simple version)
+            document.getElementById('newKg').oninput = (e) => autoCalcDuration(e.target.value, 'newDuration');
+            document.getElementById('editKg').oninput = (e) => autoCalcDuration(e.target.value, 'editDuration');
+        });
+
+        function changeDate(days) {
+            currentDate.setDate(currentDate.getDate() + days);
+            loadBookings();
+        }
+
+        async function loadBookings() {
+            const dateStr = currentDate.toISOString().split('T')[0];
+            document.getElementById('currentDateDisplay').textContent = currentDate.toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'long' });
+
+            try {
+                const res = await fetch(`/api/bookings?date=${dateStr}`, { headers: { 'Authorization': `Bearer ${token}` } });
+                if (res.status === 401) {
+                    localStorage.clear();
+                    window.location.href = '/index.html';
+                    return;
+                }
+                if (res.ok) {
+                    bookings = await res.json();
+                    renderGridBody(); // Re-render to place bookings
+                }
+            } catch (e) { console.error(e); }
+        }
+
+        function renderGridHeader() {
+            const header = document.getElementById('gridHeader');
+            RESOURCES.forEach(r => {
+                const div = document.createElement('div');
+                div.className = 'p-2 text-center border-r border-slate-200 last:border-r-0 bg-slate-50';
+                div.innerHTML = `<div class="font-bold text-base ${r.type === 'machinery' ? 'text-amber-700' : 'text-slate-700'}">${r.name}</div>`;
+                header.appendChild(div);
+            });
+        }
+
+        function renderGridBody() {
+            const body = document.getElementById('gridBody');
+            body.innerHTML = '';
+
+            for (let h = START_HOUR; h < END_HOUR; h++) {
+                [0, 30].forEach(m => {
+                    const row = document.createElement('div');
+                    row.className = 'grid grid-cols-[60px_repeat(5,1fr)] hover:bg-blue-50/20 group';
+
+                    // Time Label
+                    const timeLabel = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+                    row.innerHTML = `<div class="h-[60px] flex items-center justify-center text-xs font-bold text-slate-500 border-r border-b border-slate-200 bg-white sticky left-0 z-20">${timeLabel}</div>`;
+
+                    RESOURCES.forEach(r => {
+                        const cell = document.createElement('div');
+                        cell.className = 'relative h-[60px] border-r border-b border-slate-200 last:border-r-0';
+                        cell.innerHTML = `<div class="absolute top-1/2 w-full border-t border-dotted border-slate-100"></div>`;
+
+                        // Find bookings starting here
+                        const cellBookings = bookings.filter(b => b.resourceId === r.id && b.startTimeHour === h && b.startTimeMinute === m);
+                        cellBookings.forEach(b => {
+                            const card = createBookingCard(b);
+                            cell.appendChild(card);
+                        });
+
+                        // Add Button (Only VENDEDOR can create)
+                        if (cellBookings.length === 0 && userRole === 'VENDEDOR') {
+                            const btn = document.createElement('button');
+                            btn.className = 'absolute inset-0 w-full h-full opacity-0 group-hover:opacity-100 flex items-center justify-center z-0 transition';
+                            btn.innerHTML = `<div class="bg-blue-100 text-blue-600 rounded-full p-1 shadow-sm transform scale-75 hover:scale-100"><i data-lucide="plus" class="w-6 h-6"></i></div>`;
+                            btn.onclick = () => openCreateModal(r.id, h, m, timeLabel);
+                            cell.appendChild(btn);
+                        }
+
+                        row.appendChild(cell);
+                    });
+                    body.appendChild(row);
+                });
+            }
+            lucide.createIcons();
+        }
+
+        function createBookingCard(b) {
+            const height = (b.duration / 30) * 60;
+            const styles = {
+                blue: 'bg-blue-100 border-blue-600 text-blue-950 shadow-blue-200',
+                red: 'bg-red-100 border-red-600 text-red-950 shadow-red-200',
+                green: 'bg-green-100 border-green-600 text-green-950 shadow-green-200',
+                orange: 'bg-amber-100 border-amber-600 text-amber-950 shadow-amber-200'
+            };
+            const style = styles[b.color] || styles.blue;
+
+            // VISUALIZADOR Logic: Mask data
+            const isVisualizador = userRole === 'VISUALIZADOR';
+            const displayClient = isVisualizador ? 'OCUPADO' : b.client;
+            const displayClientCode = isVisualizador ? '' : (b.clientCode || '');
+            const displayOrder = isVisualizador ? '' : (b.orderNumber || '');
+            const displayKg = b.kg > 0 ? formatKg(b.kg) : '';
+            const displayDesc = isVisualizador ? '' : (b.description || '');
+
+            const div = document.createElement('div');
+            // Enhanced 3D effect: border-l-4, shadow-lg, transform hover
+            // Reduced padding (p-1.5) and text size (text-xs) to fit better
+            div.className = `absolute inset-x-1 p-1.5 rounded-r-md border-l-[6px] shadow-lg text-xs overflow-hidden cursor-pointer group transition-all z-10 hover:scale-[1.02] hover:z-20 ${style}`;
+            div.style.height = `${height - 4}px`;
+            div.style.top = '2px';
+
+            if (!isVisualizador && userRole !== 'PLANCHADA') {
+                div.onclick = (e) => { e.stopPropagation(); openEditModal(b); };
+            } else if (userRole === 'PLANCHADA') {
+                div.onclick = (e) => { e.stopPropagation(); openEditModal(b); };
+            }
+
+            div.innerHTML = `
+            <div class="flex justify-between items-start mb-0.5">
+                <span class="font-black truncate w-full text-[11px] uppercase tracking-tight flex items-center gap-1 leading-tight">
+                    ${displayClientCode ? `<span class="px-1 py-0.5 rounded bg-white/50 text-[10px] font-bold">${displayClientCode}</span>` : ''}
+                    ${displayClient}
+                </span>
+            </div>
+            <div class="flex gap-1 mb-0.5 items-center flex-wrap">
+                ${displayOrder ? `<span class="text-[10px] px-1.5 py-0.5 rounded-md font-bold bg-white/60 leading-none">Pedido ${displayOrder}</span>` : ''}
+                ${displayKg ? `<span class="text-[10px] px-1.5 py-0.5 rounded-md font-extrabold shadow-sm bg-white/60 leading-none">${displayKg}</span>` : ''}
+                <span class="text-[10px] font-bold opacity-80 font-mono flex items-center gap-0.5 leading-none">
+                    <i data-lucide="clock" class="w-3 h-3"></i> ${Math.floor(b.duration / 60)}h${b.duration % 60 || ''}
+                </span>
+            </div>
+            ${!isVisualizador ? `<div class="font-medium truncate text-[10px] leading-tight opacity-90">${displayDesc}</div>` : ''}
+            ${(b.realStartTime || b.realEndTime) ? `<div class="mt-0.5 text-[9px] font-mono bg-black/10 px-1 rounded inline-block leading-none">Real: ${b.realStartTime || '--'} - ${b.realEndTime || '--'}</div>` : ''}
+        `;
+            return div;
+        }
+
+        // Modal Logic
+        function openCreateModal(rId, h, m, label) {
+            document.getElementById('newResourceId').value = rId;
+            document.getElementById('newTimeSlotHour').value = h;
+            document.getElementById('newTimeSlotMinute').value = m;
+            document.getElementById('timeSlotDisplay').textContent = label;
+
+            // Reset form
+            document.getElementById('newClient').value = '';
+            document.getElementById('newKg').value = '';
+            document.getElementById('newClientCode').value = '';
+            document.getElementById('newOrderNumber').value = '';
+            document.getElementById('newDescription').value = '';
+            document.getElementById('newDuration').value = '30';
+            document.getElementById('newColor').value = 'blue';
+
+            setModalMode('drop');
+            document.getElementById('bookingModal').classList.remove('hidden');
+            document.getElementById('bookingModal').classList.add('flex');
+        }
+
+        function openEditModal(b) {
+            if (userRole === 'VISUALIZADOR') return; // Should not happen due to click handler, but safety check
+
+            document.getElementById('editId').value = b.id;
+
+            // Fields
+            const clientInput = document.getElementById('editClient');
+            const kgInput = document.getElementById('editKg');
+            const descInput = document.getElementById('editDescription');
+            const durInput = document.getElementById('editDuration');
+            const colorInput = document.getElementById('editColor');
+            const startInput = document.getElementById('editRealStartTime');
+            const endInput = document.getElementById('editRealEndTime');
+            const deleteBtn = document.getElementById('deleteBtn');
+            const saveBtn = document.querySelector('#editForm button[type="submit"]');
+            const clientCodeInput = document.getElementById('editClientCode');
+            const orderNumberInput = document.getElementById('editOrderNumber');
+
+            // Populate
+            clientInput.value = b.client;
+            kgInput.value = b.kg;
+            descInput.value = b.description;
+            durInput.value = b.duration;
+            colorInput.value = b.color;
+            startInput.value = b.realStartTime || '';
+            endInput.value = b.realEndTime || '';
+            clientCodeInput.value = b.clientCode || '';
+            orderNumberInput.value = b.orderNumber || '';
+
+            // Permissions
+            if (userRole === 'PLANCHADA') {
+                // Disable operational fields
+                clientInput.disabled = true;
+                kgInput.disabled = true;
+                descInput.disabled = true;
+                durInput.disabled = true;
+                colorInput.disabled = true;
+                clientCodeInput.disabled = true;
+                orderNumberInput.disabled = true;
+
+                // Enable Real Time
+                startInput.disabled = false;
+                endInput.disabled = false;
+
+                // Hide Delete
+                deleteBtn.classList.add('hidden');
+
+                // Visual cue
+                saveBtn.textContent = "Actualizar Horario Real";
+                saveBtn.classList.remove('bg-slate-900');
+                saveBtn.classList.add('bg-amber-700');
+            } else {
+                // VENDEDOR: Enable all
+                clientInput.disabled = false;
+                kgInput.disabled = false;
+                descInput.disabled = false;
+                durInput.disabled = false;
+                colorInput.disabled = false;
+                clientCodeInput.disabled = false;
+                orderNumberInput.disabled = false;
+                startInput.disabled = false;
+                endInput.disabled = false;
+
+                deleteBtn.classList.remove('hidden');
+                saveBtn.textContent = "Guardar Cambios";
+                saveBtn.classList.remove('bg-amber-700');
+                saveBtn.classList.add('bg-slate-900');
+            }
+
+            document.getElementById('editModal').classList.remove('hidden');
+            document.getElementById('editModal').classList.add('flex');
+        }
+
+        function closeModal(id) {
+            document.getElementById(id).classList.add('hidden');
+            document.getElementById(id).classList.remove('flex');
+        }
+
+        function setModalMode(mode) {
+            const dropTab = document.getElementById('tabDrop');
+            const manualTab = document.getElementById('tabManual');
+            const dropContent = document.getElementById('modeDrop');
+            const manualForm = document.getElementById('bookingForm');
+
+            if (mode === 'drop') {
+                dropTab.className = 'flex-1 pb-2 text-sm font-medium text-blue-600 border-b-2 border-blue-600';
+                manualTab.className = 'flex-1 pb-2 text-sm font-medium text-slate-400';
+                dropContent.classList.remove('hidden');
+                manualForm.classList.add('hidden');
+            } else {
+                manualTab.className = 'flex-1 pb-2 text-sm font-medium text-blue-600 border-b-2 border-blue-600';
+                dropTab.className = 'flex-1 pb-2 text-sm font-medium text-slate-400';
+                manualForm.classList.remove('hidden');
+                dropContent.classList.add('hidden');
+            }
+        }
+
+        // API Calls
+        async function handleFileUpload(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            document.getElementById('newKg').value = '';
+            document.getElementById('newDuration').value = '30';
+
+            const spinner = document.getElementById('uploadingSpinner');
+            const content = document.getElementById('dropContent');
+            spinner.classList.remove('hidden');
+            content.classList.add('hidden');
+            try {
+                const formData = new FormData();
+                formData.append('file', file);
+                const res = await fetch('/api/bookings/upload.php', {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}` },
+                    body: formData
+                });
+                let data = {};
+                try { data = await res.json(); } catch (_) { data = {}; }
+                if (!res.ok) throw new Error(data.error || 'No se pudo leer el PDF');
+
+                const result = Array.isArray(data) ? data[0] : data;
+                if (result.client) document.getElementById('newClient').value = result.client;
+                if (result.clientCode) document.getElementById('newClientCode').value = result.clientCode;
+                if (result.orderNumber) document.getElementById('newOrderNumber').value = result.orderNumber;
+                if (result.kg && result.kg < 50000) document.getElementById('newKg').value = result.kg;
+                if (result.description) document.getElementById('newDescription').value = result.description;
+                if (result.duration) document.getElementById('newDuration').value = result.duration;
+
+                setModalMode('manual');
+            } catch (err) {
+                console.error(err);
+                alert('No se pudo leer el PDF. Puedes completar manualmente.');
+            } finally {
+                spinner.classList.add('hidden');
+                content.classList.remove('hidden');
+                e.target.value = ''; // Reset input
+            }
+        }
+
+        async function handleCreateBooking(e) {
+            e.preventDefault();
+            const data = {
+                resourceId: document.getElementById('newResourceId').value,
+                startTimeHour: parseInt(document.getElementById('newTimeSlotHour').value),
+                startTimeMinute: parseInt(document.getElementById('newTimeSlotMinute').value),
+                date: currentDate.toISOString().split('T')[0],
+                client: document.getElementById('newClient').value,
+                clientCode: document.getElementById('newClientCode').value || null,
+                orderNumber: document.getElementById('newOrderNumber').value || null,
+                kg: parseFloat(document.getElementById('newKg').value) || 0,
+                description: document.getElementById('newDescription').value,
+                duration: parseInt(document.getElementById('newDuration').value),
+                color: document.getElementById('newColor').value
+            };
+
+            try {
+                const res = await fetch('/api/bookings', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                    body: JSON.stringify(data)
+                });
+                if (res.ok) {
+                    closeModal('bookingModal');
+                    loadBookings();
+                } else {
+                    alert('Error al crear carga');
+                }
+            } catch (err) { console.error(err); }
+        }
+
+        async function handleUpdateBooking(e) {
+            e.preventDefault();
+            const id = document.getElementById('editId').value;
+
+            const data = {
+                client: document.getElementById('editClient').value,
+                kg: parseFloat(document.getElementById('editKg').value) || 0,
+                description: document.getElementById('editDescription').value,
+                duration: parseInt(document.getElementById('editDuration').value),
+                color: document.getElementById('editColor').value,
+                clientCode: document.getElementById('editClientCode').value || null,
+                orderNumber: document.getElementById('editOrderNumber').value || null,
+                realStartTime: document.getElementById('editRealStartTime').value,
+                realEndTime: document.getElementById('editRealEndTime').value
+            };
+        try {
+            const res = await fetch(`/api/bookings/manage.php?id=${id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                body: JSON.stringify(data)
+            });
+            if (res.ok) {
+                closeModal('editModal');
+                loadBookings();
+            } else {
+                alert('Error al actualizar carga');
+            }
+        } catch (err) { console.error(err); }
+        }
+
+        async function handleDeleteBooking() {
+            if (!confirm('¿Eliminar carga?')) return;
+            const id = document.getElementById('editId').value;
+            try {
+                const res = await fetch(`/api/bookings/manage.php?id=${id}`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (res.ok) {
+                    closeModal('editModal');
+                    loadBookings();
+                } else {
+                    alert('Error al eliminar carga');
+                }
+            } catch (err) { console.error(err); }
+        }
+
+        function autoCalcDuration(kg, targetId) {
+            const KG_PER_HOUR = 2000; // Default from demo
+            if (kg && kg > 0) {
+                const hoursNeeded = kg / KG_PER_HOUR;
+                const minutesNeeded = Math.ceil((hoursNeeded * 60) / 30) * 30;
+                const suggested = Math.max(minutesNeeded, 30);
+                document.getElementById(targetId).value = suggested;
+            }
+        }
+    </script>
+</body>
+
+</html>
