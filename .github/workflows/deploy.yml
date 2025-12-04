@@ -1,0 +1,69 @@
+name: Deploy to Hostinger
+
+on:
+  push:
+    branches:
+      - main
+      - master
+      - claude/review-project-demo-018atWe9Dxp8inzeTaBRPgvy
+
+jobs:
+  deploy:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup SSH
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Add host to known_hosts
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -p ${{ secrets.SSH_PORT }} ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Deploy via rsync
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_PORT: ${{ secrets.SSH_PORT }}
+          SSH_USERNAME: ${{ secrets.SSH_USERNAME }}
+          REMOTE_PATH: ${{ secrets.REMOTE_PATH }}
+        run: |
+          rsync -avz --delete \
+            -e "ssh -p ${SSH_PORT}" \
+            --exclude='.git' \
+            --exclude='.github' \
+            --exclude='node_modules' \
+            --exclude='.env' \
+            --exclude='PEDIDOS-PIZARRA/*.pdf' \
+            ./ ${SSH_USERNAME}@${SSH_HOST}:${REMOTE_PATH}/
+
+      - name: Run post-deploy commands
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_PORT: ${{ secrets.SSH_PORT }}
+          SSH_USERNAME: ${{ secrets.SSH_USERNAME }}
+          REMOTE_PATH: ${{ secrets.REMOTE_PATH }}
+        run: |
+          ssh -p ${SSH_PORT} ${SSH_USERNAME}@${SSH_HOST} << 'ENDSSH'
+            cd ${{ secrets.REMOTE_PATH }}
+            # Set proper permissions
+            find . -type f -exec chmod 644 {} \;
+            find . -type d -exec chmod 755 {} \;
+            chmod 755 PEDIDOS-PIZARRA
+            # Clear any PHP opcache if needed
+            echo "Deploy completed successfully!"
+          ENDSSH
+
+      - name: Notify deployment status
+        if: always()
+        run: |
+          if [ ${{ job.status }} == 'success' ]; then
+            echo "✅ Deployment to pizarra-ventas.socialsflow.io successful!"
+          else
+            echo "❌ Deployment failed!"
+          fi

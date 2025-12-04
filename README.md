@@ -18,6 +18,20 @@
 - **API RESTful**: Endpoints organizados para todas las operaciones CRUD
 - **Responsive Design**: Interfaz adaptable a dispositivos móviles y desktop
 - **CORS Configurado**: Listo para integraciones con otras aplicaciones
+- **Deploy Automático**: CI/CD configurado con GitHub Actions
+
+## 🚀 Deploy Automático
+
+Este proyecto cuenta con deploy automático a **pizarra-ventas.socialsflow.io** mediante GitHub Actions.
+
+Cada push a las ramas configuradas deploya automáticamente via SSH a Hostinger.
+
+📖 **[Ver guía completa de configuración](.github/DEPLOY.md)**
+
+### Quick Start:
+1. Configura los secrets en GitHub (SSH_HOST, SSH_PORT, SSH_USERNAME, SSH_PRIVATE_KEY, REMOTE_PATH)
+2. Haz push a la rama
+3. ¡Listo! El sitio se actualiza automáticamente en 1-2 minutos
 
 ## 🏗️ Arquitectura
 
