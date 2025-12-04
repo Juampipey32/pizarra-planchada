@@ -119,44 +119,42 @@ function parsePdfData($text, $productMap, $fileNameBase) {
         $response['orderNumber'] = trim($m[1]);
     }
 
-    if (preg_match('/\\bC(\\d{3,})\\b/', $text, $m)) {
+    // Extract client code and name from line like:
+    // Cliente:    C4095 LARRAUX ANCHEZAR GASTON                 CUIT: 20-31194213-2
+    if (preg_match('/Cliente:\\s*C(\\d{3,})\\s+(.+?)\\s+CUIT:/i', $text, $m)) {
+        $response['clientCode'] = 'C' . $m[1];
+        $response['client'] = trim($m[2]);
+    } elseif (preg_match('/\\bC(\\d{3,})\\b/', $text, $m)) {
+        // Fallback: just get the code
         $response['clientCode'] = 'C' . $m[1];
     }
 
-    if (preg_match('/Cliente:\\s*CUIT:\\s*(.+?)\\s+[0-9]{2}-[0-9]+-[0-9]/i', $text, $m)) {
-        $response['client'] = trim($m[1]);
-    }
-
-    // Parse lines
+    // Parse product lines - look for product codes anywhere in the line
     $lines = preg_split('/\\r\\n|\\r|\\n/', $text);
     foreach ($lines as $line) {
         $line = trim($line);
         if ($line === '') continue;
 
-        if (!preg_match('/^(\\d{3,}[A-Z]?)/', $line, $m)) {
+        // Skip header lines
+        if (stripos($line, 'ARTÍCULO') !== false || stripos($line, 'PEDIDO WEB') !== false) {
             continue;
         }
-        $code = $m[1];
 
-        // Numbers in the line
-        preg_match_all('/(\\d+(?:[\\.,]\\d+)?)/', $line, $nums);
-        $numbers = $nums[1] ?? [];
-        if (empty($numbers)) continue;
-
-        // First numeric after the code token is our "cantidad"
-        $qty = null;
-        foreach ($numbers as $n) {
-            if ($n === $code) continue; // skip code itself if numeric
-            $qty = floatval(str_replace(',', '.', $n));
-            break;
+        // Look for product code pattern: 4-digit number optionally followed by letter(s)
+        // The code should be followed by whitespace and then a quantity
+        if (!preg_match('/\\b(\\d{4}[A-Z]?)\\s+(\\d+)/', $line, $m)) {
+            continue;
         }
-        if ($qty === null) continue;
 
-        // Pick coefficient (try exact code, then digits-only fallback)
+        $code = $m[1];  // Product code (e.g., 1011, 1018D)
+        $qty = (float)$m[2];  // Quantity (first number after code)
+
+        // Get coefficient from product map
         $coef = 1.0;
         if (isset($productMap[$code])) {
             $coef = (float)$productMap[$code];
         } else {
+            // Try without the letter suffix
             $numericCode = preg_replace('/[^0-9]/', '', $code);
             if ($numericCode && isset($productMap[$numericCode])) {
                 $coef = (float)$productMap[$numericCode];
@@ -176,12 +174,24 @@ function parsePdfData($text, $productMap, $fileNameBase) {
     $response['kg'] = round($response['kg'], 2);
     $response['duration'] = suggestDurationMinutes($response['kg']);
 
-    // Default description: first non-empty line after meta
-    foreach ($lines as $line) {
-        $line = trim($line);
-        if ($line !== '') {
-            $response['description'] = substr($line, 0, 120);
-            break;
+    // Build description from parsed items (top 3 products)
+    if (!empty($response['items'])) {
+        $topItems = array_slice($response['items'], 0, 3);
+        $descriptions = array_map(function($item) {
+            return $item['code'] . ' (' . $item['qty'] . ')';
+        }, $topItems);
+        $response['description'] = implode(', ', $descriptions);
+        if (count($response['items']) > 3) {
+            $response['description'] .= '... +' . (count($response['items']) - 3) . ' más';
+        }
+    } elseif (!$response['description']) {
+        // Fallback: first non-empty line after meta
+        foreach ($lines as $line) {
+            $line = trim($line);
+            if ($line !== '') {
+                $response['description'] = substr($line, 0, 120);
+                break;
+            }
         }
     }
 
