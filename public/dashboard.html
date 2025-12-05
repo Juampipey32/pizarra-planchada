@@ -673,6 +673,14 @@
                 try { data = await res.json(); } catch (_) { data = {}; }
                 if (!res.ok) throw new Error(data.error || 'No se pudo leer el PDF');
 
+                // Debug: mostrar qué parser se usó
+                const parserSource = res.headers.get('X-Parser-Source');
+                console.log(`🔍 Parser utilizado: ${parserSource || 'unknown'}`);
+                if (parserSource === 'local-php-fallback') {
+                    console.warn('⚠️ ADVERTENCIA: Usando parser PHP local (fallback). El webhook n8n no respondió correctamente.');
+                    console.log('📋 Verifica: https://pizarra-ventas.socialsflow.io/api/debug_env.php');
+                }
+
                 const result = Array.isArray(data) ? data[0] : data;
                 if (result.client) document.getElementById('newClient').value = result.client;
                 if (result.clientCode) document.getElementById('newClientCode').value = result.clientCode;

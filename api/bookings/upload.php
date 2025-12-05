@@ -206,6 +206,7 @@ $response = parsePdfData($text, $productMap, $baseName);
 
 // If a webhook is configured, forward the PDF and return its response
 if ($WEBHOOK_IMPORT) {
+    error_log("WEBHOOK_IMPORT configured: $WEBHOOK_IMPORT");
     try {
         $cfile = curl_file_create($tmpPath, $file['type'] ?: 'application/pdf', $file['name']);
         $postData = ['file' => $cfile];
@@ -214,6 +215,7 @@ if ($WEBHOOK_IMPORT) {
         curl_setopt($ch, CURLOPT_POST, 1);
         curl_setopt($ch, CURLOPT_POSTFIELDS, $postData);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 30); // 30 segundos timeout
         curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: multipart/form-data']);
 
         $resp = curl_exec($ch);
@@ -221,21 +223,29 @@ if ($WEBHOOK_IMPORT) {
         $curlErr = curl_error($ch);
         curl_close($ch);
 
+        error_log("Webhook HTTP code: $httpCode");
+
         if ($curlErr) {
+            error_log("Webhook curl error: $curlErr");
             throw new Exception($curlErr);
         }
 
         if ($httpCode >= 200 && $httpCode < 300 && $resp) {
             // Assume webhook returns JSON with the parsed data
+            error_log("Webhook success, returning n8n response");
+            header('X-Parser-Source: webhook-n8n');
             echo $resp;
             exit;
         } else {
             // Fallback to local parsing if webhook responds with error
-            error_log("Webhook import responded HTTP $httpCode, using local parse");
+            error_log("Webhook import responded HTTP $httpCode, using local parse. Response: " . substr($resp, 0, 200));
         }
     } catch (Exception $ex) {
         error_log("Webhook import error: " . $ex->getMessage());
     }
+} else {
+    error_log("WEBHOOK_IMPORT not configured, using local parser");
 }
 
+header('X-Parser-Source: local-php-fallback');
 echo json_encode($response);
