@@ -2,12 +2,21 @@
 // api/debug_env.php
 // Script de diagnóstico para verificar configuración
 
+// Load config.php if exists
+$configExists = file_exists(__DIR__ . '/config.php');
+if ($configExists) {
+    require_once __DIR__ . '/config.php';
+}
+
 header('Content-Type: application/json');
 
 $diagnostics = [
     'timestamp' => date('Y-m-d H:i:s'),
     'php_version' => phpversion(),
+    'config_php_exists' => $configExists,
     'env_webhook_import' => getenv('WEBHOOK_IMPORT') ?: 'NOT SET',
+    'defined_webhook_import' => defined('WEBHOOK_IMPORT') ? WEBHOOK_IMPORT : 'NOT DEFINED',
+    'final_webhook_import' => defined('WEBHOOK_IMPORT') ? WEBHOOK_IMPORT : (getenv('WEBHOOK_IMPORT') ?: 'NOT CONFIGURED'),
     'curl_available' => function_exists('curl_init'),
     'shell_exec_available' => function_exists('shell_exec'),
     'pdftotext_available' => false,
@@ -51,7 +60,7 @@ if (file_exists($uploadPath)) {
 }
 
 // Test webhook connectivity if configured
-$webhookUrl = getenv('WEBHOOK_IMPORT');
+$webhookUrl = defined('WEBHOOK_IMPORT') ? WEBHOOK_IMPORT : (getenv('WEBHOOK_IMPORT') ?: null);
 if ($webhookUrl) {
     $diagnostics['webhook_test'] = [
         'url' => $webhookUrl,

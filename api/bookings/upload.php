@@ -6,10 +6,15 @@ require_once '../cors.php';
 require_once '../db.php';
 require_once '../jwt_helper.php';
 
+// Load server config if exists (preferred method for shared hosting)
+if (file_exists(__DIR__ . '/../config.php')) {
+    require_once __DIR__ . '/../config.php';
+}
+
 header('Content-Type: application/json');
 
-$SECRET_KEY = getenv('JWT_SECRET') ?: 'secret_key_change_me';
-$WEBHOOK_IMPORT = getenv('WEBHOOK_IMPORT') ?: null;
+$SECRET_KEY = defined('JWT_SECRET') ? JWT_SECRET : (getenv('JWT_SECRET') ?: 'secret_key_change_me');
+$WEBHOOK_IMPORT = defined('WEBHOOK_IMPORT') ? WEBHOOK_IMPORT : (getenv('WEBHOOK_IMPORT') ?: null);
 
 // Auth
 $token = get_bearer_token();
