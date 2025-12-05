@@ -51,46 +51,18 @@ jobs:
           SSH_USERNAME: ${{ secrets.SSH_USERNAME }}
           REMOTE_PATH: ${{ secrets.REMOTE_PATH }}
         run: |
-          ssh -p ${SSH_PORT} ${SSH_USERNAME}@${SSH_HOST} << 'ENDSSH'
-            cd ${{ secrets.REMOTE_PATH }}
-
-            echo "📂 Verificando archivos deployados..."
-            ls -lh api/bookings/upload.php
-
-            echo ""
-            echo "📝 Verificando contenido de upload.php..."
-            head -5 api/bookings/upload.php
-
-            echo ""
-            echo "🔧 Configurando permisos..."
-            find . -type f -exec chmod 644 {} \;
-            find . -type d -exec chmod 755 {} \;
-            chmod 755 PEDIDOS-PIZARRA
-
-            echo ""
-            echo "🧹 Limpiando caché PHP..."
-            # Touch files to invalidate opcache
-            touch api/bookings/upload.php
-            touch api/bookings/index.php
-            touch api/bookings/manage.php
-
-            # Create and run opcache reset
-            cat > /tmp/clear_opcache_$$.php << 'PHPEOF'
-<?php
-if (function_exists('opcache_reset')) {
-    opcache_reset();
-    echo "✅ OPcache cleared\n";
-} else {
-    echo "⚠️  OPcache not available\n";
-}
-PHPEOF
-
-            php /tmp/clear_opcache_$$.php 2>/dev/null || echo "⚠️  Could not clear opcache"
-            rm -f /tmp/clear_opcache_$$.php
-
-            echo ""
-            echo "✅ Deploy completed successfully!"
-          ENDSSH
+          ssh -p ${SSH_PORT} ${SSH_USERNAME}@${SSH_HOST} "cd ${REMOTE_PATH} && \
+            echo '📂 Verificando archivos...' && \
+            ls -lh api/bookings/upload.php || echo '⚠️ upload.php no encontrado' && \
+            echo '' && \
+            echo '🔧 Configurando permisos...' && \
+            find . -type f -name '*.php' -exec chmod 644 {} \; && \
+            find . -type d -exec chmod 755 {} \; && \
+            echo '' && \
+            echo '🧹 Invalidando caché...' && \
+            touch api/bookings/upload.php && \
+            echo '' && \
+            echo '✅ Deploy completado'"
 
       - name: Notify deployment status
         if: always()
