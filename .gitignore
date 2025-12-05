@@ -3,6 +3,9 @@
 .env.local
 .env.*.local
 
+# Server configuration (no subir config local del servidor)
+api/config.php
+
 # IDE
 .vscode/
 .idea/
