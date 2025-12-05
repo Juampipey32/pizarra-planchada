@@ -621,6 +621,14 @@
         function closeModal(id) {
             document.getElementById(id).classList.add('hidden');
             document.getElementById(id).classList.remove('flex');
+
+            // Limpiar productos y alerta Sampi al cerrar el modal de nueva carga
+            if (id === 'bookingModal') {
+                currentProducts = [];
+                renderProductsTable();
+                const sampiAlert = document.getElementById('sampiAlert');
+                if (sampiAlert) sampiAlert.remove();
+            }
         }
 
         function setModalMode(mode) {
@@ -679,6 +687,11 @@
                         kg: item.kg
                     }));
                     renderProductsTable();
+
+                    // Check if webhook sent Sampi info
+                    if (result.sampiInfo && result.sampiInfo.needsSampi) {
+                        showSampiAlert(result.sampiInfo);
+                    }
                 } else {
                     // Fallback to manual kg entry
                     if (result.kg && result.kg < 50000) {
@@ -690,9 +703,19 @@
                 }
 
                 setModalMode('manual');
+
+                // Mensaje de éxito si se cargaron datos
+                if (result.client || currentProducts.length > 0) {
+                    const itemsCount = currentProducts.length;
+                    const msg = itemsCount > 0
+                        ? `✅ PDF procesado: ${itemsCount} productos detectados`
+                        : '✅ Datos del pedido cargados';
+                    console.log(msg);
+                }
             } catch (err) {
                 console.error(err);
-                alert('No se pudo leer el PDF. Puedes completar manualmente.');
+                alert('⚠️ No se pudo leer el PDF completo. Puedes completar los datos manualmente.');
+                setModalMode('manual');
             } finally {
                 spinner.classList.add('hidden');
                 content.classList.remove('hidden');
@@ -702,6 +725,15 @@
 
         async function handleCreateBooking(e) {
             e.preventDefault();
+
+            // Calcular kg: si hay productos usar el total calculado, sino usar el campo manual
+            let totalKg = 0;
+            if (currentProducts.length > 0) {
+                totalKg = currentProducts.reduce((sum, p) => sum + p.kg, 0);
+            } else {
+                totalKg = parseFloat(document.getElementById('newKg').value) || 0;
+            }
+
             const data = {
                 resourceId: document.getElementById('newResourceId').value,
                 startTimeHour: parseInt(document.getElementById('newTimeSlotHour').value),
@@ -710,7 +742,7 @@
                 client: document.getElementById('newClient').value,
                 clientCode: document.getElementById('newClientCode').value || null,
                 orderNumber: document.getElementById('newOrderNumber').value || null,
-                kg: parseFloat(document.getElementById('newKg').value) || 0,
+                kg: Math.round(totalKg * 100) / 100, // Redondear a 2 decimales
                 description: document.getElementById('newObservations').value || '',
                 duration: parseInt(document.getElementById('newDuration').value),
                 color: document.getElementById('newColor').value
@@ -952,9 +984,45 @@
                             `- Puerta: ${sampiCheck.regularKg.toFixed(0)}kg`;
 
                 console.log(msg);
-                // Podrías mostrar un toast o modal aquí
-                // Por ahora solo log para debugging
+                showSampiAlert({
+                    sampiKg: sampiCheck.sampiKg,
+                    regularKg: sampiCheck.regularKg,
+                    message: msg
+                });
             }
+        }
+
+        // Mostrar alerta visual Sampi (llamada desde webhook o check manual)
+        function showSampiAlert(sampiInfo) {
+            // Remover alerta anterior si existe
+            const existingAlert = document.getElementById('sampiAlert');
+            if (existingAlert) existingAlert.remove();
+
+            // Crear alerta visual
+            const alertDiv = document.createElement('div');
+            alertDiv.id = 'sampiAlert';
+            alertDiv.className = 'bg-orange-100 border-l-4 border-orange-500 p-3 rounded mb-3 animate-pulse';
+            alertDiv.innerHTML = `
+                <div class="flex items-start gap-3">
+                    <div class="text-orange-500 text-2xl">⚙️</div>
+                    <div class="flex-1">
+                        <h4 class="font-bold text-orange-800 text-sm mb-1">ATENCIÓN: Carga requiere Sampi</h4>
+                        <p class="text-xs text-orange-700 mb-2">
+                            Detectados <strong>${sampiInfo.sampiKg.toFixed(0)}kg</strong> de productos Sampi (1011, 1015, 1016).
+                        </p>
+                        <div class="text-xs text-orange-600 space-y-1">
+                            <div>• Sampi: <strong>${sampiInfo.sampiKg.toFixed(0)}kg</strong></div>
+                            <div>• Puerta: <strong>${sampiInfo.regularKg.toFixed(0)}kg</strong></div>
+                        </div>
+                    </div>
+                    <button onclick="document.getElementById('sampiAlert').remove()"
+                        class="text-orange-500 hover:text-orange-700 font-bold">✕</button>
+                </div>
+            `;
+
+            // Insertar después de la tabla de productos
+            const productsSection = document.getElementById('productsSection');
+            productsSection.parentNode.insertBefore(alertDiv, productsSection.nextSibling);
         }
     </script>
 </body>
