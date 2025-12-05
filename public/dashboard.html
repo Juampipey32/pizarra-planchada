@@ -149,11 +149,6 @@
                             <input type="text" id="newOrderNumber" class="w-full p-2 border border-slate-300 rounded" placeholder="ej: 918.284">
                         </div>
                     </div>
-                    <div>
-                        <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Detalle</label>
-                        <textarea id="newDescription"
-                            class="w-full p-2 border border-slate-300 rounded h-16"></textarea>
-                    </div>
 
                     <!-- Products Table -->
                     <div id="productsSection" class="hidden">
@@ -183,6 +178,14 @@
                             <span class="text-xs font-bold text-slate-600">TOTAL:</span>
                             <span id="totalKgDisplay" class="text-sm font-bold text-blue-700">0 kg</span>
                         </div>
+                    </div>
+
+                    <!-- Observaciones -->
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Observaciones (opcional)</label>
+                        <textarea id="newObservations"
+                            class="w-full p-2 border border-slate-300 rounded h-16 text-sm"
+                            placeholder="Notas adicionales para la carga..."></textarea>
                     </div>
 
                     <div class="bg-slate-50 p-3 rounded grid grid-cols-2 gap-4">
@@ -272,19 +275,28 @@
                 <!-- Real Time Controls -->
                 <div class="border-t-2 border-slate-100 pt-4 mt-2">
                     <h4 class="text-sm font-bold text-slate-700 mb-3 flex items-center gap-2"><i data-lucide="clock"
-                            class="w-4 h-4 text-slate-400"></i> Control de Operaciones (Real)</h4>
+                            class="w-4 h-4 text-slate-400"></i> Horario Real de Operación</h4>
                     <div class="grid grid-cols-2 gap-4">
-                        <div><label
-                                class="block text-xs font-bold text-green-600 uppercase mb-1 flex items-center gap-1"><i
-                                    data-lucide="play-circle" class="w-3 h-3"></i> Ingreso Real</label><input
-                                type="time" id="editRealStartTime"
-                                class="w-full p-2 border border-green-200 bg-green-50 rounded font-mono text-sm"></div>
-                        <div><label
-                                class="block text-xs font-bold text-red-600 uppercase mb-1 flex items-center gap-1"><i
-                                    data-lucide="stop-circle" class="w-3 h-3"></i> Egreso Real</label><input type="time"
-                                id="editRealEndTime"
-                                class="w-full p-2 border border-red-200 bg-red-50 rounded font-mono text-sm"></div>
+                        <div>
+                            <label class="block text-xs font-bold text-green-600 uppercase mb-1 flex items-center gap-1">
+                                <i data-lucide="log-in" class="w-3 h-3"></i> Hora Llegada
+                            </label>
+                            <input type="time" id="editRealStartTime"
+                                class="w-full p-2 border border-green-200 bg-green-50 rounded font-mono text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-blue-600 uppercase mb-1 flex items-center gap-1">
+                                <i data-lucide="log-out" class="w-3 h-3"></i> Hora Salida (auto)
+                            </label>
+                            <input type="text" id="editRealEndTimeDisplay" readonly
+                                class="w-full p-2 border border-blue-200 bg-blue-50 rounded font-mono text-sm text-slate-500"
+                                placeholder="Se calcula automático">
+                            <input type="hidden" id="editRealEndTime">
+                        </div>
                     </div>
+                    <p class="text-xs text-slate-500 mt-2 italic">
+                        💡 La hora de salida se calcula automáticamente sumando la duración a la hora de llegada
+                    </p>
                 </div>
 
                 <div class="flex gap-2 pt-2">
@@ -376,6 +388,10 @@
             // Auto-calc duration based on kg (simple version)
             document.getElementById('newKg').oninput = (e) => autoCalcDuration(e.target.value, 'newDuration');
             document.getElementById('editKg').oninput = (e) => autoCalcDuration(e.target.value, 'editDuration');
+
+            // Auto-calc end time when start time changes
+            document.getElementById('editRealStartTime').oninput = (e) => calculateEndTime();
+            document.getElementById('editDuration').onchange = (e) => calculateEndTime();
         });
 
         function changeDate(days) {
@@ -516,7 +532,7 @@
             document.getElementById('newKg').value = '';
             document.getElementById('newClientCode').value = '';
             document.getElementById('newOrderNumber').value = '';
-            document.getElementById('newDescription').value = '';
+            document.getElementById('newObservations').value = '';
             document.getElementById('newDuration').value = '30';
             document.getElementById('newColor').value = 'blue';
 
@@ -653,7 +669,6 @@
                 if (result.client) document.getElementById('newClient').value = result.client;
                 if (result.clientCode) document.getElementById('newClientCode').value = result.clientCode;
                 if (result.orderNumber) document.getElementById('newOrderNumber').value = result.orderNumber;
-                if (result.description) document.getElementById('newDescription').value = result.description;
 
                 // Load products from PDF
                 if (result.items && result.items.length > 0) {
@@ -696,7 +711,7 @@
                 clientCode: document.getElementById('newClientCode').value || null,
                 orderNumber: document.getElementById('newOrderNumber').value || null,
                 kg: parseFloat(document.getElementById('newKg').value) || 0,
-                description: document.getElementById('newDescription').value,
+                description: document.getElementById('newObservations').value || '',
                 duration: parseInt(document.getElementById('newDuration').value),
                 color: document.getElementById('newColor').value
             };
@@ -855,6 +870,9 @@
 
             // Auto-calculate duration
             autoCalcDuration(total, 'newDuration');
+
+            // Check Sampi logic
+            showSampiNotification();
         }
 
         function autoCalcDuration(kg, targetId) {
@@ -864,6 +882,78 @@
                 const minutesNeeded = Math.ceil((hoursNeeded * 60) / 30) * 30;
                 const suggested = Math.max(minutesNeeded, 30);
                 document.getElementById(targetId).value = suggested;
+            }
+        }
+
+        // Calculate end time automatically based on start time + duration
+        function calculateEndTime() {
+            const startTime = document.getElementById('editRealStartTime').value;
+            const duration = parseInt(document.getElementById('editDuration').value);
+
+            if (!startTime || !duration) {
+                document.getElementById('editRealEndTimeDisplay').value = '';
+                document.getElementById('editRealEndTime').value = '';
+                return;
+            }
+
+            // Parse start time
+            const [hours, minutes] = startTime.split(':').map(Number);
+            const startDate = new Date();
+            startDate.setHours(hours, minutes, 0, 0);
+
+            // Add duration
+            const endDate = new Date(startDate.getTime() + duration * 60000);
+            const endHours = String(endDate.getHours()).padStart(2, '0');
+            const endMinutes = String(endDate.getMinutes()).padStart(2, '0');
+            const endTimeStr = `${endHours}:${endMinutes}`;
+
+            document.getElementById('editRealEndTimeDisplay').value = endTimeStr;
+            document.getElementById('editRealEndTime').value = endTimeStr;
+        }
+
+        // === LÓGICA SAMPI ===
+        // Detecta si hay productos que deben ir al Sampi
+        // Códigos: 1011, 1015, 1016 > 648kg total → asignar al Sampi
+        function checkSampiLogic() {
+            const SAMPI_CODES = ['1011', '1015', '1016'];
+            const SAMPI_THRESHOLD = 648; // kg
+
+            let sampiKg = 0;
+            const sampiProducts = [];
+
+            currentProducts.forEach(product => {
+                if (SAMPI_CODES.includes(product.code)) {
+                    sampiKg += product.kg;
+                    sampiProducts.push(product);
+                }
+            });
+
+            // Si excede el umbral, mostrar alerta
+            if (sampiKg > SAMPI_THRESHOLD) {
+                return {
+                    needsSampi: true,
+                    sampiKg: sampiKg,
+                    sampiProducts: sampiProducts,
+                    regularKg: currentProducts.reduce((sum, p) => sum + p.kg, 0) - sampiKg
+                };
+            }
+
+            return { needsSampi: false };
+        }
+
+        // Mostrar notificación Sampi si es necesario
+        function showSampiNotification() {
+            const sampiCheck = checkSampiLogic();
+
+            if (sampiCheck.needsSampi) {
+                const msg = `⚙️ ATENCIÓN: Detectados ${sampiCheck.sampiKg.toFixed(0)}kg de productos Sampi (1011, 1015, 1016).\n\n` +
+                            `Se recomienda asignar estos productos al Sampi:\n` +
+                            `- Sampi: ${sampiCheck.sampiKg.toFixed(0)}kg\n` +
+                            `- Puerta: ${sampiCheck.regularKg.toFixed(0)}kg`;
+
+                console.log(msg);
+                // Podrías mostrar un toast o modal aquí
+                // Por ahora solo log para debugging
             }
         }
     </script>
