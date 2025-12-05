@@ -53,43 +53,17 @@ jobs:
         run: |
           ssh -p ${SSH_PORT} ${SSH_USERNAME}@${SSH_HOST} << 'ENDSSH'
             cd ${{ secrets.REMOTE_PATH }}
-
-            echo "📂 Verificando archivos deployados..."
-            ls -lh api/bookings/upload.php
-
-            echo ""
-            echo "📝 Verificando contenido de upload.php..."
-            head -5 api/bookings/upload.php
-
+            echo "📂 Verificando archivos..."
+            ls -lh api/bookings/upload.php || echo "⚠️ upload.php no encontrado"
             echo ""
             echo "🔧 Configurando permisos..."
-            find . -type f -exec chmod 644 {} \;
+            find . -type f -name "*.php" -exec chmod 644 {} \;
             find . -type d -exec chmod 755 {} \;
-            chmod 755 PEDIDOS-PIZARRA
-
             echo ""
-            echo "🧹 Limpiando caché PHP..."
-            # Touch files to invalidate opcache
+            echo "🧹 Invalidando caché..."
             touch api/bookings/upload.php
-            touch api/bookings/index.php
-            touch api/bookings/manage.php
-
-            # Create and run opcache reset
-            cat > /tmp/clear_opcache_$$.php << 'PHPEOF'
-<?php
-if (function_exists('opcache_reset')) {
-    opcache_reset();
-    echo "✅ OPcache cleared\n";
-} else {
-    echo "⚠️  OPcache not available\n";
-}
-PHPEOF
-
-            php /tmp/clear_opcache_$$.php 2>/dev/null || echo "⚠️  Could not clear opcache"
-            rm -f /tmp/clear_opcache_$$.php
-
             echo ""
-            echo "✅ Deploy completed successfully!"
+            echo "✅ Deploy completado"
           ENDSSH
 
       - name: Notify deployment status
