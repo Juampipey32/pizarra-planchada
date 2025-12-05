@@ -128,55 +128,61 @@
                     <div class="grid grid-cols-2 gap-4">
                         <div>
                             <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Hora</label>
-                            <div id="timeSlotDisplay" class="text-sm bg-slate-100 p-2 rounded">--:--</div>
+                            <div id="timeSlotDisplay" class="text-sm bg-slate-100 p-2 rounded font-mono font-bold text-slate-700">--:--</div>
                         </div>
                         <div>
-                            <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Carga (Kg)</label>
-                            <input type="number" id="newKg" class="w-full p-2 border border-slate-300 rounded">
+                            <label class="block text-xs font-bold text-slate-500 uppercase mb-1">
+                                Carga (Kg)
+                                <span id="kgBadge" class="hidden ml-1 text-[10px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-full font-normal">Auto</span>
+                            </label>
+                            <input type="number" id="newKg" class="w-full p-2 border border-slate-300 rounded text-sm font-bold" placeholder="0">
                         </div>
                     </div>
                     <div>
                         <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Cliente</label>
-                        <input type="text" id="newClient" required class="w-full p-2 border border-slate-300 rounded">
+                        <input type="text" id="newClient" required class="w-full p-2 border border-slate-300 rounded text-sm font-semibold">
                     </div>
                     <div class="grid grid-cols-2 gap-2">
                         <div>
                             <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Cod Cliente</label>
-                            <input type="text" id="newClientCode" class="w-full p-2 border border-slate-300 rounded" placeholder="ej: C4099">
+                            <input type="text" id="newClientCode" class="w-full p-2 border border-slate-300 rounded text-sm font-mono" placeholder="C4099">
                         </div>
                         <div>
                             <label class="block text-xs font-bold text-slate-500 uppercase mb-1">N° Pedido</label>
-                            <input type="text" id="newOrderNumber" class="w-full p-2 border border-slate-300 rounded" placeholder="ej: 918.284">
+                            <input type="text" id="newOrderNumber" class="w-full p-2 border border-slate-300 rounded text-sm font-mono" placeholder="918.284">
                         </div>
                     </div>
 
                     <!-- Products Table -->
                     <div id="productsSection" class="hidden">
                         <div class="flex items-center justify-between mb-2">
-                            <label class="block text-xs font-bold text-slate-500 uppercase">Productos</label>
-                            <button type="button" onclick="addProductRow()" class="text-xs text-blue-600 hover:text-blue-800 font-bold flex items-center gap-1">
-                                <i data-lucide="plus-circle" class="w-3 h-3"></i> Agregar
+                            <label class="block text-xs font-bold text-slate-500 uppercase flex items-center gap-2">
+                                Productos
+                                <span id="productCount" class="text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full font-normal">0</span>
+                            </label>
+                            <button type="button" onclick="addProductRow()" class="text-xs text-blue-600 hover:text-blue-700 font-bold flex items-center gap-1 transition-colors">
+                                <i data-lucide="plus-circle" class="w-3.5 h-3.5"></i> Agregar
                             </button>
                         </div>
-                        <div class="border border-slate-200 rounded-lg overflow-hidden max-h-48 overflow-y-auto">
+                        <div class="border border-slate-200 rounded-lg overflow-hidden max-h-48 overflow-y-auto shadow-sm">
                             <table class="w-full text-xs">
-                                <thead class="bg-slate-50 sticky top-0">
-                                    <tr class="text-left">
+                                <thead class="bg-gradient-to-r from-slate-50 to-slate-100 sticky top-0">
+                                    <tr class="text-left border-b border-slate-200">
                                         <th class="p-2 font-bold text-slate-600 w-20">Código</th>
                                         <th class="p-2 font-bold text-slate-600 w-16 text-right">Cant.</th>
-                                        <th class="p-2 font-bold text-slate-600 w-16 text-right">Coef.</th>
+                                        <th class="p-2 font-bold text-slate-600 w-14 text-right">Coef.</th>
                                         <th class="p-2 font-bold text-slate-600 w-20 text-right">Kg</th>
                                         <th class="p-2 w-8"></th>
                                     </tr>
                                 </thead>
-                                <tbody id="productsTableBody" class="divide-y divide-slate-100">
+                                <tbody id="productsTableBody" class="divide-y divide-slate-100 bg-white">
                                     <!-- Products will be inserted here -->
                                 </tbody>
                             </table>
                         </div>
-                        <div class="mt-2 flex justify-between items-center bg-blue-50 p-2 rounded">
-                            <span class="text-xs font-bold text-slate-600">TOTAL:</span>
-                            <span id="totalKgDisplay" class="text-sm font-bold text-blue-700">0 kg</span>
+                        <div class="mt-2 flex justify-between items-center bg-gradient-to-r from-blue-50 to-blue-100 p-3 rounded-lg border border-blue-200">
+                            <span class="text-xs font-bold text-slate-700">TOTAL:</span>
+                            <span id="totalKgDisplay" class="text-base font-bold text-blue-700">0 kg</span>
                         </div>
                     </div>
 
@@ -184,14 +190,14 @@
                     <div>
                         <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Observaciones (opcional)</label>
                         <textarea id="newObservations"
-                            class="w-full p-2 border border-slate-300 rounded h-16 text-sm"
+                            class="w-full p-2 border border-slate-300 rounded h-16 text-sm resize-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                             placeholder="Notas adicionales para la carga..."></textarea>
                     </div>
 
-                    <div class="bg-slate-50 p-3 rounded grid grid-cols-2 gap-4">
+                    <div class="bg-gradient-to-br from-slate-50 to-slate-100 p-3 rounded-lg grid grid-cols-2 gap-4 border border-slate-200">
                         <div>
                             <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Tiempo</label>
-                            <select id="newDuration" class="w-full p-2 border border-blue-200 rounded">
+                            <select id="newDuration" class="w-full p-2 border border-slate-300 rounded text-sm font-semibold focus:ring-2 focus:ring-blue-500 focus:border-transparent">
                                 <option value="30">30m</option>
                                 <option value="60">1h</option>
                                 <option value="90">1h 30m</option>
@@ -204,16 +210,21 @@
                         </div>
                         <div>
                             <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Prioridad</label>
-                            <select id="newColor" class="w-full p-2 border border-slate-300 rounded">
-                                <option value="blue">Normal</option>
-                                <option value="red">Urgente</option>
-                                <option value="green">Lista</option>
-                                <option value="orange">Espera</option>
+                            <select id="newColor" class="w-full p-2 border border-slate-300 rounded text-sm font-semibold focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                <option value="blue">🔵 Normal</option>
+                                <option value="red">🔴 Urgente</option>
+                                <option value="green">🟢 Lista</option>
+                                <option value="orange">🟠 Espera</option>
                             </select>
                         </div>
                     </div>
                     <button type="submit"
-                        class="w-full bg-blue-600 text-white font-bold py-3 rounded hover:bg-blue-700">Confirmar</button>
+                        class="w-full bg-gradient-to-r from-blue-600 to-blue-700 text-white font-bold py-3 rounded-lg hover:from-blue-700 hover:to-blue-800 transition-all shadow-md hover:shadow-lg">
+                        <span class="flex items-center justify-center gap-2">
+                            <i data-lucide="check-circle" class="w-4 h-4"></i>
+                            Confirmar Carga
+                        </span>
+                    </button>
                 </form>
             </div>
         </div>
@@ -826,30 +837,30 @@
 
             currentProducts.forEach((product, index) => {
                 const row = document.createElement('tr');
-                row.className = 'hover:bg-slate-50';
+                row.className = 'hover:bg-blue-50 transition-colors';
                 row.innerHTML = `
                     <td class="p-2">
                         <input type="text" value="${product.code}"
                             onchange="updateProductCode(${index}, this.value)"
-                            class="w-full px-1 py-0.5 border border-slate-200 rounded text-xs">
+                            class="w-full px-1.5 py-1 border border-slate-200 rounded text-xs font-mono focus:ring-2 focus:ring-blue-500 focus:border-transparent">
                     </td>
                     <td class="p-2 text-right">
                         <input type="number" value="${product.qty}" min="1"
                             onchange="updateProductQty(${index}, this.value)"
-                            class="w-full px-1 py-0.5 border border-slate-200 rounded text-xs text-right">
+                            class="w-full px-1.5 py-1 border border-slate-200 rounded text-xs text-right font-semibold focus:ring-2 focus:ring-blue-500 focus:border-transparent">
                     </td>
                     <td class="p-2 text-right">
                         <input type="number" value="${product.coef}" min="0" step="0.1"
                             onchange="updateProductCoef(${index}, this.value)"
-                            class="w-full px-1 py-0.5 border border-slate-200 rounded text-xs text-right">
+                            class="w-full px-1.5 py-1 border border-slate-200 rounded text-xs text-right text-slate-600 focus:ring-2 focus:ring-blue-500 focus:border-transparent">
                     </td>
-                    <td class="p-2 text-right font-bold text-slate-700">
+                    <td class="p-2 text-right font-bold text-blue-700 bg-blue-50">
                         ${product.kg.toFixed(2)}
                     </td>
                     <td class="p-2 text-center">
                         <button type="button" onclick="removeProductRow(${index})"
-                            class="text-red-500 hover:text-red-700">
-                            <i data-lucide="trash-2" class="w-3 h-3"></i>
+                            class="text-red-400 hover:text-red-600 transition-colors p-1">
+                            <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
                         </button>
                     </td>
                 `;
@@ -860,7 +871,24 @@
             recalculateTotalKg();
 
             // Show/hide products section
-            document.getElementById('productsSection').classList.toggle('hidden', currentProducts.length === 0);
+            const hasProducts = currentProducts.length > 0;
+            document.getElementById('productsSection').classList.toggle('hidden', !hasProducts);
+
+            // Update product count badge
+            document.getElementById('productCount').textContent = currentProducts.length;
+
+            // Update Kg field state - readonly si hay productos
+            const kgField = document.getElementById('newKg');
+            const kgBadge = document.getElementById('kgBadge');
+            if (hasProducts) {
+                kgField.readOnly = true;
+                kgField.classList.add('bg-slate-100', 'cursor-not-allowed', 'text-slate-600');
+                kgBadge.classList.remove('hidden');
+            } else {
+                kgField.readOnly = false;
+                kgField.classList.remove('bg-slate-100', 'cursor-not-allowed', 'text-slate-600');
+                kgBadge.classList.add('hidden');
+            }
         }
 
         function addProductRow() {
@@ -1006,25 +1034,40 @@
             const existingAlert = document.getElementById('sampiAlert');
             if (existingAlert) existingAlert.remove();
 
-            // Crear alerta visual
+            // Crear alerta visual profesional
             const alertDiv = document.createElement('div');
             alertDiv.id = 'sampiAlert';
-            alertDiv.className = 'bg-orange-100 border-l-4 border-orange-500 p-3 rounded mb-3 animate-pulse';
+            alertDiv.className = 'relative overflow-hidden bg-gradient-to-r from-orange-50 via-amber-50 to-orange-50 border-2 border-orange-400 rounded-lg p-4 mb-3 shadow-lg';
             alertDiv.innerHTML = `
+                <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-orange-400 via-amber-400 to-orange-400 animate-pulse"></div>
                 <div class="flex items-start gap-3">
-                    <div class="text-orange-500 text-2xl">⚙️</div>
+                    <div class="flex-shrink-0 w-10 h-10 bg-orange-500 rounded-full flex items-center justify-center text-white text-xl shadow-md">
+                        ⚙️
+                    </div>
                     <div class="flex-1">
-                        <h4 class="font-bold text-orange-800 text-sm mb-1">ATENCIÓN: Carga requiere Sampi</h4>
-                        <p class="text-xs text-orange-700 mb-2">
-                            Detectados <strong>${sampiInfo.sampiKg.toFixed(0)}kg</strong> de productos Sampi (1011, 1015, 1016).
+                        <h4 class="font-bold text-orange-900 text-sm mb-2 flex items-center gap-2">
+                            ⚠️ ATENCIÓN: Carga requiere Sampi
+                            <span class="text-[10px] bg-orange-200 text-orange-800 px-2 py-0.5 rounded-full font-normal">Importante</span>
+                        </h4>
+                        <p class="text-xs text-orange-800 mb-3 leading-relaxed">
+                            Se detectaron <strong class="text-orange-900 font-bold">${sampiInfo.sampiKg.toFixed(0)}kg</strong> de productos Sampi (códigos 1011, 1015, 1016) que superan el umbral de 648kg.
                         </p>
-                        <div class="text-xs text-orange-600 space-y-1">
-                            <div>• Sampi: <strong>${sampiInfo.sampiKg.toFixed(0)}kg</strong></div>
-                            <div>• Puerta: <strong>${sampiInfo.regularKg.toFixed(0)}kg</strong></div>
+                        <div class="grid grid-cols-2 gap-2 text-xs">
+                            <div class="bg-white bg-opacity-50 p-2 rounded border border-orange-200">
+                                <div class="text-orange-600 font-semibold mb-1">⚙️ Sampi</div>
+                                <div class="text-orange-900 font-bold text-base">${sampiInfo.sampiKg.toFixed(0)} kg</div>
+                            </div>
+                            <div class="bg-white bg-opacity-50 p-2 rounded border border-orange-200">
+                                <div class="text-orange-600 font-semibold mb-1">🚪 Puerta</div>
+                                <div class="text-orange-900 font-bold text-base">${sampiInfo.regularKg.toFixed(0)} kg</div>
+                            </div>
                         </div>
+                        <p class="text-[10px] text-orange-700 mt-2 italic">
+                            💡 Se recomienda dividir esta carga entre Sampi y Puerta según los kg indicados
+                        </p>
                     </div>
                     <button onclick="document.getElementById('sampiAlert').remove()"
-                        class="text-orange-500 hover:text-orange-700 font-bold">✕</button>
+                        class="flex-shrink-0 text-orange-400 hover:text-orange-600 transition-colors font-bold text-lg">✕</button>
                 </div>
             `;
 
