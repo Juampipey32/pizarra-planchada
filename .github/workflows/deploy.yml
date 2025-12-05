@@ -51,20 +51,18 @@ jobs:
           SSH_USERNAME: ${{ secrets.SSH_USERNAME }}
           REMOTE_PATH: ${{ secrets.REMOTE_PATH }}
         run: |
-          ssh -p ${SSH_PORT} ${SSH_USERNAME}@${SSH_HOST} << 'ENDSSH'
-            cd ${{ secrets.REMOTE_PATH }}
-            echo "📂 Verificando archivos..."
-            ls -lh api/bookings/upload.php || echo "⚠️ upload.php no encontrado"
-            echo ""
-            echo "🔧 Configurando permisos..."
-            find . -type f -name "*.php" -exec chmod 644 {} \;
-            find . -type d -exec chmod 755 {} \;
-            echo ""
-            echo "🧹 Invalidando caché..."
-            touch api/bookings/upload.php
-            echo ""
-            echo "✅ Deploy completado"
-          ENDSSH
+          ssh -p ${SSH_PORT} ${SSH_USERNAME}@${SSH_HOST} "cd ${REMOTE_PATH} && \
+            echo '📂 Verificando archivos...' && \
+            ls -lh api/bookings/upload.php || echo '⚠️ upload.php no encontrado' && \
+            echo '' && \
+            echo '🔧 Configurando permisos...' && \
+            find . -type f -name '*.php' -exec chmod 644 {} \; && \
+            find . -type d -exec chmod 755 {} \; && \
+            echo '' && \
+            echo '🧹 Invalidando caché...' && \
+            touch api/bookings/upload.php && \
+            echo '' && \
+            echo '✅ Deploy completado'"
 
       - name: Notify deployment status
         if: always()
