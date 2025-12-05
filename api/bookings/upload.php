@@ -1,5 +1,7 @@
 <?php
 // api/bookings/upload.php
+// Fixed PDF parsing logic - v2.1 - FORCED UPDATE
+// Last modified: 2025-12-05 12:45 UTC
 require_once '../cors.php';
 require_once '../db.php';
 require_once '../jwt_helper.php';
