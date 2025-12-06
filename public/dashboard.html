@@ -745,6 +745,9 @@
         async function handleCreateBooking(e) {
             e.preventDefault();
 
+            const SAMPI_CODES = ['1011', '1015', '1016'];
+            const SAMPI_THRESHOLD = 648;
+
             // Calcular kg: si hay productos usar el total calculado, sino usar el campo manual
             let totalKg = 0;
             if (currentProducts.length > 0) {
@@ -753,33 +756,109 @@
                 totalKg = parseFloat(document.getElementById('newKg').value) || 0;
             }
 
-            const data = {
-                resourceId: document.getElementById('newResourceId').value,
+            // Base data for booking
+            const baseData = {
                 startTimeHour: parseInt(document.getElementById('newTimeSlotHour').value),
                 startTimeMinute: parseInt(document.getElementById('newTimeSlotMinute').value),
                 date: currentDate.toISOString().split('T')[0],
                 client: document.getElementById('newClient').value,
                 clientCode: document.getElementById('newClientCode').value || null,
                 orderNumber: document.getElementById('newOrderNumber').value || null,
-                kg: Math.round(totalKg * 100) / 100, // Redondear a 2 decimales
-                description: document.getElementById('newObservations').value || '',
-                duration: parseInt(document.getElementById('newDuration').value),
                 color: document.getElementById('newColor').value
             };
 
             try {
-                const res = await fetch('/api/bookings', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                    body: JSON.stringify(data)
-                });
-                if (res.ok) {
-                    closeModal('bookingModal');
-                    loadBookings();
+                // Check if we need to split Sampi
+                const sampiProducts = currentProducts.filter(p => SAMPI_CODES.includes(p.code));
+                const sampiKg = sampiProducts.reduce((sum, p) => sum + p.kg, 0);
+
+                if (sampiProducts.length > 0 && sampiKg > SAMPI_THRESHOLD) {
+                    // SPLIT INTO TWO BOOKINGS
+                    const regularProducts = currentProducts.filter(p => !SAMPI_CODES.includes(p.code));
+                    const regularKg = regularProducts.reduce((sum, p) => sum + p.kg, 0);
+
+                    // Calculate individual durations
+                    const sampiDuration = calculateDuration(sampiKg);
+                    const regularDuration = calculateDuration(regularKg);
+
+                    // Booking 1: Regular products on Puerta
+                    const puertaData = {
+                        ...baseData,
+                        resourceId: document.getElementById('newResourceId').value, // Original resource (Puerta)
+                        kg: Math.round(regularKg * 100) / 100,
+                        duration: regularDuration,
+                        description: `${document.getElementById('newObservations').value || ''} [Productos regulares]`.trim()
+                    };
+
+                    // Booking 2: Sampi products on Sampi
+                    const sampiData = {
+                        ...baseData,
+                        resourceId: 'sampi', // Force Sampi resource
+                        kg: Math.round(sampiKg * 100) / 100,
+                        duration: sampiDuration,
+                        description: `${document.getElementById('newObservations').value || ''} [Productos Sampi: ${sampiProducts.map(p => p.code).join(', ')}]`.trim()
+                    };
+
+                    // Create both bookings
+                    console.log(`🔀 División automática Sampi detectada:`);
+                    console.log(`  📦 Puerta: ${regularKg.toFixed(0)}kg (${regularDuration}min) - ${regularProducts.length} productos`);
+                    console.log(`  ⚙️ Sampi: ${sampiKg.toFixed(0)}kg (${sampiDuration}min) - ${sampiProducts.length} productos`);
+
+                    const [res1, res2] = await Promise.all([
+                        fetch('/api/bookings', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                            body: JSON.stringify(puertaData)
+                        }),
+                        fetch('/api/bookings', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                            body: JSON.stringify(sampiData)
+                        })
+                    ]);
+
+                    if (res1.ok && res2.ok) {
+                        alert(`✅ Carga dividida automáticamente:\n\n🚪 Puerta: ${regularKg.toFixed(0)}kg (${regularDuration}min)\n⚙️ Sampi: ${sampiKg.toFixed(0)}kg (${sampiDuration}min)`);
+                        closeModal('bookingModal');
+                        loadBookings();
+                    } else {
+                        throw new Error('Error al crear una o ambas cargas');
+                    }
                 } else {
-                    alert('Error al crear carga');
+                    // SINGLE BOOKING (normal flow)
+                    const data = {
+                        ...baseData,
+                        resourceId: document.getElementById('newResourceId').value,
+                        kg: Math.round(totalKg * 100) / 100,
+                        duration: parseInt(document.getElementById('newDuration').value),
+                        description: document.getElementById('newObservations').value || ''
+                    };
+
+                    const res = await fetch('/api/bookings', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                        body: JSON.stringify(data)
+                    });
+
+                    if (res.ok) {
+                        closeModal('bookingModal');
+                        loadBookings();
+                    } else {
+                        alert('Error al crear carga');
+                    }
                 }
-            } catch (err) { console.error(err); }
+            } catch (err) {
+                console.error(err);
+                alert('Error al crear carga: ' + err.message);
+            }
+        }
+
+        // Helper function to calculate duration based on kg
+        function calculateDuration(kg) {
+            const KG_PER_HOUR = 2000;
+            const hoursNeeded = kg / KG_PER_HOUR;
+            const minutesNeeded = Math.ceil((hoursNeeded * 60) / 30) * 30;
+            return Math.max(minutesNeeded, 30);
         }
 
         async function handleUpdateBooking(e) {
@@ -1052,7 +1131,7 @@
                         <p class="text-xs text-orange-800 mb-3 leading-relaxed">
                             Se detectaron <strong class="text-orange-900 font-bold">${sampiInfo.sampiKg.toFixed(0)}kg</strong> de productos Sampi (códigos 1011, 1015, 1016) que superan el umbral de 648kg.
                         </p>
-                        <div class="grid grid-cols-2 gap-2 text-xs">
+                        <div class="grid grid-cols-2 gap-2 text-xs mb-3">
                             <div class="bg-white bg-opacity-50 p-2 rounded border border-orange-200">
                                 <div class="text-orange-600 font-semibold mb-1">⚙️ Sampi</div>
                                 <div class="text-orange-900 font-bold text-base">${sampiInfo.sampiKg.toFixed(0)} kg</div>
@@ -1062,9 +1141,14 @@
                                 <div class="text-orange-900 font-bold text-base">${sampiInfo.regularKg.toFixed(0)} kg</div>
                             </div>
                         </div>
-                        <p class="text-[10px] text-orange-700 mt-2 italic">
-                            💡 Se recomienda dividir esta carga entre Sampi y Puerta según los kg indicados
-                        </p>
+                        <div class="bg-green-100 border border-green-300 rounded p-2">
+                            <p class="text-[10px] text-green-800 font-semibold flex items-center gap-1">
+                                ✨ Al confirmar se crearán automáticamente 2 cargas:
+                            </p>
+                            <p class="text-[10px] text-green-700 mt-1 ml-3">
+                                • Puerta (${sampiInfo.regularKg.toFixed(0)}kg) + Sampi (${sampiInfo.sampiKg.toFixed(0)}kg)
+                            </p>
+                        </div>
                     </div>
                     <button onclick="document.getElementById('sampiAlert').remove()"
                         class="flex-shrink-0 text-orange-400 hover:text-orange-600 transition-colors font-bold text-lg">✕</button>
