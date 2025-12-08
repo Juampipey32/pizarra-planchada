@@ -3,6 +3,7 @@
 require_once '../cors.php';
 require_once '../db.php';
 require_once '../jwt_helper.php';
+require_once __DIR__ . '/helpers.php';
 
 $SECRET_KEY = getenv('JWT_SECRET') ?: 'secret_key_change_me';
 $WEBHOOK_SHEETS = getenv('WEBHOOK_SHEETS');
@@ -15,27 +16,6 @@ if (!$user) {
     http_response_code(401);
     echo json_encode(['error' => 'Unauthorized']);
     exit;
-}
-
-// Ensure schema has new columns (idempotente)
-function ensureBookingColumns($pdo) {
-    try {
-        $cols = [];
-        foreach ($pdo->query("DESCRIBE Bookings") as $row) {
-            $cols[] = $row['Field'];
-        }
-        if (!in_array('clientCode', $cols)) {
-            $pdo->exec("ALTER TABLE Bookings ADD COLUMN clientCode VARCHAR(50) NULL");
-        }
-        if (!in_array('orderNumber', $cols)) {
-            $pdo->exec("ALTER TABLE Bookings ADD COLUMN orderNumber VARCHAR(50) NULL");
-        }
-        if (in_array('kg', $cols)) {
-            $pdo->exec("ALTER TABLE Bookings MODIFY kg DECIMAL(10,3) DEFAULT 0");
-        }
-    } catch (PDOException $e) {
-        error_log("ensureBookingColumns error: " . $e->getMessage());
-    }
 }
 
 // Helper for Webhook
@@ -117,17 +97,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         ':client' => $input['client'],
         ':description' => $input['description'] ?? '',
         ':kg' => isset($input['kg']) ? floatval($input['kg']) : 0,
-        ':duration' => $input['duration'],
+        ':duration' => isset($input['duration']) ? (int)$input['duration'] : 30,
         ':color' => $input['color'] ?? 'blue',
         ':resourceId' => $input['resourceId'],
         ':date' => $input['date'],
-        ':startTimeHour' => $input['startTimeHour'],
-        ':startTimeMinute' => $input['startTimeMinute'],
+        ':startTimeHour' => isset($input['startTimeHour']) ? (int)$input['startTimeHour'] : 0,
+        ':startTimeMinute' => isset($input['startTimeMinute']) ? (int)$input['startTimeMinute'] : 0,
         ':realStartTime' => $input['realStartTime'] ?? null,
         ':realEndTime' => $input['realEndTime'] ?? null,
         ':status' => $input['status'] ?? 'PLANNED',
         ':createdBy' => $user['id']
     ];
+
+    $conflictId = findOverlap(
+        $pdo,
+        $params[':date'],
+        $params[':resourceId'],
+        $params[':startTimeHour'],
+        $params[':startTimeMinute'],
+        $params[':duration']
+    );
+
+    if ($conflictId) {
+        http_response_code(409);
+        echo json_encode(['error' => 'Conflicto de horario con otra carga', 'conflictId' => $conflictId]);
+        exit;
+    }
 
     $fields = ['client', 'description', 'kg', 'duration', 'color', 'resourceId', 'date', 'startTimeHour', 'startTimeMinute', 'realStartTime', 'realEndTime', 'status', 'createdBy', 'createdAt', 'updatedAt'];
     $placeholders = [':client', ':description', ':kg', ':duration', ':color', ':resourceId', ':date', ':startTimeHour', ':startTimeMinute', ':realStartTime', ':realEndTime', ':status', ':createdBy', 'NOW()', 'NOW()'];
