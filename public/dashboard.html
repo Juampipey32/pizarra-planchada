@@ -55,6 +55,11 @@
         </div>
 
         <div class="flex items-center gap-2">
+            <button id="openBulkModal"
+                class="hidden px-3 py-2 rounded-lg bg-emerald-600 text-white text-xs font-bold shadow hover:bg-emerald-700 transition flex items-center gap-2">
+                <i data-lucide="rows" class="w-4 h-4"></i>
+                Carga masiva
+            </button>
             <span id="userRoleDisplay"
                 class="text-xs font-bold px-2 py-1 rounded bg-slate-200 text-slate-600 uppercase"></span>
             <a id="adminLink" href="/admin-products.html" class="hidden text-xs font-bold px-2 py-1 rounded bg-amber-100 text-amber-700 border border-amber-200">Productos</a>
@@ -230,6 +235,84 @@
         </div>
     </div>
 
+    <!-- Bulk Upload Modal -->
+    <div id="bulkModal" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50 p-4 backdrop-blur-sm overflow-y-auto">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-5xl max-h-[90vh] overflow-hidden animate-in fade-in zoom-in duration-200 my-auto">
+            <div class="bg-emerald-600 p-4 flex justify-between items-center text-white sticky top-0 z-10">
+                <h3 class="font-bold text-lg flex items-center gap-2"><i data-lucide="rows" class="w-5 h-5"></i> Carga masiva de pedidos</h3>
+                <button onclick="closeModal('bulkModal')"><i data-lucide="x" class="w-6 h-6"></i></button>
+            </div>
+            <div class="p-6 space-y-4 overflow-y-auto max-h-[calc(90vh-80px)]">
+                <div class="flex flex-col gap-2">
+                    <p class="text-sm text-slate-600">Fecha seleccionada: <span id="bulkDateDisplay" class="font-semibold text-slate-900"></span></p>
+                    <div class="border-2 border-dashed border-emerald-200 rounded-lg p-4 flex flex-col md:flex-row md:items-center md:justify-between gap-3 bg-emerald-50">
+                        <div class="flex items-center gap-3">
+                            <i data-lucide="file-spreadsheet" class="w-10 h-10 text-emerald-600"></i>
+                            <div>
+                                <p class="font-bold text-slate-800">Sube el Excel de pedidos</p>
+                                <p class="text-xs text-slate-600">Formato .xlsx como el reporte de la suite</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <div id="bulkUploadSpinner" class="hidden text-emerald-700 font-bold animate-pulse">Procesando...</div>
+                            <label for="bulkFileInput" class="cursor-pointer bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold px-4 py-2 rounded-lg shadow">Seleccionar archivo</label>
+                            <input type="file" id="bulkFileInput" accept=".xlsx" class="hidden">
+                        </div>
+                    </div>
+                    <div id="bulkStatus" class="text-xs text-slate-500"></div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 bg-slate-50 border border-slate-200 rounded-lg p-4">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-600 uppercase mb-1">Hora base</label>
+                        <input type="time" id="bulkBaseTime" class="w-full p-2 border border-slate-300 rounded text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-600 uppercase mb-1">Recurso</label>
+                        <select id="bulkResourceSelect" class="w-full p-2 border border-slate-300 rounded text-sm font-semibold text-slate-800"></select>
+                    </div>
+                    <div class="flex items-end">
+                        <button type="button" id="bulkApplySequential" class="w-full bg-slate-900 text-white py-2 rounded-lg font-bold hover:bg-slate-800 transition">
+                            Asignar horarios secuenciales
+                        </button>
+                    </div>
+                </div>
+
+                <div class="border border-slate-200 rounded-lg overflow-hidden shadow-sm">
+                    <div class="bg-slate-50 px-4 py-2 flex items-center justify-between">
+                        <div class="text-sm text-slate-700 font-semibold">Pedidos detectados</div>
+                        <div id="bulkSummary" class="text-xs text-slate-500"></div>
+                    </div>
+                    <div class="overflow-x-auto max-h-[40vh]">
+                        <table class="w-full text-xs">
+                            <thead class="bg-slate-100 text-slate-600 sticky top-0">
+                                <tr class="text-left">
+                                    <th class="p-2 w-16">Programar</th>
+                                    <th class="p-2">Pedido</th>
+                                    <th class="p-2">Cliente</th>
+                                    <th class="p-2 text-right">Kg</th>
+                                    <th class="p-2 text-right">Duración</th>
+                                    <th class="p-2">Recurso</th>
+                                    <th class="p-2">Hora</th>
+                                </tr>
+                            </thead>
+                            <tbody id="bulkTableBody" class="divide-y divide-slate-100 bg-white">
+                                <tr id="bulkEmptyRow">
+                                    <td colspan="7" class="p-4 text-center text-slate-400">Sube un Excel para ver los pedidos</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="flex items-center justify-end gap-2">
+                    <button type="button" onclick="closeModal('bulkModal')" class="px-4 py-2 rounded border border-slate-200 text-slate-600 bg-white">Cancelar</button>
+                    <button type="button" id="bulkSubmit" class="px-5 py-2 rounded bg-emerald-600 text-white font-bold hover:bg-emerald-700 shadow">Crear horarios</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Edit Modal -->
     <div id="editModal" class="fixed inset-0 bg-black/60 hidden items-center justify-center z-50 p-4 backdrop-blur-sm overflow-y-auto">
         <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-hidden animate-in zoom-in duration-200 my-auto">
@@ -340,6 +423,17 @@
         };
         let productMap = {};
         let currentProducts = []; // Products for current booking
+        let bulkOrders = [];
+
+        const resourceOptions = (selectedValue = '') => {
+            return RESOURCES.map(r => `<option value="${r.id}" ${r.id === selectedValue ? 'selected' : ''}>${r.name}</option>`).join('');
+        };
+
+        const minutesToTimeLabel = (minutes) => {
+            const h = Math.floor(minutes / 60);
+            const m = minutes % 60;
+            return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+        };
 
         // State
         let currentDate = new Date();
@@ -375,7 +469,11 @@
             const adminLink = document.getElementById('adminLink');
             if (userRole === 'VENDEDOR') {
                 adminLink.classList.remove('hidden');
+                document.getElementById('openBulkModal').classList.remove('hidden');
             }
+            const bulkResourceSelect = document.getElementById('bulkResourceSelect');
+            bulkResourceSelect.innerHTML = resourceOptions();
+            bulkResourceSelect.value = RESOURCES[0]?.id || '';
             lucide.createIcons();
             renderGridHeader();
             renderGridBody();
@@ -395,6 +493,10 @@
             document.getElementById('bookingForm').onsubmit = handleCreateBooking;
             document.getElementById('editForm').onsubmit = handleUpdateBooking;
             document.getElementById('deleteBtn').onclick = handleDeleteBooking;
+            document.getElementById('openBulkModal').onclick = openBulkModal;
+            document.getElementById('bulkFileInput').onchange = handleBulkFileUpload;
+            document.getElementById('bulkApplySequential').onclick = applySequentialSchedule;
+            document.getElementById('bulkSubmit').onclick = submitBulkSchedule;
 
             // Auto-calc duration based on kg (simple version)
             document.getElementById('newKg').oninput = (e) => autoCalcDuration(e.target.value, 'newDuration');
@@ -640,6 +742,12 @@
                 const sampiAlert = document.getElementById('sampiAlert');
                 if (sampiAlert) sampiAlert.remove();
             }
+
+            if (id === 'bulkModal') {
+                bulkOrders = [];
+                renderBulkOrdersTable();
+                document.getElementById('bulkStatus').textContent = '';
+            }
         }
 
         function setModalMode(mode) {
@@ -659,6 +767,96 @@
                 manualForm.classList.remove('hidden');
                 dropContent.classList.add('hidden');
             }
+        }
+
+        function openBulkModal() {
+            document.getElementById('bulkDateDisplay').textContent = currentDate.toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'long' });
+            document.getElementById('bulkResourceSelect').innerHTML = resourceOptions(document.getElementById('bulkResourceSelect').value);
+            renderBulkOrdersTable();
+            document.getElementById('bulkModal').classList.remove('hidden');
+            document.getElementById('bulkModal').classList.add('flex');
+        }
+
+        function renderBulkOrdersTable() {
+            const tbody = document.getElementById('bulkTableBody');
+            tbody.innerHTML = '';
+
+            if (bulkOrders.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="7" class="p-4 text-center text-slate-400">Sube un Excel para ver los pedidos</td></tr>`;
+                document.getElementById('bulkSummary').textContent = '';
+                return;
+            }
+
+            let totalKg = 0;
+            bulkOrders.forEach((order, index) => {
+                totalKg += order.kg || 0;
+                const duration = order.duration || suggestDuration(order.kg);
+                const row = document.createElement('tr');
+                row.className = 'hover:bg-emerald-50/40';
+                row.innerHTML = `
+                    <td class="p-2 text-center">
+                        <input type="checkbox" ${order.scheduled ? 'checked' : ''} onchange="toggleBulkSchedule(${index}, this.checked)">
+                    </td>
+                    <td class="p-2 font-mono font-semibold">${order.orderNumber || '-'}</td>
+                    <td class="p-2 text-slate-700">${order.client || ''}</td>
+                    <td class="p-2 text-right font-bold text-emerald-700">${(order.kg || 0).toFixed(2)} kg</td>
+                    <td class="p-2 text-right text-slate-600">${duration} m</td>
+                    <td class="p-2">
+                        <select onchange="updateBulkResource(${index}, this.value)" class="w-full p-1.5 border border-slate-200 rounded text-xs">
+                            ${resourceOptions(order.resourceId)}
+                        </select>
+                    </td>
+                    <td class="p-2">
+                        <input type="time" value="${order.startTime || ''}" onchange="updateBulkTime(${index}, this.value)" class="w-full p-1.5 border border-slate-200 rounded text-xs">
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+
+            document.getElementById('bulkSummary').textContent = `${bulkOrders.length} pedidos | ${totalKg.toFixed(2)} kg totales`;
+        }
+
+        function toggleBulkSchedule(index, checked) {
+            bulkOrders[index].scheduled = checked;
+        }
+
+        function updateBulkResource(index, value) {
+            bulkOrders[index].resourceId = value;
+            bulkOrders[index].scheduled = !!value && !!bulkOrders[index].startTime;
+        }
+
+        function updateBulkTime(index, value) {
+            bulkOrders[index].startTime = value;
+            bulkOrders[index].scheduled = !!value && !!bulkOrders[index].resourceId;
+        }
+
+        function applySequentialSchedule() {
+            if (bulkOrders.length === 0) {
+                alert('Primero sube un Excel con pedidos');
+                return;
+            }
+
+            const baseTime = document.getElementById('bulkBaseTime').value;
+            const resource = document.getElementById('bulkResourceSelect').value;
+            if (!baseTime || !resource) {
+                alert('Define hora base y recurso para aplicar la secuencia');
+                return;
+            }
+
+            const [baseHour, baseMinute] = baseTime.split(':').map(Number);
+            let cursor = (baseHour * 60) + baseMinute;
+
+            bulkOrders = bulkOrders.map(order => {
+                const duration = order.duration || suggestDuration(order.kg);
+                const assigned = { ...order };
+                assigned.startTime = minutesToTimeLabel(cursor);
+                assigned.resourceId = resource;
+                assigned.scheduled = true;
+                cursor += duration;
+                return assigned;
+            });
+
+            renderBulkOrdersTable();
         }
 
         // API Calls
@@ -739,6 +937,42 @@
                 spinner.classList.add('hidden');
                 content.classList.remove('hidden');
                 e.target.value = ''; // Reset input
+            }
+        }
+
+        async function handleBulkFileUpload(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            const spinner = document.getElementById('bulkUploadSpinner');
+            const statusEl = document.getElementById('bulkStatus');
+            spinner.classList.remove('hidden');
+            statusEl.textContent = '';
+
+            try {
+                const formData = new FormData();
+                formData.append('file', file);
+
+                const res = await fetch('/api/bookings/bulk_parse.php', {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}` },
+                    body: formData
+                });
+
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'No se pudo leer el Excel');
+
+                bulkOrders = data.map(order => ({ ...order, startTime: '', resourceId: '', scheduled: false }));
+                statusEl.textContent = bulkOrders.length > 0
+                    ? `Se detectaron ${bulkOrders.length} pedidos listos para configurar.`
+                    : 'No se detectaron pedidos en el archivo.';
+
+                renderBulkOrdersTable();
+            } catch (err) {
+                console.error(err);
+                alert('Error al leer el Excel: ' + err.message);
+            } finally {
+                spinner.classList.add('hidden');
+                e.target.value = '';
             }
         }
 
@@ -840,16 +1074,49 @@
                         body: JSON.stringify(data)
                     });
 
+                    const responseData = await res.json().catch(() => ({}));
+
                     if (res.ok) {
                         closeModal('bookingModal');
                         loadBookings();
+                    } else if (res.status === 409) {
+                        alert('El horario elegido se superpone con otra carga. Ajusta el recurso o la hora.');
                     } else {
-                        alert('Error al crear carga');
+                        alert(responseData.error || 'Error al crear carga');
                     }
                 }
             } catch (err) {
                 console.error(err);
                 alert('Error al crear carga: ' + err.message);
+            }
+        }
+
+        async function submitBulkSchedule() {
+            const dateStr = currentDate.toISOString().split('T')[0];
+            const payloadOrders = bulkOrders.filter(order => order.scheduled && order.startTime && order.resourceId);
+
+            if (payloadOrders.length === 0) {
+                alert('Configura al menos un pedido con recurso y horario');
+                return;
+            }
+
+            try {
+                const res = await fetch('/api/bookings/bulk_schedule.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                    body: JSON.stringify({ date: dateStr, orders: payloadOrders })
+                });
+
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'No se pudo crear la carga masiva');
+
+                const conflictCount = (data.skipped || []).filter(item => (item.reason || '').includes('Conflicto')).length;
+                alert(`Creados ${data.createdCount} pedidos. Omitidos ${data.skippedCount}${conflictCount ? ` (Conflictos: ${conflictCount})` : ''}.`);
+                closeModal('bulkModal');
+                loadBookings();
+            } catch (err) {
+                console.error(err);
+                alert('Error al programar pedidos: ' + err.message);
             }
         }
 
@@ -882,11 +1149,14 @@
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                 body: JSON.stringify(data)
             });
+            const responseData = await res.json().catch(() => ({}));
             if (res.ok) {
                 closeModal('editModal');
                 loadBookings();
+            } else if (res.status === 409) {
+                alert('El horario elegido se superpone con otra carga. Ajusta el recurso o la hora.');
             } else {
-                alert('Error al actualizar carga');
+                alert(responseData.error || 'Error al actualizar carga');
             }
         } catch (err) { console.error(err); }
         }
