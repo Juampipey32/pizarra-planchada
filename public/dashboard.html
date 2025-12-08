@@ -265,7 +265,9 @@
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4 bg-slate-50 border border-slate-200 rounded-lg p-4">
                     <div>
                         <label class="block text-xs font-bold text-slate-600 uppercase mb-1">Hora base</label>
-                        <input type="time" id="bulkBaseTime" class="w-full p-2 border border-slate-300 rounded text-sm">
+                        <input type="time" id="bulkBaseTime" list="bulkBaseOptions" step="1800" min="04:00" max="20:00"
+                            class="w-full p-2 border border-slate-300 rounded text-sm">
+                        <datalist id="bulkBaseOptions"></datalist>
                     </div>
                     <div>
                         <label class="block text-xs font-bold text-slate-600 uppercase mb-1">Recurso</label>
@@ -375,8 +377,9 @@
                             <label class="block text-xs font-bold text-green-600 uppercase mb-1 flex items-center gap-1">
                                 <i data-lucide="log-in" class="w-3 h-3"></i> Hora Llegada
                             </label>
-                            <input type="time" id="editRealStartTime"
-                                class="w-full p-2 border border-green-200 bg-green-50 rounded font-mono text-sm">
+                            <input type="time" id="editRealStartTime" list="editTimeOptions" step="1800" min="04:00"
+                                max="20:00" class="w-full p-2 border border-green-200 bg-green-50 rounded font-mono text-sm">
+                            <datalist id="editTimeOptions"></datalist>
                         </div>
                         <div>
                             <label class="block text-xs font-bold text-blue-600 uppercase mb-1 flex items-center gap-1">
@@ -421,6 +424,7 @@
             const val = Math.round(parseFloat(kg) * 100) / 100;
             return `${val}kg`;
         };
+        const SLOT_STEP = 30; // minutes
         let productMap = {};
         let currentProducts = []; // Products for current booking
         let bulkOrders = [];
@@ -435,9 +439,53 @@
             return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
         };
 
+        const timeLabelToMinutes = (label) => {
+            if (!label) return null;
+            const [h, m] = label.split(':').map(Number);
+            if (Number.isNaN(h) || Number.isNaN(m)) return null;
+            return (h * 60) + m;
+        };
+
+        const getBusyIntervals = (resourceId, ignoreBookingId = null, ignoreOrderIndex = null) => {
+            const intervals = bookings
+                .filter(b => b.resourceId === resourceId && b.id !== ignoreBookingId)
+                .map(b => ({
+                    start: (b.startTimeHour * 60) + b.startTimeMinute,
+                    end: (b.startTimeHour * 60) + b.startTimeMinute + (b.duration || 0)
+                }));
+
+            bulkOrders.forEach((order, idx) => {
+                if (!order || !order.scheduled || order.resourceId !== resourceId || idx === ignoreOrderIndex) return;
+                const startMinutes = timeLabelToMinutes(order.startTime);
+                if (startMinutes === null) return;
+                const orderDuration = order.duration || suggestDuration(order.kg);
+                intervals.push({ start: startMinutes, end: startMinutes + orderDuration });
+            });
+
+            return intervals;
+        };
+
+        const isRangeFree = (start, duration, intervals) => {
+            if (start === null || Number.isNaN(start) || Number.isNaN(duration)) return false;
+            const end = start + duration;
+            if (end > END_HOUR * 60) return false;
+            return intervals.every(({ start: s, end: e }) => end <= s || start >= e);
+        };
+
+        const getAvailableSlots = (resourceId, duration, ignoreOrderIndex = null, ignoreBookingId = null) => {
+            if (!resourceId) return [];
+            const intervals = getBusyIntervals(resourceId, ignoreBookingId, ignoreOrderIndex);
+            const slots = [];
+            for (let t = START_HOUR * 60; t + duration <= END_HOUR * 60; t += SLOT_STEP) {
+                if (isRangeFree(t, duration, intervals)) slots.push(minutesToTimeLabel(t));
+            }
+            return slots;
+        };
+
         // State
         let currentDate = new Date();
         let bookings = [];
+        let editingBooking = null;
         let userRole = localStorage.getItem('role') || 'VISUALIZADOR';
         let token = localStorage.getItem('token');
 
@@ -497,14 +545,18 @@
             document.getElementById('bulkFileInput').onchange = handleBulkFileUpload;
             document.getElementById('bulkApplySequential').onclick = applySequentialSchedule;
             document.getElementById('bulkSubmit').onclick = submitBulkSchedule;
+            document.getElementById('bulkResourceSelect').onchange = () => {
+                renderBaseTimeOptions();
+                renderBulkOrdersTable();
+            };
 
             // Auto-calc duration based on kg (simple version)
             document.getElementById('newKg').oninput = (e) => autoCalcDuration(e.target.value, 'newDuration');
             document.getElementById('editKg').oninput = (e) => autoCalcDuration(e.target.value, 'editDuration');
 
             // Auto-calc end time when start time changes
-            document.getElementById('editRealStartTime').oninput = (e) => calculateEndTime();
-            document.getElementById('editDuration').onchange = (e) => calculateEndTime();
+            document.getElementById('editRealStartTime').onchange = (e) => handleRealStartChange(e.target.value);
+            document.getElementById('editDuration').onchange = () => handleRealStartChange(document.getElementById('editRealStartTime').value);
         });
 
         function changeDate(days) {
@@ -526,6 +578,7 @@
                 if (res.ok) {
                     bookings = await res.json();
                     renderGridBody(); // Re-render to place bookings
+                    renderBaseTimeOptions();
                 }
             } catch (e) { console.error(e); }
         }
@@ -727,6 +780,8 @@
                 saveBtn.classList.add('bg-slate-900');
             }
 
+            editingBooking = b;
+            populateEditTimeOptions(b);
             document.getElementById('editModal').classList.remove('hidden');
             document.getElementById('editModal').classList.add('flex');
         }
@@ -747,6 +802,10 @@
                 bulkOrders = [];
                 renderBulkOrdersTable();
                 document.getElementById('bulkStatus').textContent = '';
+            }
+
+            if (id === 'editModal') {
+                editingBooking = null;
             }
         }
 
@@ -772,6 +831,7 @@
         function openBulkModal() {
             document.getElementById('bulkDateDisplay').textContent = currentDate.toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'long' });
             document.getElementById('bulkResourceSelect').innerHTML = resourceOptions(document.getElementById('bulkResourceSelect').value);
+            renderBaseTimeOptions();
             renderBulkOrdersTable();
             document.getElementById('bulkModal').classList.remove('hidden');
             document.getElementById('bulkModal').classList.add('flex');
@@ -791,6 +851,8 @@
             bulkOrders.forEach((order, index) => {
                 totalKg += order.kg || 0;
                 const duration = order.duration || suggestDuration(order.kg);
+                const slots = order.resourceId ? getAvailableSlots(order.resourceId, duration, index) : [];
+                const safeStart = slots.includes(order.startTime) ? order.startTime : '';
                 const row = document.createElement('tr');
                 row.className = 'hover:bg-emerald-50/40';
                 row.innerHTML = `
@@ -807,7 +869,11 @@
                         </select>
                     </td>
                     <td class="p-2">
-                        <input type="time" value="${order.startTime || ''}" onchange="updateBulkTime(${index}, this.value)" class="w-full p-1.5 border border-slate-200 rounded text-xs">
+                        <input type="time" value="${safeStart}" list="bulkTimeOptions-${index}" step="1800" min="04:00" max="20:00" onchange="updateBulkTime(${index}, this.value)" class="w-full p-1.5 border border-slate-200 rounded text-xs">
+                        <datalist id="bulkTimeOptions-${index}">
+                            ${slots.map(slot => `<option value="${slot}"></option>`).join('')}
+                        </datalist>
+                        ${order.resourceId && slots.length === 0 ? '<p class="text-[10px] text-red-500 mt-1">Sin huecos libres</p>' : ''}
                     </td>
                 `;
                 tbody.appendChild(row);
@@ -822,12 +888,48 @@
 
         function updateBulkResource(index, value) {
             bulkOrders[index].resourceId = value;
+            const duration = bulkOrders[index].duration || suggestDuration(bulkOrders[index].kg);
+            const slots = getAvailableSlots(value, duration, index);
+            if (!slots.includes(bulkOrders[index].startTime)) {
+                bulkOrders[index].startTime = slots[0] || '';
+            }
             bulkOrders[index].scheduled = !!value && !!bulkOrders[index].startTime;
+            renderBulkOrdersTable();
         }
 
         function updateBulkTime(index, value) {
+            const duration = bulkOrders[index].duration || suggestDuration(bulkOrders[index].kg);
+            const slots = getAvailableSlots(bulkOrders[index].resourceId, duration, index);
+            if (!slots.includes(value)) {
+                alert('Ese horario ya está ocupado o se solapa con otra carga. Elige un hueco libre.');
+                bulkOrders[index].startTime = '';
+                bulkOrders[index].scheduled = false;
+                renderBulkOrdersTable();
+                return;
+            }
             bulkOrders[index].startTime = value;
             bulkOrders[index].scheduled = !!value && !!bulkOrders[index].resourceId;
+        }
+
+        function renderBaseTimeOptions() {
+            const baseInput = document.getElementById('bulkBaseTime');
+            const datalist = document.getElementById('bulkBaseOptions');
+            if (!baseInput || !datalist) return;
+
+            const resource = document.getElementById('bulkResourceSelect')?.value || RESOURCES[0]?.id;
+            const baseDuration = bulkOrders.length > 0
+                ? (bulkOrders[0].duration || suggestDuration(bulkOrders[0].kg))
+                : 30;
+            const slots = getAvailableSlots(resource, baseDuration);
+
+            datalist.innerHTML = slots.map(slot => `<option value="${slot}"></option>`).join('');
+
+            if (baseInput.value && !slots.includes(baseInput.value)) {
+                baseInput.value = '';
+            }
+            if (!baseInput.value && slots.length > 0) {
+                baseInput.value = slots[0];
+            }
         }
 
         function applySequentialSchedule() {
@@ -845,14 +947,32 @@
 
             const [baseHour, baseMinute] = baseTime.split(':').map(Number);
             let cursor = (baseHour * 60) + baseMinute;
+            const intervals = bookings
+                .filter(b => b.resourceId === resource)
+                .map(b => ({
+                    start: (b.startTimeHour * 60) + b.startTimeMinute,
+                    end: (b.startTimeHour * 60) + b.startTimeMinute + (b.duration || 0)
+                }));
 
             bulkOrders = bulkOrders.map(order => {
                 const duration = order.duration || suggestDuration(order.kg);
+                let candidate = cursor;
+                while (!isRangeFree(candidate, duration, intervals)) {
+                    candidate += SLOT_STEP;
+                    if (candidate + duration > END_HOUR * 60) break;
+                }
+
                 const assigned = { ...order };
-                assigned.startTime = minutesToTimeLabel(cursor);
-                assigned.resourceId = resource;
-                assigned.scheduled = true;
-                cursor += duration;
+                if (candidate + duration > END_HOUR * 60) {
+                    assigned.startTime = '';
+                    assigned.scheduled = false;
+                } else {
+                    assigned.startTime = minutesToTimeLabel(candidate);
+                    assigned.resourceId = resource;
+                    assigned.scheduled = true;
+                    intervals.push({ start: candidate, end: candidate + duration });
+                    cursor = candidate + duration;
+                }
                 return assigned;
             });
 
@@ -967,6 +1087,7 @@
                     : 'No se detectaron pedidos en el archivo.';
 
                 renderBulkOrdersTable();
+                renderBaseTimeOptions();
             } catch (err) {
                 console.error(err);
                 alert('Error al leer el Excel: ' + err.message);
@@ -1143,22 +1264,32 @@
                 realStartTime: document.getElementById('editRealStartTime').value,
                 realEndTime: document.getElementById('editRealEndTime').value
             };
-        try {
-            const res = await fetch(`/api/bookings/manage.php?id=${id}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                body: JSON.stringify(data)
-            });
-            const responseData = await res.json().catch(() => ({}));
-            if (res.ok) {
-                closeModal('editModal');
-                loadBookings();
-            } else if (res.status === 409) {
-                alert('El horario elegido se superpone con otra carga. Ajusta el recurso o la hora.');
-            } else {
-                alert(responseData.error || 'Error al actualizar carga');
-            }
-        } catch (err) { console.error(err); }
+            try {
+                if (data.realStartTime) {
+                    const duration = data.duration || (editingBooking?.duration) || 30;
+                    const resourceId = editingBooking?.resourceId;
+                    const slots = getAvailableSlots(resourceId, duration, null, editingBooking?.id || id);
+                    if (!slots.includes(data.realStartTime)) {
+                        alert('El horario real elegido está ocupado o se solapa con otra carga. Selecciona uno disponible.');
+                        return;
+                    }
+                }
+
+                const res = await fetch(`/api/bookings/manage.php?id=${id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                    body: JSON.stringify(data)
+                });
+                const responseData = await res.json().catch(() => ({}));
+                if (res.ok) {
+                    closeModal('editModal');
+                    loadBookings();
+                } else if (res.status === 409) {
+                    alert('El horario elegido se superpone con otra carga. Ajusta el recurso o la hora.');
+                } else {
+                    alert(responseData.error || 'Error al actualizar carga');
+                }
+            } catch (err) { console.error(err); }
         }
 
         async function handleDeleteBooking() {
@@ -1300,6 +1431,41 @@
                 const suggested = Math.max(minutesNeeded, 30);
                 document.getElementById(targetId).value = suggested;
             }
+        }
+
+        function populateEditTimeOptions(b) {
+            const datalist = document.getElementById('editTimeOptions');
+            if (!datalist) return;
+            const slots = getAvailableSlots(b.resourceId, b.duration, null, b.id);
+            datalist.innerHTML = slots.map(slot => `<option value="${slot}"></option>`).join('');
+
+            const startInput = document.getElementById('editRealStartTime');
+            if (startInput && startInput.value && !slots.includes(startInput.value)) {
+                startInput.value = '';
+                document.getElementById('editRealEndTimeDisplay').value = '';
+                document.getElementById('editRealEndTime').value = '';
+            }
+        }
+
+        function handleRealStartChange(value) {
+            const startInput = document.getElementById('editRealStartTime');
+            if (!editingBooking || !startInput) {
+                calculateEndTime();
+                return;
+            }
+
+            const duration = editingBooking.duration || parseInt(document.getElementById('editDuration').value) || 30;
+            const slots = getAvailableSlots(editingBooking.resourceId, duration, null, editingBooking.id);
+
+            if (value && !slots.includes(value)) {
+                alert('Ese horario real se superpone con otra carga. Selecciona un horario libre.');
+                startInput.value = '';
+                document.getElementById('editRealEndTimeDisplay').value = '';
+                document.getElementById('editRealEndTime').value = '';
+                return;
+            }
+
+            calculateEndTime();
         }
 
         // Calculate end time automatically based on start time + duration
