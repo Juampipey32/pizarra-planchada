@@ -17,9 +17,9 @@ if (!$user) {
     exit;
 }
 
-if ($user['role'] === 'VISUALIZADOR') {
+if (!in_array($user['role'], ['ADMIN', 'PLANCHADA'])) {
     http_response_code(403);
-    echo json_encode(['error' => 'Read only access']);
+    echo json_encode(['error' => 'Solo administradores pueden editar']);
     exit;
 }
 

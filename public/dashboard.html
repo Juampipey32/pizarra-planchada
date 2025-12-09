@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Pizarra Logística</title>
-    <link rel="icon" href="data:;base64,iVBORw0KGgo=">
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <style>
@@ -488,7 +488,29 @@
         let currentDate = new Date();
         let bookings = [];
         let editingBooking = null;
-        let userRole = localStorage.getItem('role') || 'VISUALIZADOR';
+        const rawRole = localStorage.getItem('role');
+        const normalizeRole = (role) => {
+            switch ((role || '').toUpperCase()) {
+                case 'ADMIN':
+                    return 'ADMIN';
+                case 'VENDEDOR':
+                    return 'VENDEDOR';
+                case 'INVITADO':
+                    return 'INVITADO';
+                case 'VISUALIZADOR':
+                    return 'INVITADO';
+                case 'PLANCHADA':
+                    return 'ADMIN';
+                default:
+                    return 'INVITADO';
+            }
+        };
+        let userRole = normalizeRole(rawRole);
+        const isLegacyPlanchada = (rawRole || '').toUpperCase() === 'PLANCHADA';
+        const canCreate = ['ADMIN', 'VENDEDOR'].includes(userRole);
+        const canEditAll = userRole === 'ADMIN';
+        const canEdit = canEditAll || isLegacyPlanchada;
+        const isReadOnly = userRole === 'INVITADO';
         let token = localStorage.getItem('token');
 
         async function loadProductCoefficients() {
@@ -597,10 +619,13 @@
         document.addEventListener('DOMContentLoaded', () => {
             if (!token) window.location.href = '/index.html';
 
-            document.getElementById('userRoleDisplay').textContent = userRole;
+            document.getElementById('userRoleDisplay').textContent = rawRole || userRole;
             const adminLink = document.getElementById('adminLink');
-            if (userRole === 'VENDEDOR') {
+            if (userRole === 'ADMIN') {
                 adminLink.classList.remove('hidden');
+                document.getElementById('openBulkModal').classList.remove('hidden');
+            }
+            if (canCreate) {
                 document.getElementById('openBulkModal').classList.remove('hidden');
             }
             const bulkResourceSelect = document.getElementById('bulkResourceSelect');
@@ -702,8 +727,8 @@
                             cell.appendChild(card);
                         });
 
-                        // Add Button (Only VENDEDOR can create)
-                        if (cellBookings.length === 0 && userRole === 'VENDEDOR') {
+                        // Add Button (Admin/Vendedor can create)
+                        if (cellBookings.length === 0 && canCreate) {
                             const btn = document.createElement('button');
                             btn.className = 'absolute inset-0 w-full h-full opacity-0 group-hover:opacity-100 flex items-center justify-center z-0 transition';
                             btn.innerHTML = `<div class="bg-blue-100 text-blue-600 rounded-full p-1 shadow-sm transform scale-75 hover:scale-100"><i data-lucide="plus" class="w-6 h-6"></i></div>`;
@@ -729,13 +754,13 @@
             };
             const style = styles[b.color] || styles.blue;
 
-            // VISUALIZADOR Logic: Mask data
-            const isVisualizador = userRole === 'VISUALIZADOR';
-            const displayClient = isVisualizador ? 'OCUPADO' : b.client;
-            const displayClientCode = isVisualizador ? '' : (b.clientCode || '');
-            const displayOrder = isVisualizador ? '' : (b.orderNumber || '');
+            // INVITADO Logic: Mask data
+            const isGuest = isReadOnly;
+            const displayClient = isGuest ? 'OCUPADO' : b.client;
+            const displayClientCode = isGuest ? '' : (b.clientCode || '');
+            const displayOrder = isGuest ? '' : (b.orderNumber || '');
             const displayKg = b.kg > 0 ? formatKg(b.kg) : '';
-            const displayDesc = isVisualizador ? '' : (b.description || '');
+            const displayDesc = isGuest ? '' : (b.description || '');
 
             const div = document.createElement('div');
             // Enhanced 3D effect: border-l-4, shadow-lg, transform hover
@@ -744,9 +769,7 @@
             div.style.height = `${height - 4}px`;
             div.style.top = '2px';
 
-            if (!isVisualizador && userRole !== 'PLANCHADA') {
-                div.onclick = (e) => { e.stopPropagation(); openEditModal(b); };
-            } else if (userRole === 'PLANCHADA') {
+            if (canEdit) {
                 div.onclick = (e) => { e.stopPropagation(); openEditModal(b); };
             }
 
@@ -764,7 +787,7 @@
                     <i data-lucide="clock" class="w-3 h-3"></i> ${Math.floor(b.duration / 60)}h${b.duration % 60 || ''}
                 </span>
             </div>
-            ${!isVisualizador ? `<div class="font-medium truncate text-[10px] leading-tight opacity-90">${displayDesc}</div>` : ''}
+            ${!isGuest ? `<div class="font-medium truncate text-[10px] leading-tight opacity-90">${displayDesc}</div>` : ''}
             ${(b.realStartTime || b.realEndTime) ? `<div class="mt-0.5 text-[9px] font-mono bg-black/10 px-1 rounded inline-block leading-none">Real: ${b.realStartTime || '--'} - ${b.realEndTime || '--'}</div>` : ''}
         `;
             return div;
@@ -772,6 +795,7 @@
 
         // Modal Logic
         function openCreateModal(rId, h, m, label) {
+            if (!canCreate) return;
             document.getElementById('newResourceId').value = rId;
             document.getElementById('newTimeSlotHour').value = h;
             document.getElementById('newTimeSlotMinute').value = m;
@@ -796,7 +820,7 @@
         }
 
         function openEditModal(b) {
-            if (userRole === 'VISUALIZADOR') return; // Should not happen due to click handler, but safety check
+            if (isReadOnly) return; // Should not happen due to click handler, but safety check
 
             document.getElementById('editId').value = b.id;
 
@@ -825,7 +849,7 @@
             orderNumberInput.value = b.orderNumber || '';
 
             // Permissions
-            if (userRole === 'PLANCHADA') {
+            if (isLegacyPlanchada && !canEditAll) {
                 // Disable operational fields
                 clientInput.disabled = true;
                 kgInput.disabled = true;
@@ -846,8 +870,8 @@
                 saveBtn.textContent = "Actualizar Horario Real";
                 saveBtn.classList.remove('bg-slate-900');
                 saveBtn.classList.add('bg-amber-700');
-            } else {
-                // VENDEDOR: Enable all
+            } else if (canEditAll) {
+                // ADMIN: Enable all
                 clientInput.disabled = false;
                 kgInput.disabled = false;
                 descInput.disabled = false;
