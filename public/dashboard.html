@@ -623,6 +623,7 @@
             const adminLink = document.getElementById('adminLink');
             if (userRole === 'ADMIN') {
                 adminLink.classList.remove('hidden');
+                document.getElementById('openBulkModal').classList.remove('hidden');
             }
             if (canCreate) {
                 document.getElementById('openBulkModal').classList.remove('hidden');
