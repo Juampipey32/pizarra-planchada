@@ -425,6 +425,8 @@
             return `${val}kg`;
         };
         const SLOT_STEP = 30; // minutes
+        const SAMPI_CODES = ['1011', '1015', '1016'];
+        const SAMPI_THRESHOLD = 648;
         let productMap = {};
         let currentProducts = []; // Products for current booking
         let bulkOrders = [];
@@ -506,6 +508,88 @@
             const minutes = Math.ceil(((kgTotal / 2000) * 60) / 30) * 30;
             return Math.max(30, minutes);
         }
+
+        const calculateSampiInfoFromOrder = (order) => {
+            const backendInfo = order.sampiInfo || {};
+            if (backendInfo && typeof backendInfo === 'object' && backendInfo.needsSampi !== undefined) {
+                const cloned = { ...backendInfo };
+                if (cloned.needsSampi) {
+                    cloned.sampiDuration = cloned.sampiDuration || suggestDuration(cloned.sampiKg || 0);
+                    cloned.regularDuration = cloned.regularDuration || suggestDuration(cloned.regularKg || 0);
+                }
+                return cloned;
+            }
+
+            const items = order.items || [];
+            const totalKg = order.kg || items.reduce((sum, item) => sum + (parseFloat(item.kg) || 0), 0);
+            let sampiKg = 0;
+            const codes = new Set();
+
+            items.forEach(item => {
+                const rawCode = String(item.code || '').toUpperCase();
+                const numericCode = rawCode.replace(/[^0-9]/g, '');
+                if (SAMPI_CODES.includes(rawCode) || SAMPI_CODES.includes(numericCode)) {
+                    sampiKg += parseFloat(item.kg) || 0;
+                    codes.add(rawCode || numericCode);
+                }
+            });
+
+            sampiKg = Math.round(sampiKg * 100) / 100;
+            const regularKg = Math.round(Math.max(totalKg - sampiKg, 0) * 100) / 100;
+
+            return {
+                needsSampi: sampiKg > SAMPI_THRESHOLD,
+                sampiKg,
+                regularKg,
+                sampiDuration: sampiKg > 0 ? suggestDuration(sampiKg) : null,
+                regularDuration: regularKg > 0 ? suggestDuration(regularKg) : null,
+                sampiCodes: Array.from(codes)
+            };
+        };
+
+        const expandBulkOrders = (parsedOrders) => {
+            const expanded = [];
+            parsedOrders.forEach(order => {
+                const sampiInfo = calculateSampiInfoFromOrder(order);
+                const base = {
+                    ...order,
+                    part: 'single',
+                    forceResource: order.forceResource || null,
+                    startTime: '',
+                    resourceId: order.forceResource || order.resourceId || '',
+                    scheduled: false
+                };
+
+                if (sampiInfo.needsSampi) {
+                    const regularKg = sampiInfo.regularKg || 0;
+                    if (regularKg > 0) {
+                        expanded.push({
+                            ...base,
+                            part: 'regular',
+                            kg: regularKg,
+                            duration: sampiInfo.regularDuration || suggestDuration(regularKg),
+                            description: `${order.description || ''} [Puerta]`.trim()
+                        });
+                    }
+
+                    const codeLabel = (sampiInfo.sampiCodes || []).filter(Boolean).join(', ');
+                    expanded.push({
+                        ...base,
+                        part: 'sampi',
+                        kg: sampiInfo.sampiKg || 0,
+                        duration: sampiInfo.sampiDuration || suggestDuration(sampiInfo.sampiKg || 0),
+                        forceResource: 'sampi',
+                        resourceId: 'sampi',
+                        sampiCodes: sampiInfo.sampiCodes || [],
+                        description: `${order.description || ''} [Sampi${codeLabel ? ': ' + codeLabel : ''}]`.trim()
+                    });
+                } else {
+                    expanded.push(base);
+                }
+            });
+
+            return expanded;
+        };
 
         // PDF parsing now delegated to backend (upload.php) to avoid CDN/worker issues on hosting.
 
@@ -851,22 +935,36 @@
             bulkOrders.forEach((order, index) => {
                 totalKg += order.kg || 0;
                 const duration = order.duration || suggestDuration(order.kg);
-                const slots = order.resourceId ? getAvailableSlots(order.resourceId, duration, index) : [];
+                const resourceId = order.resourceId || order.forceResource || '';
+                const slots = resourceId ? getAvailableSlots(resourceId, duration, index) : [];
                 const safeStart = slots.includes(order.startTime) ? order.startTime : '';
+                const partBadge = order.part === 'sampi'
+                    ? '<span class="ml-1 text-[10px] text-orange-700 bg-orange-100 px-2 py-0.5 rounded-full font-semibold">Sampi</span>'
+                    : order.part === 'regular'
+                        ? '<span class="ml-1 text-[10px] text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full font-semibold">Puerta</span>'
+                        : '';
+                const resourceControl = order.forceResource
+                    ? `<div class="text-xs text-slate-600 flex flex-col gap-1">
+                            <select disabled class="w-full p-1.5 border border-slate-200 rounded text-xs bg-slate-50 text-slate-500">
+                                ${resourceOptions(order.forceResource)}
+                            </select>
+                            <span class="text-[10px] text-slate-400">Recurso fijo</span>
+                        </div>`
+                    : `<select onchange="updateBulkResource(${index}, this.value)" class="w-full p-1.5 border border-slate-200 rounded text-xs">
+                            ${resourceOptions(order.resourceId)}
+                        </select>`;
                 const row = document.createElement('tr');
                 row.className = 'hover:bg-emerald-50/40';
                 row.innerHTML = `
                     <td class="p-2 text-center">
                         <input type="checkbox" ${order.scheduled ? 'checked' : ''} onchange="toggleBulkSchedule(${index}, this.checked)">
                     </td>
-                    <td class="p-2 font-mono font-semibold">${order.orderNumber || '-'}</td>
+                    <td class="p-2 font-mono font-semibold">${order.orderNumber || '-'} ${partBadge}</td>
                     <td class="p-2 text-slate-700">${order.client || ''}</td>
                     <td class="p-2 text-right font-bold text-emerald-700">${(order.kg || 0).toFixed(2)} kg</td>
                     <td class="p-2 text-right text-slate-600">${duration} m</td>
                     <td class="p-2">
-                        <select onchange="updateBulkResource(${index}, this.value)" class="w-full p-1.5 border border-slate-200 rounded text-xs">
-                            ${resourceOptions(order.resourceId)}
-                        </select>
+                        ${resourceControl}
                     </td>
                     <td class="p-2">
                         <input type="time" value="${safeStart}" list="bulkTimeOptions-${index}" step="1800" min="04:00" max="20:00" onchange="updateBulkTime(${index}, this.value)" class="w-full p-1.5 border border-slate-200 rounded text-xs">
@@ -887,13 +985,15 @@
         }
 
         function updateBulkResource(index, value) {
-            bulkOrders[index].resourceId = value;
+            const forcedResource = bulkOrders[index].forceResource;
+            const resourceId = forcedResource || value;
+            bulkOrders[index].resourceId = resourceId;
             const duration = bulkOrders[index].duration || suggestDuration(bulkOrders[index].kg);
-            const slots = getAvailableSlots(value, duration, index);
+            const slots = getAvailableSlots(resourceId, duration, index);
             if (!slots.includes(bulkOrders[index].startTime)) {
                 bulkOrders[index].startTime = slots[0] || '';
             }
-            bulkOrders[index].scheduled = !!value && !!bulkOrders[index].startTime;
+            bulkOrders[index].scheduled = !!resourceId && !!bulkOrders[index].startTime;
             renderBulkOrdersTable();
         }
 
@@ -939,40 +1039,59 @@
             }
 
             const baseTime = document.getElementById('bulkBaseTime').value;
-            const resource = document.getElementById('bulkResourceSelect').value;
-            if (!baseTime || !resource) {
-                alert('Define hora base y recurso para aplicar la secuencia');
+            const baseResource = document.getElementById('bulkResourceSelect').value;
+            const baseMinutes = timeLabelToMinutes(baseTime);
+            if (!baseTime || baseMinutes === null) {
+                alert('Define hora base para aplicar la secuencia');
                 return;
             }
 
-            const [baseHour, baseMinute] = baseTime.split(':').map(Number);
-            let cursor = (baseHour * 60) + baseMinute;
-            const intervals = bookings
-                .filter(b => b.resourceId === resource)
-                .map(b => ({
-                    start: (b.startTimeHour * 60) + b.startTimeMinute,
-                    end: (b.startTimeHour * 60) + b.startTimeMinute + (b.duration || 0)
-                }));
+            if (!baseResource && bulkOrders.some(order => !order.forceResource)) {
+                alert('Define recurso base para aplicar la secuencia');
+                return;
+            }
+
+            const intervalsByResource = {};
+            RESOURCES.forEach(r => {
+                intervalsByResource[r.id] = bookings
+                    .filter(b => b.resourceId === r.id)
+                    .map(b => ({
+                        start: (b.startTimeHour * 60) + b.startTimeMinute,
+                        end: (b.startTimeHour * 60) + b.startTimeMinute + (b.duration || 0)
+                    }));
+            });
+
+            const cursorByResource = {};
 
             bulkOrders = bulkOrders.map(order => {
+                const targetResource = order.forceResource || baseResource;
                 const duration = order.duration || suggestDuration(order.kg);
-                let candidate = cursor;
+                const assigned = { ...order, resourceId: targetResource };
+
+                if (!targetResource) {
+                    assigned.startTime = '';
+                    assigned.scheduled = false;
+                    return assigned;
+                }
+
+                const intervals = intervalsByResource[targetResource] || [];
+                let candidate = cursorByResource[targetResource] ?? baseMinutes;
                 while (!isRangeFree(candidate, duration, intervals)) {
                     candidate += SLOT_STEP;
                     if (candidate + duration > END_HOUR * 60) break;
                 }
 
-                const assigned = { ...order };
                 if (candidate + duration > END_HOUR * 60) {
                     assigned.startTime = '';
                     assigned.scheduled = false;
                 } else {
                     assigned.startTime = minutesToTimeLabel(candidate);
-                    assigned.resourceId = resource;
                     assigned.scheduled = true;
                     intervals.push({ start: candidate, end: candidate + duration });
-                    cursor = candidate + duration;
+                    cursorByResource[targetResource] = candidate + duration;
                 }
+
+                intervalsByResource[targetResource] = intervals;
                 return assigned;
             });
 
@@ -1081,7 +1200,7 @@
                 const data = await res.json();
                 if (!res.ok) throw new Error(data.error || 'No se pudo leer el Excel');
 
-                bulkOrders = data.map(order => ({ ...order, startTime: '', resourceId: '', scheduled: false }));
+                bulkOrders = expandBulkOrders(data);
                 statusEl.textContent = bulkOrders.length > 0
                     ? `Se detectaron ${bulkOrders.length} pedidos listos para configurar.`
                     : 'No se detectaron pedidos en el archivo.';

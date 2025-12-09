@@ -187,6 +187,37 @@ function buildDescriptionFromItems($items) {
     return $desc;
 }
 
+function detectSampiInfo($items, $totalKg) {
+    $SAMPI_CODES = ['1011', '1015', '1016'];
+    $SAMPI_THRESHOLD = 648; // kg
+
+    $sampiKg = 0;
+    $codes = [];
+
+    foreach ($items as $item) {
+        $code = strtoupper($item['code'] ?? '');
+        $numericCode = preg_replace('/[^0-9]/', '', $code);
+
+        if (in_array($code, $SAMPI_CODES) || in_array($numericCode, $SAMPI_CODES)) {
+            $sampiKg += isset($item['kg']) ? (float)$item['kg'] : 0;
+            $codes[] = $code ?: $numericCode;
+        }
+    }
+
+    $sampiKg = round($sampiKg, 2);
+    $regularKg = round(max(($totalKg ?: 0) - $sampiKg, 0), 2);
+    $needsSampi = $sampiKg > $SAMPI_THRESHOLD;
+
+    return [
+        'needsSampi' => $needsSampi,
+        'sampiKg' => $sampiKg,
+        'regularKg' => $regularKg,
+        'sampiCodes' => array_values(array_unique($codes)),
+        'sampiDuration' => $needsSampi ? suggestDurationMinutes($sampiKg) : null,
+        'regularDuration' => $needsSampi ? suggestDurationMinutes($regularKg) : null
+    ];
+}
+
 try {
     $rows = parseXlsxRows($tmpPath);
     [$headerIndex, $headers] = detectHeaderRow($rows);
@@ -222,7 +253,8 @@ try {
             'kg' => $kg,
             'duration' => suggestDurationMinutes($kg),
             'description' => buildDescriptionFromItems($items),
-            'items' => $items
+            'items' => $items,
+            'sampiInfo' => detectSampiInfo($items, $kg)
         ];
     }
 
