@@ -327,11 +327,11 @@
                         </div>
                     </div>
 
-                    <div id="bulkValidationErrors" class="hidden bg-red-50 border border-red-300 rounded-lg p-4">
-                        <h5 class="font-bold text-red-900 mb-2 flex items-center gap-2">
-                            <i data-lucide="alert-triangle" class="w-4 h-4"></i> Errores de validación
+                    <div id="bulkValidationErrors" class="hidden bg-orange-50 border border-orange-300 rounded-lg p-4">
+                        <h5 class="font-bold text-orange-900 mb-2 flex items-center gap-2">
+                            <i data-lucide="alert-triangle" class="w-5 h-5"></i> Advertencias
                         </h5>
-                        <ul id="bulkValidationErrorsList" class="text-sm text-red-800 space-y-1 list-disc ml-5">
+                        <ul id="bulkValidationErrorsList" class="text-sm text-orange-800 space-y-1 list-disc ml-5">
                         </ul>
                     </div>
 
@@ -1337,8 +1337,13 @@
                     resourceId: 'p1', // Default to Puerta 1
                     startTimeHour: 8, // Default 08:00
                     startTimeMinute: 0,
-                    duration: order.suggestedDuration || 30
+                    duration: order.suggestedDuration || 30,
+                    isDuplicate: false,
+                    duplicateInfo: null
                 }));
+
+                // Check for duplicates
+                await checkBulkDuplicates();
 
                 document.getElementById('bulkOrderCount').textContent = bulkOrders.length;
                 renderBulkOrdersTable();
@@ -1363,16 +1368,92 @@
             bulkOrders = [];
         }
 
+        async function checkBulkDuplicates() {
+            // Extract order numbers from bulk orders
+            const orderNumbers = bulkOrders
+                .filter(o => o.orderNumber && o.orderNumber !== 'N/A')
+                .map(o => o.orderNumber);
+
+            if (orderNumbers.length === 0) {
+                return; // No order numbers to check
+            }
+
+            try {
+                const date = document.getElementById('bulkDate').value || currentDate.toISOString().split('T')[0];
+                const res = await fetch('/api/bookings/check-duplicates.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({
+                        orderNumbers: orderNumbers,
+                        date: date
+                    })
+                });
+
+                if (!res.ok) {
+                    console.error('Error checking duplicates');
+                    return;
+                }
+
+                const data = await res.json();
+
+                // Mark duplicates in bulkOrders
+                bulkOrders.forEach(order => {
+                    if (order.orderNumber && data.duplicates[order.orderNumber]) {
+                        order.isDuplicate = true;
+                        order.duplicateInfo = data.duplicates[order.orderNumber];
+                        order.selected = false; // Deselect duplicates automatically
+                    }
+                });
+
+                // Log duplicate check results
+                const duplicateCount = bulkOrders.filter(o => o.isDuplicate).length;
+                if (duplicateCount > 0) {
+                    console.log(`⚠️ ${duplicateCount} pedidos duplicados detectados en la semana ${data.weekRange.start} - ${data.weekRange.end}`);
+                }
+
+            } catch (err) {
+                console.error('Error checking duplicates:', err);
+                // Continue without duplicate checking
+            }
+        }
+
         function renderBulkOrdersTable() {
             const tbody = document.getElementById('bulkOrdersTableBody');
             tbody.innerHTML = '';
 
+            const duplicateCount = bulkOrders.filter(o => o.isDuplicate).length;
+            if (duplicateCount > 0) {
+                document.getElementById('bulkValidationErrors').classList.remove('hidden');
+                const errorsList = document.getElementById('bulkValidationErrorsList');
+                errorsList.innerHTML = `<li class="text-orange-800"><strong>${duplicateCount} pedido(s) duplicado(s) detectado(s) en la semana</strong> - Han sido deseleccionados automáticamente. Puedes seleccionarlos manualmente si deseas crearlos de todos modos.</li>`;
+            } else {
+                document.getElementById('bulkValidationErrors').classList.add('hidden');
+            }
+
             bulkOrders.forEach((order, idx) => {
                 const row = document.createElement('tr');
-                row.className = `${order.selected ? 'bg-white' : 'bg-slate-50 opacity-60'} hover:bg-blue-50 transition-colors`;
+
+                // Apply different styling for duplicates
+                let rowClass = `${order.selected ? 'bg-white' : 'bg-slate-50 opacity-60'} hover:bg-blue-50 transition-colors`;
+                if (order.isDuplicate) {
+                    rowClass = `${order.selected ? 'bg-orange-50 border-l-4 border-orange-400' : 'bg-orange-100 opacity-50 border-l-4 border-orange-300'}`;
+                }
+                row.className = rowClass;
 
                 const clientDisplay = `${order.clientCode ? `<span class="inline-block px-1.5 py-0.5 bg-slate-200 rounded text-xs font-mono mr-1">${order.clientCode}</span>` : ''}${order.client || 'Sin nombre'}`;
-                const descDisplay = order.description ? `<span class="text-xs text-slate-600">${order.description}</span>` : '';
+
+                // Add duplicate warning to description
+                let descDisplay = order.description ? `<span class="text-xs text-slate-600">${order.description}</span>` : '';
+                if (order.isDuplicate && order.duplicateInfo && order.duplicateInfo.length > 0) {
+                    const dupInfo = order.duplicateInfo[0];
+                    descDisplay += `<div class="text-xs font-bold text-orange-700 mt-1 flex items-center gap-1">
+                        <i data-lucide="alert-triangle" class="w-3 h-3"></i>
+                        Ya existe: ${dupInfo.date} a las ${dupInfo.time} (${dupInfo.resourceId})
+                    </div>`;
+                }
 
                 row.innerHTML = `
                     <td class="p-3">
