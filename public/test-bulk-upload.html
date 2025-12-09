@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Carga Masiva</title>
+    <style>
+        body { font-family: monospace; padding: 20px; }
+        .test { margin: 10px 0; padding: 10px; border: 1px solid #ccc; }
+        .pass { background: #d4edda; }
+        .fail { background: #f8d7da; }
+        .info { background: #d1ecf1; }
+    </style>
+</head>
+<body>
+    <h1>🔍 Diagnóstico de Carga Masiva</h1>
+    <div id="results"></div>
+
+    <script>
+        const results = document.getElementById('results');
+        const token = localStorage.getItem('token');
+        const role = localStorage.getItem('role');
+
+        function addResult(title, status, message) {
+            const div = document.createElement('div');
+            div.className = `test ${status}`;
+            div.innerHTML = `<strong>${status === 'pass' ? '✅' : status === 'fail' ? '❌' : 'ℹ️'} ${title}</strong><br>${message}`;
+            results.appendChild(div);
+        }
+
+        async function runTests() {
+            // Test 1: Token
+            addResult('Token de autenticación', token ? 'pass' : 'fail',
+                token ? `Token presente: ${token.substring(0, 20)}...` : 'No hay token. Inicia sesión primero.');
+
+            // Test 2: Role
+            addResult('Rol de usuario', role === 'VENDEDOR' ? 'pass' : role ? 'info' : 'fail',
+                role ? `Rol actual: ${role}` : 'No hay rol configurado');
+
+            if (!token) {
+                addResult('Tests detenidos', 'fail', 'Necesitas iniciar sesión para continuar los tests');
+                return;
+            }
+
+            // Test 3: Endpoint bulk-upload
+            try {
+                const formData = new FormData();
+                const testFile = new File(['test'], 'test.xlsx', { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+                formData.append('file', testFile);
+
+                const res = await fetch('/api/bookings/bulk-upload.php', {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}` },
+                    body: formData
+                });
+
+                const data = await res.json();
+                addResult('Endpoint bulk-upload.php', res.ok ? 'info' : 'pass',
+                    `Status: ${res.status}. Respuesta: ${JSON.stringify(data).substring(0, 100)}`);
+            } catch (err) {
+                addResult('Endpoint bulk-upload.php', 'fail', `Error: ${err.message}`);
+            }
+
+            // Test 4: Endpoint check-duplicates
+            try {
+                const res = await fetch('/api/bookings/check-duplicates.php', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ orderNumbers: ['TEST-001'], date: '2025-12-09' })
+                });
+
+                const data = await res.json();
+                addResult('Endpoint check-duplicates.php', res.ok ? 'pass' : 'fail',
+                    `Status: ${res.status}. Respuesta: ${JSON.stringify(data).substring(0, 100)}`);
+            } catch (err) {
+                addResult('Endpoint check-duplicates.php', 'fail', `Error: ${err.message}`);
+            }
+
+            // Test 5: Modal en DOM
+            const modal = document.getElementById('bulkUploadModal');
+            addResult('Modal de carga masiva en DOM', modal ? 'pass' : 'fail',
+                modal ? 'Modal encontrado en el DOM' : 'Modal NO encontrado. Verifica dashboard.html');
+
+            // Test 6: Botón de carga masiva
+            const btn = document.getElementById('bulkUploadBtn');
+            addResult('Botón de carga masiva', btn ? 'pass' : 'fail',
+                btn ? `Botón encontrado. Visible: ${!btn.classList.contains('hidden')}` : 'Botón NO encontrado');
+
+            addResult('Tests completados', 'pass', 'Revisa los resultados arriba');
+        }
+
+        // Wait for DOM
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', runTests);
+        } else {
+            runTests();
+        }
+    </script>
+</body>
+</html>
