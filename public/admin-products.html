@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Admin Productos - Pizarra</title>
-    <link rel="icon" href="data:;base64,iVBORw0KGgo=">
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-slate-100 min-h-screen">
@@ -15,6 +15,7 @@
         </div>
         <div class="flex items-center gap-3">
             <a href="/dashboard.html" class="text-blue-600 text-sm underline">Volver a Pizarra</a>
+            <a href="/admin-users.html" class="text-blue-600 text-sm underline">Usuarios</a>
             <button id="logoutBtn" class="text-sm text-red-500 hover:underline">Cerrar sesión</button>
         </div>
     </header>
@@ -23,7 +24,7 @@
         <div class="bg-white rounded-lg shadow border border-slate-200 p-4">
             <div class="flex justify-between items-center mb-4">
                 <div>
-                    <p class="text-sm text-slate-500">Solo usuarios VENDEDOR pueden editar.</p>
+                    <p class="text-sm text-slate-500">Solo usuarios ADMIN pueden editar.</p>
                     <p id="roleInfo" class="text-xs text-slate-500"></p>
                 </div>
                 <button id="addBtn" class="bg-blue-600 text-white px-3 py-2 rounded text-sm font-semibold hover:bg-blue-700">Agregar producto</button>
@@ -50,7 +51,7 @@
         const tableBody = document.getElementById('tableBody');
         document.getElementById('roleInfo').textContent = role ? `Tu rol: ${role}` : '';
 
-        if (!token) {
+        if (!token || role !== 'ADMIN') {
             window.location.href = '/index.html';
         }
 
@@ -95,7 +96,7 @@
             const [editBtn, delBtn] = tr.querySelectorAll('button');
             editBtn.onclick = () => replaceWithEditor(tr, p);
             delBtn.onclick = () => confirmDelete(p.id);
-            if (role !== 'VENDEDOR') {
+            if (role !== 'ADMIN') {
                 editBtn.disabled = true;
                 delBtn.disabled = true;
                 editBtn.classList.add('opacity-50','cursor-not-allowed');
@@ -105,7 +106,7 @@
         }
 
         function replaceWithEditor(tr, p={}) {
-            if (role !== 'VENDEDOR') return;
+            if (role !== 'ADMIN') return;
             tr.innerHTML = `
                 <td class="px-3 py-2"><input class="border rounded px-2 py-1 w-full" value="${p.code || ''}" placeholder="Código"></td>
                 <td class="px-3 py-2"><input class="border rounded px-2 py-1 w-full" value="${p.name || ''}" placeholder="Nombre opcional"></td>
