@@ -63,6 +63,7 @@
             <span id="userRoleDisplay"
                 class="text-xs font-bold px-2 py-1 rounded bg-slate-200 text-slate-600 uppercase"></span>
             <a id="adminLink" href="/admin-products.html" class="hidden text-xs font-bold px-2 py-1 rounded bg-amber-100 text-amber-700 border border-amber-200">Productos</a>
+            <a id="adminUsersLink" href="/admin-users.html" class="hidden text-xs font-bold px-2 py-1 rounded bg-blue-100 text-blue-700 border border-blue-200">Usuarios</a>
             <button id="logoutBtn" class="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-full transition"
                 title="Cerrar Sesion">
                 <i data-lucide="log-out" class="w-5 h-5"></i>
@@ -620,11 +621,12 @@
             if (!token) window.location.href = '/index.html';
 
             document.getElementById('userRoleDisplay').textContent = rawRole || userRole;
-            const adminLink = document.getElementById('adminLink');
-            if (userRole === 'ADMIN') {
-                adminLink.classList.remove('hidden');
-                document.getElementById('openBulkModal').classList.remove('hidden');
-            }
+        const adminLink = document.getElementById('adminLink');
+        const adminUsersLink = document.getElementById('adminUsersLink');
+        if (userRole === 'ADMIN') {
+            adminLink.classList.remove('hidden');
+            adminUsersLink.classList.remove('hidden');
+        }
             if (canCreate) {
                 document.getElementById('openBulkModal').classList.remove('hidden');
             }

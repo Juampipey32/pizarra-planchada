@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Usuarios - Pizarra</title>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-100 min-h-screen">
+    <header class="bg-white shadow-sm border-b border-slate-200 p-4 flex flex-wrap gap-3 justify-between items-center">
+        <div class="flex items-center gap-2">
+            <div class="bg-blue-600 text-white px-2 py-1 rounded font-bold text-sm">Admin</div>
+            <h1 class="text-lg font-semibold text-slate-800">Gestión de Usuarios</h1>
+        </div>
+        <div class="flex items-center gap-2 text-sm">
+            <a href="/dashboard.html" class="text-blue-600 underline">Volver a Pizarra</a>
+            <a href="/admin-products.html" class="text-blue-600 underline">Productos</a>
+            <button id="logoutBtn" class="text-red-500 hover:underline">Cerrar sesión</button>
+        </div>
+    </header>
+
+    <main class="max-w-5xl mx-auto p-4">
+        <div class="bg-white rounded-lg shadow border border-slate-200 p-4">
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+                <div>
+                    <p class="text-sm text-slate-600">Solo ADMIN puede crear, editar o eliminar usuarios.</p>
+                    <p id="roleInfo" class="text-xs text-slate-500"></p>
+                </div>
+                <button id="addBtn" class="self-start bg-blue-600 text-white px-3 py-2 rounded text-sm font-semibold hover:bg-blue-700">Agregar usuario</button>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="min-w-full text-sm">
+                    <thead class="bg-slate-50 border-b border-slate-200">
+                        <tr>
+                            <th class="text-left px-3 py-2">Usuario</th>
+                            <th class="text-left px-3 py-2">Rol</th>
+                            <th class="text-left px-3 py-2">Creado</th>
+                            <th class="text-right px-3 py-2">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody" class="divide-y divide-slate-100"></tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        const token = localStorage.getItem('token');
+        const role = (localStorage.getItem('role') || '').toUpperCase();
+        document.getElementById('roleInfo').textContent = role ? `Tu rol: ${role}` : '';
+
+        if (!token || role !== 'ADMIN') {
+            window.location.href = '/index.html';
+        }
+
+        const tableBody = document.getElementById('tableBody');
+        document.getElementById('logoutBtn').onclick = () => {
+            localStorage.clear();
+            window.location.href = '/index.html';
+        };
+
+        document.getElementById('addBtn').onclick = () => addEditableRow();
+
+        const ROLES = ['ADMIN', 'VENDEDOR', 'INVITADO', 'PLANCHADA', 'VISUALIZADOR'];
+
+        async function loadUsers() {
+            try {
+                const res = await fetch('/api/users', { headers: { 'Authorization': `Bearer ${token}` } });
+                if (!res.ok) throw new Error();
+                const data = await res.json();
+                renderRows(data);
+            } catch (e) {
+                alert('No se pudo cargar la lista de usuarios');
+            }
+        }
+
+        function renderRows(users) {
+            tableBody.innerHTML = '';
+            users.forEach(u => tableBody.appendChild(rowView(u)));
+        }
+
+        function rowView(user) {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td class="px-3 py-2 font-semibold text-slate-800">${user.username}</td>
+                <td class="px-3 py-2"><span class="px-2 py-1 rounded text-xs font-bold bg-slate-100 text-slate-700">${user.role}</span></td>
+                <td class="px-3 py-2 text-slate-500 text-xs">${new Date(user.createdAt).toLocaleString()}</td>
+                <td class="px-3 py-2 text-right space-x-2">
+                    <button class="text-blue-600 text-xs underline">Editar</button>
+                    <button class="text-red-500 text-xs underline">Eliminar</button>
+                </td>
+            `;
+            const [editBtn, delBtn] = tr.querySelectorAll('button');
+            editBtn.onclick = () => replaceWithEditor(tr, user);
+            delBtn.onclick = () => confirmDelete(user.id);
+            return tr;
+        }
+
+        function replaceWithEditor(tr, user = {}) {
+            tr.innerHTML = `
+                <td class="px-3 py-2">
+                    <input class="border rounded px-2 py-1 w-full" value="${user.username || ''}" placeholder="Usuario">
+                </td>
+                <td class="px-3 py-2">
+                    <select class="border rounded px-2 py-1 w-full">
+                        ${ROLES.map(r => `<option value="${r}" ${user.role === r ? 'selected' : ''}>${r}</option>`).join('')}
+                    </select>
+                </td>
+                <td class="px-3 py-2">
+                    <input type="password" class="border rounded px-2 py-1 w-full" placeholder="${user.id ? 'Nueva contraseña (opcional)' : 'Contraseña'}">
+                </td>
+                <td class="px-3 py-2 text-right space-x-2">
+                    <button class="text-green-600 text-xs underline">Guardar</button>
+                    <button class="text-slate-500 text-xs underline">Cancelar</button>
+                </td>
+            `;
+            const [usernameInput, roleSelect, passInput] = tr.querySelectorAll('input, select');
+            const [saveBtn, cancelBtn] = tr.querySelectorAll('button');
+            saveBtn.onclick = () => saveUser(user.id, usernameInput.value, roleSelect.value, passInput.value);
+            cancelBtn.onclick = () => loadUsers();
+        }
+
+        async function saveUser(id, username, role, password) {
+            if (!username || !role || (!id && !password)) {
+                alert('Usuario, rol y contraseña son obligatorios');
+                return;
+            }
+
+            const payload = { username: username.trim(), role };
+            if (password) payload.password = password;
+
+            const url = id ? `/api/users/manage.php?id=${id}` : '/api/users';
+            const method = id ? 'PUT' : 'POST';
+
+            try {
+                const res = await fetch(url, {
+                    method,
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(payload)
+                });
+                if (!res.ok) {
+                    const data = await res.json().catch(() => ({}));
+                    throw new Error(data.error || 'Error');
+                }
+                loadUsers();
+            } catch (e) {
+                alert(e.message || 'No se pudo guardar');
+            }
+        }
+
+        async function confirmDelete(id) {
+            if (!id) return;
+            if (!confirm('¿Eliminar este usuario?')) return;
+            try {
+                const res = await fetch(`/api/users/manage.php?id=${id}`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await res.json().catch(() => ({}));
+                if (!res.ok) throw new Error(data.error || 'Error');
+                loadUsers();
+            } catch (e) {
+                alert(e.message || 'No se pudo eliminar');
+            }
+        }
+
+        function addEditableRow() {
+            const tr = document.createElement('tr');
+            tableBody.prepend(tr);
+            replaceWithEditor(tr, {});
+        }
+
+        loadUsers();
+    </script>
+</body>
+</html>
