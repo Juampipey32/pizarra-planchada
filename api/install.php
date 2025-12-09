@@ -10,10 +10,16 @@ try {
         id INT AUTO_INCREMENT PRIMARY KEY,
         username VARCHAR(255) NOT NULL UNIQUE,
         password VARCHAR(255) NOT NULL,
-        role ENUM('VENDEDOR', 'PLANCHADA', 'VISUALIZADOR') NOT NULL,
+        role ENUM('ADMIN', 'VENDEDOR', 'INVITADO', 'PLANCHADA', 'VISUALIZADOR') NOT NULL,
         createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
     )");
+    // Attempt to widen role enum for existing installs
+    try {
+        $pdo->exec("ALTER TABLE Users MODIFY role ENUM('ADMIN','VENDEDOR','INVITADO','PLANCHADA','VISUALIZADOR') NOT NULL");
+    } catch (PDOException $e) {
+        // ignore if not needed
+    }
     echo "<p>Tabla 'Users' verificada/creada.</p>";
 
     // 2. Create Bookings Table
@@ -87,7 +93,7 @@ try {
     $stmt->execute();
     if ($stmt->fetchColumn() == 0) {
         $passHash = password_hash('admin123', PASSWORD_BCRYPT);
-        $stmt = $pdo->prepare("INSERT INTO Users (username, password, role) VALUES ('admin', :pass, 'VENDEDOR')");
+        $stmt = $pdo->prepare("INSERT INTO Users (username, password, role) VALUES ('admin', :pass, 'ADMIN')");
         $stmt->execute([':pass' => $passHash]);
         echo "<p>Usuario 'admin' (password: admin123) creado.</p>";
     } else {
