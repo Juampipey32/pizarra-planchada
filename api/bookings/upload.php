@@ -24,7 +24,7 @@ if (!$user) {
     echo json_encode(['error' => 'Unauthorized']);
     exit;
 }
-if ($user['role'] === 'VISUALIZADOR') {
+if (in_array($user['role'], ['VISUALIZADOR', 'INVITADO'])) {
     http_response_code(403);
     echo json_encode(['error' => 'Read only access']);
     exit;
