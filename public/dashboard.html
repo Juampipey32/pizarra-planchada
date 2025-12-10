@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Pizarra Logística</title>
     <link rel="icon" href="/favicon.svg" type="image/svg+xml">
-    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="/css/tailwind-lite.css">
     <script src="https://unpkg.com/lucide@latest"></script>
     <style>
         /* Custom scrollbar for better look */
@@ -435,7 +435,7 @@
         const SAMPI_THRESHOLD = 648;
         let productMap = {};
         let currentProducts = []; // Products for current booking
-        let bulkOrders = [];
+        var bulkOrders = [];
 
         const resourceOptions = (selectedValue = '') => {
             return RESOURCES.map(r => `<option value="${r.id}" ${r.id === selectedValue ? 'selected' : ''}>${r.name}</option>`).join('');
