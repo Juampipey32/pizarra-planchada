@@ -1,25 +1,14 @@
 <?php
 // api/install.php
 require_once 'db.php';
+require_once 'users/bootstrap.php';
 
 echo "<h1>Instalación de Base de Datos (MySQL)</h1>";
 
 try {
     // 1. Create Users Table
-    $pdo->exec("CREATE TABLE IF NOT EXISTS Users (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        username VARCHAR(255) NOT NULL UNIQUE,
-        password VARCHAR(255) NOT NULL,
-        role ENUM('ADMIN', 'VENDEDOR', 'INVITADO', 'PLANCHADA', 'VISUALIZADOR') NOT NULL,
-        createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-    )");
-    // Attempt to widen role enum for existing installs
-    try {
-        $pdo->exec("ALTER TABLE Users MODIFY role ENUM('ADMIN','VENDEDOR','INVITADO','PLANCHADA','VISUALIZADOR') NOT NULL");
-    } catch (PDOException $e) {
-        // ignore if not needed
-    }
+    $roles = bootstrap_roles();
+    ensure_users_schema($pdo, $roles);
     echo "<p>Tabla 'Users' verificada/creada.</p>";
 
     // 2. Create Bookings Table
@@ -88,13 +77,8 @@ try {
     }
     echo "<p>Productos iniciales cargados/actualizados.</p>";
 
-    // 3. Seed Admin User
-    $stmt = $pdo->prepare("SELECT COUNT(*) FROM Users WHERE username = 'admin'");
-    $stmt->execute();
-    if ($stmt->fetchColumn() == 0) {
-        $passHash = password_hash('admin123', PASSWORD_BCRYPT);
-        $stmt = $pdo->prepare("INSERT INTO Users (username, password, role) VALUES ('admin', :pass, 'ADMIN')");
-        $stmt->execute([':pass' => $passHash]);
+    $created = ensure_admin_exists($pdo);
+    if ($created) {
         echo "<p>Usuario 'admin' (password: admin123) creado.</p>";
     } else {
         echo "<p>El usuario 'admin' ya existe.</p>";

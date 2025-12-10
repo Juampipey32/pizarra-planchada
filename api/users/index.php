@@ -3,9 +3,11 @@
 require_once '../cors.php';
 require_once '../db.php';
 require_once '../jwt_helper.php';
+require_once './bootstrap.php';
 
 $SECRET_KEY = getenv('JWT_SECRET') ?: 'secret_key_change_me';
-$ALLOWED_ROLES = ['ADMIN', 'VENDEDOR', 'INVITADO', 'PLANCHADA', 'VISUALIZADOR'];
+$ROLES = bootstrap_roles();
+$ALLOWED_ROLES = $ROLES;
 
 $token = get_bearer_token();
 $user = verify_jwt($token, $SECRET_KEY);
@@ -21,6 +23,9 @@ if ($user['role'] !== 'ADMIN') {
     echo json_encode(['error' => 'Solo ADMIN puede gestionar usuarios']);
     exit;
 }
+
+ensure_users_schema($pdo, $ROLES);
+ensure_admin_exists($pdo);
 
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     $stmt = $pdo->query("SELECT id, username, role, createdAt, updatedAt FROM Users ORDER BY id ASC");
