@@ -499,24 +499,20 @@
             switch ((role || '').toUpperCase()) {
                 case 'ADMIN':
                     return 'ADMIN';
-                case 'VENDEDOR':
-                    return 'VENDEDOR';
-                case 'INVITADO':
-                    return 'INVITADO';
-                case 'VISUALIZADOR':
-                    return 'INVITADO';
+                case 'VENTAS':
+                    return 'VENTAS';
                 case 'PLANCHADA':
                     return 'ADMIN';
                 default:
-                    return 'INVITADO';
+                    return 'PLANCHADA';
             }
         };
         let userRole = normalizeRole(rawRole);
         const isLegacyPlanchada = (rawRole || '').toUpperCase() === 'PLANCHADA';
-        const canCreate = ['ADMIN', 'VENDEDOR'].includes(userRole);
+        const canCreate = ['ADMIN', 'VENTAS'].includes(userRole);
         const canEditAll = userRole === 'ADMIN';
-        const canEdit = canEditAll || isLegacyPlanchada;
-        const isReadOnly = userRole === 'INVITADO';
+        const canEdit = ['ADMIN', 'VENTAS'].includes(userRole);
+        const isReadOnly = userRole === 'PLANCHADA';
         let token = localStorage.getItem('token');
 
         async function loadProductCoefficients() {
@@ -629,7 +625,7 @@
             const adminLink = document.getElementById('adminLink');
             const bulkUploadBtn = document.getElementById('bulkUploadBtn');
             // ADMIN y VENDEDOR tienen acceso completo
-            if (['ADMIN', 'VENDEDOR'].includes(userRole)) {
+            if (['ADMIN', 'VENTAS'].includes(userRole)) {
                 adminLink.classList.remove('hidden');
                 bulkUploadBtn.classList.remove('hidden');
             }

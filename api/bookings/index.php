@@ -77,9 +77,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
 } elseif ($_SERVER['REQUEST_METHOD'] === 'POST') {
     ensureBookingColumns($pdo);
 
-    if (in_array($user['role'], ['VISUALIZADOR', 'INVITADO'])) {
+    if ($user['role'] === 'PLANCHADA') {
         http_response_code(403);
-        echo json_encode(['error' => 'Read only access']);
+        echo json_encode(['error' => 'Solo lectura']);
         exit;
     }
 

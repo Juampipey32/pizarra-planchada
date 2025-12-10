@@ -17,9 +17,9 @@ if (!$user) {
     exit;
 }
 
-if (!in_array($user['role'], ['ADMIN', 'PLANCHADA'])) {
+if (!in_array($user['role'], ['ADMIN', 'VENTAS'])) {
     http_response_code(403);
-    echo json_encode(['error' => 'Solo administradores pueden editar']);
+    echo json_encode(['error' => 'Solo ADMIN y VENTAS pueden editar']);
     exit;
 }
 
