@@ -664,7 +664,8 @@
             document.getElementById('userRoleDisplay').textContent = userRole;
             const adminLink = document.getElementById('adminLink');
             const bulkUploadBtn = document.getElementById('bulkUploadBtn');
-            if (userRole === 'VENDEDOR') {
+            // ADMIN y VENDEDOR tienen acceso completo
+            if (['ADMIN', 'VENDEDOR'].includes(userRole)) {
                 adminLink.classList.remove('hidden');
                 bulkUploadBtn.classList.remove('hidden');
             }
