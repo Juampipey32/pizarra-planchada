@@ -1,0 +1,57 @@
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Server configuration (no subir config local del servidor)
+api/config.php
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Dependencies
+node_modules/
+vendor/
+composer.lock
+package-lock.json
+
+# Logs
+*.log
+npm-debug.log*
+error.log
+
+# Temporary files
+*.tmp
+*.temp
+*.cache
+.phpunit.result.cache
+
+# PDFs (no subir PDFs de pedidos reales)
+PEDIDOS-PIZARRA/*.pdf
+!PEDIDOS-PIZARRA/.gitkeep
+
+# Database backups
+*.sql
+*.sqlite
+*.db
+
+# SSH keys (NUNCA subir claves privadas)
+*.pem
+*.key
+id_rsa
+id_ed25519
+
+# Build artifacts
+dist/
+build/
+*.min.js
+*.min.css

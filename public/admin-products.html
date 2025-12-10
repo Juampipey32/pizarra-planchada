@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Productos - Pizarra</title>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+    <link rel="stylesheet" href="/css/tailwind-lite.css">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="/js/config.js"></script>
+</head>
+
+<body class="bg-slate-100 min-h-screen">
+    <header class="bg-white shadow-sm border-b border-slate-200 p-4 flex justify-between items-center">
+        <div class="flex items-center gap-2">
+            <div class="bg-blue-600 text-white px-2 py-1 rounded font-bold text-sm">Admin</div>
+            <h1 class="text-lg font-semibold text-slate-800">Productos y Coeficientes</h1>
+        </div>
+        <div class="flex items-center gap-3">
+            <a href="/dashboard.html" class="text-blue-600 text-sm underline">Volver a Pizarra</a>
+            <a href="/admin-users.html" class="text-blue-600 text-sm underline">Usuarios</a>
+            <button id="logoutBtn" class="text-sm text-red-500 hover:underline">Cerrar sesión</button>
+        </div>
+    </header>
+
+    <main class="max-w-5xl mx-auto p-4">
+        <div class="bg-white rounded-lg shadow border border-slate-200 p-4">
+            <div class="flex justify-between items-center mb-4">
+                <div>
+                    <p class="text-sm text-slate-500">Solo usuarios ADMIN pueden editar.</p>
+                    <p id="roleInfo" class="text-xs text-slate-500"></p>
+                </div>
+                <button id="addBtn"
+                    class="bg-blue-600 text-white px-3 py-2 rounded text-sm font-semibold hover:bg-blue-700">Agregar
+                    producto</button>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="min-w-full text-sm">
+                    <thead class="bg-slate-50 border-b border-slate-200">
+                        <tr>
+                            <th class="text-left px-3 py-2">Código</th>
+                            <th class="text-left px-3 py-2">Nombre</th>
+                            <th class="text-left px-3 py-2">Coeficiente (kg)</th>
+                            <th class="text-right px-3 py-2">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody" class="divide-y divide-slate-100"></tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        const token = localStorage.getItem('token');
+        const role = localStorage.getItem('role');
+        const tableBody = document.getElementById('tableBody');
+        document.getElementById('roleInfo').textContent = role ? `Tu rol: ${role}` : '';
+
+        if (!token || role !== 'ADMIN') {
+            window.location.href = '/index.html';
+        }
+
+        document.getElementById('logoutBtn').onclick = () => {
+            localStorage.clear();
+            window.location.href = '/index.html';
+        };
+
+        document.getElementById('addBtn').onclick = () => {
+            addEditableRow();
+        };
+
+        async function loadProducts() {
+            try {
+                const res = await fetch('/api/products', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (!res.ok) throw new Error('No se pudo cargar');
+                const data = await res.json();
+                renderRows(data);
+            } catch (e) {
+                Swal.fire('Error', 'Error cargando productos', 'error');
+            }
+        }
+
+        function renderRows(products) {
+            tableBody.innerHTML = '';
+            products.forEach(p => tableBody.appendChild(rowView(p)));
+        }
+
+        function rowView(p) {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td class="px-3 py-2 font-mono text-sm">${p.code}</td>
+                <td class="px-3 py-2">${p.name || ''}</td>
+                <td class="px-3 py-2 font-mono">${parseFloat(p.coefficient)}</td>
+                <td class="px-3 py-2 text-right space-x-2">
+                    <button class="text-blue-600 text-xs underline">Editar</button>
+                    <button class="text-red-500 text-xs underline">Eliminar</button>
+                </td>
+            `;
+            const [editBtn, delBtn] = tr.querySelectorAll('button');
+            editBtn.onclick = () => replaceWithEditor(tr, p);
+            delBtn.onclick = () => confirmDelete(p.id);
+            if (role !== 'ADMIN') {
+                editBtn.disabled = true;
+                delBtn.disabled = true;
+                editBtn.classList.add('opacity-50', 'cursor-not-allowed');
+                delBtn.classList.add('opacity-50', 'cursor-not-allowed');
+            }
+            return tr;
+        }
+
+        function replaceWithEditor(tr, p = {}) {
+            if (role !== 'ADMIN') return;
+            tr.innerHTML = `
+                <td class="px-3 py-2"><input class="border rounded px-2 py-1 w-full" value="${p.code || ''}" placeholder="Código"></td>
+                <td class="px-3 py-2"><input class="border rounded px-2 py-1 w-full" value="${p.name || ''}" placeholder="Nombre opcional"></td>
+                <td class="px-3 py-2"><input class="border rounded px-2 py-1 w-24" type="number" step="0.001" value="${p.coefficient || 1}"></td>
+                <td class="px-3 py-2 text-right space-x-2">
+                    <button class="text-green-600 text-xs underline">Guardar</button>
+                    <button class="text-slate-500 text-xs underline">Cancelar</button>
+                </td>
+            `;
+            const inputs = tr.querySelectorAll('input');
+            const [saveBtn, cancelBtn] = tr.querySelectorAll('button');
+            saveBtn.onclick = () => saveProduct(p.id, inputs[0].value, inputs[1].value, inputs[2].value);
+            cancelBtn.onclick = () => loadProducts();
+        }
+
+        async function saveProduct(id, code, name, coef) {
+            if (!code || !coef) {
+                Swal.fire('Atención', 'Código y coeficiente son obligatorios', 'warning');
+                return;
+            }
+            const payload = { code: code.trim(), name: name.trim(), coefficient: parseFloat(coef) };
+            const url = id ? `/api/products/manage.php?id=${id}` : '/api/products';
+            const method = id ? 'PUT' : 'POST';
+            try {
+                const res = await fetch(url, {
+                    method,
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(payload)
+                });
+                if (!res.ok) throw new Error('error');
+                loadProducts();
+            } catch (e) {
+                Swal.fire('Error', 'No se pudo guardar', 'error');
+            }
+        }
+
+        async function confirmDelete(id) {
+            if (!id) return;
+            const result = await Swal.fire({
+                title: '¿Eliminar producto?',
+                text: "No podrás revertir esto",
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#d33',
+                cancelButtonColor: '#3085d6',
+                confirmButtonText: 'Sí, eliminar'
+            });
+
+            if (!result.isConfirmed) return;
+
+            try {
+                const res = await fetch(`/api/products/manage.php?id=${id}`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (!res.ok) throw new Error('error');
+                loadProducts();
+                Swal.fire('Eliminado!', 'El producto ha sido eliminado.', 'success');
+            } catch (e) {
+                Swal.fire('Error', 'No se pudo eliminar', 'error');
+            }
+        }
+
+        function addEditableRow() {
+            const tr = document.createElement('tr');
+            tableBody.prepend(tr);
+            replaceWithEditor(tr, {});
+        }
+
+        loadProducts();
+    </script>
+</body>
+
+</html>

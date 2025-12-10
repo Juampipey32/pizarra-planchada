@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Centro de Comando Logístico</title>
+    <!-- Favicon (Camioncito) -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🚛</text></svg>">
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- SortableJS -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.css"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
+    <!-- SweetAlert2 -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <!-- App Config -->
+    <script src="js/config.js"></script>
+
+    <style>
+        body { font-family: 'Inter', system-ui, -apple-system, sans-serif; overflow: hidden; }
+        
+        /* Sidebar de Pendientes */
+        #pendingSidebar {
+            transition: transform 0.3s ease-in-out;
+            box-shadow: 4px 0 24px rgba(0,0,0,0.1);
+            z-index: 40;
+        }
+        #pendingSidebar.closed { transform: translateX(-100%); }
+        
+        /* Grilla Horaria */
+        .time-slot {
+            height: 80px; 
+            border-bottom: 1px dashed #e2e8f0;
+            position: relative;
+            transition: background-color 0.1s;
+            cursor: pointer;
+        }
+        .time-slot:hover { background-color: #f0f9ff; }
+        /* Icono "+" al pasar el mouse sobre espacio vacío */
+        .time-slot:hover::after {
+            content: "+";
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            color: #94a3b8; font-size: 1.5rem; font-weight: bold; opacity: 0.5;
+        }
+        /* Si tiene tarjeta, ocultar el "+" */
+        .time-slot:has(.card-item):hover::after { display: none; }
+
+        /* Tarjetas */
+        .card-item {
+            cursor: grab;
+            transition: transform 0.15s, box-shadow 0.15s;
+            position: relative;
+            z-index: 10;
+            height: calc(100% - 4px); /* Ajuste para caber en slot */
+            margin: 2px;
+        }
+        .card-item:hover { transform: scale(1.02); z-index: 20; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        
+        /* Loader */
+        #loader {
+            position: fixed; top:0; left:0; width:100%; height:100%;
+            background: rgba(255,255,255,0.95); z-index: 9999;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+        }
+    </style>
+</head>
+<body class="bg-slate-100 h-screen flex flex-col">
+
+    <!-- Loader -->
+    <div id="loader">
+        <div class="animate-spin rounded-full h-12 w-12 border-4 border-slate-200 border-t-indigo-600 mb-4"></div>
+        <p class="text-slate-500 font-bold animate-pulse">Cargando...</p>
+    </div>
+
+    <!-- Inputs Ocultos -->
+    <input type="file" id="pdfInput" accept=".pdf" class="hidden" onchange="handlePdfUpload(this)">
+    <input type="file" id="excelInput" accept=".csv, .txt" class="hidden" onchange="handleExcelUpload(this)">
+
+    <!-- Header -->
+    <header class="bg-white shadow-sm z-50 shrink-0 border-b border-slate-200 h-16 flex items-center justify-between px-4">
+        <div class="flex items-center gap-4">
+            <button onclick="toggleSidebar()" class="p-2 text-slate-500 hover:bg-slate-100 rounded-lg relative">
+                <i class="fa-solid fa-bars text-xl"></i>
+                <span id="pendingCountBadge" class="absolute top-1 right-1 h-4 w-4 bg-red-500 rounded-full text-[10px] font-bold text-white flex items-center justify-center hidden">0</span>
+            </button>
+
+            <div class="flex items-center gap-2 text-slate-800">
+                <div class="bg-indigo-600 text-white p-1.5 rounded-lg shadow-sm">
+                    <i class="fa-solid fa-layer-group"></i>
+                </div>
+                <span class="font-extrabold text-lg tracking-tight hidden sm:block">COSALTA<span class="text-indigo-600">LOG</span></span>
+            </div>
+
+            <div class="h-8 w-px bg-slate-200 mx-2"></div>
+
+            <div class="flex items-center bg-slate-50 rounded-lg border border-slate-200 p-0.5 shadow-sm">
+                <button id="prevDayBtn" class="p-1.5 hover:bg-white hover:text-indigo-600 rounded-md text-slate-500"><i class="fa-solid fa-chevron-left"></i></button>
+                <input type="date" id="currentDate" class="bg-transparent border-0 focus:ring-0 text-sm font-bold text-slate-700 w-32 text-center p-1 cursor-pointer">
+                <button id="nextDayBtn" class="p-1.5 hover:bg-white hover:text-indigo-600 rounded-md text-slate-500"><i class="fa-solid fa-chevron-right"></i></button>
+            </div>
+            
+            <button onclick="fetchBookings()" class="text-slate-400 hover:text-indigo-600 ml-2" title="Recargar"><i class="fa-solid fa-rotate"></i></button>
+        </div>
+
+        <!-- KPIs -->
+        <div class="hidden md:flex gap-8">
+            <div class="text-center">
+                <div class="text-[10px] uppercase font-bold text-slate-400">Total Kg</div>
+                <div class="text-xl font-black text-slate-800" id="kpi-total-kg">0</div>
+            </div>
+            <div class="h-8 w-px bg-slate-100"></div>
+            <div class="text-center">
+                <div class="text-[10px] uppercase font-bold text-slate-400">Sampi Kg</div>
+                <div class="text-xl font-black text-purple-600" id="kpi-sampi">0</div>
+            </div>
+        </div>
+
+        <!-- Acciones -->
+        <div class="flex items-center gap-2">
+            <button onclick="document.getElementById('pdfInput').click()" class="bg-red-50 text-red-600 hover:bg-red-100 px-3 py-2 rounded-lg text-xs font-bold border border-red-200 flex items-center gap-2 transition-all">
+                <i class="fa-solid fa-file-pdf text-lg"></i> <span class="hidden sm:inline">PDF IA</span>
+            </button>
+
+            <button onclick="document.getElementById('excelInput').click()" class="bg-green-50 text-green-600 hover:bg-green-100 px-3 py-2 rounded-lg text-xs font-bold border border-green-200 flex items-center gap-2 transition-all">
+                <i class="fa-solid fa-file-csv text-lg"></i> <span class="hidden sm:inline">CSV Masivo</span>
+            </button>
+
+            <div class="h-6 w-px bg-slate-200 mx-2"></div>
+
+            <button onclick="openModal()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-2 rounded-lg text-sm font-bold shadow-md flex items-center gap-2 transition-all">
+                <i class="fa-solid fa-plus"></i> <span class="hidden sm:inline">Nuevo</span>
+            </button>
+            
+            <button onclick="logout()" class="text-slate-300 hover:text-red-500 p-2"><i class="fa-solid fa-power-off"></i></button>
+        </div>
+    </header>
+
+    <!-- Layout Principal -->
+    <div class="flex-1 flex overflow-hidden relative">
+        
+        <!-- Sidebar -->
+        <aside id="pendingSidebar" class="absolute inset-y-0 left-0 w-80 bg-white border-r border-slate-200 flex flex-col closed">
+            <div class="p-4 border-b border-slate-100 bg-yellow-50/50 flex justify-between items-center">
+                <div>
+                    <h2 class="font-bold text-slate-800 flex items-center gap-2"><i class="fa-solid fa-inbox text-yellow-500"></i> Bandeja</h2>
+                    <p class="text-xs text-slate-500">Arrastra a la grilla</p>
+                </div>
+                <span id="pendingCount" class="bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full text-xs font-bold">0</span>
+            </div>
+            <div class="p-3 border-b border-slate-50">
+                <input type="text" id="pendingSearch" placeholder="Buscar..." class="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-sm">
+            </div>
+            <div class="flex-1 overflow-y-auto p-3 bg-slate-50/50" id="col-PENDIENTE" data-resource="PENDIENTE"></div>
+        </aside>
+
+        <!-- Pizarra -->
+        <main class="flex-1 overflow-auto bg-slate-50 p-4" id="mainBoard">
+            <div class="min-w-[800px] bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                <div class="grid grid-cols-[60px_1fr_1fr_1fr_1fr] border-b border-slate-200 bg-slate-50 sticky top-0 z-30">
+                    <div class="p-3 text-center text-xs font-bold text-slate-400">HORA</div>
+                    <div class="p-3 border-l border-slate-200 text-center"><div class="font-bold text-indigo-700">PUERTA 1</div><div class="text-[10px] text-slate-500" id="weight-1">0 kg</div></div>
+                    <div class="p-3 border-l border-slate-200 text-center"><div class="font-bold text-indigo-700">PUERTA 2</div><div class="text-[10px] text-slate-500" id="weight-2">0 kg</div></div>
+                    <div class="p-3 border-l border-slate-200 text-center"><div class="font-bold text-indigo-700">PUERTA 3</div><div class="text-[10px] text-slate-500" id="weight-3">0 kg</div></div>
+                    <div class="p-3 border-l border-slate-200 text-center"><div class="font-bold text-indigo-700">PUERTA 4</div><div class="text-[10px] text-slate-500" id="weight-4">0 kg</div></div>
+                </div>
+                <div id="scheduleGrid"></div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modal -->
+    <div id="bookingModal" class="fixed inset-0 bg-slate-900/60 hidden z-[60] flex items-center justify-center backdrop-blur-sm">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-2xl mx-4 flex flex-col max-h-[90vh]">
+            <div class="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50 rounded-t-xl">
+                <h3 class="text-lg font-bold text-slate-800" id="modalTitle">Nuevo Pedido</h3>
+                <button onclick="closeModal()" class="text-slate-400 hover:text-slate-600 text-xl"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            
+            <form id="bookingForm" class="p-6 overflow-y-auto grid grid-cols-12 gap-4">
+                <input type="hidden" id="bookingId">
+                <div class="col-span-12 md:col-span-8">
+                    <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Cliente</label>
+                    <input type="text" id="clientName" required class="w-full px-3 py-2 rounded-lg border-slate-200 focus:ring-2 focus:ring-indigo-500 text-sm font-bold">
+                </div>
+                <div class="col-span-6 md:col-span-4">
+                    <label class="block text-xs font-bold text-slate-500 uppercase mb-1">N° Pedido</label>
+                    <input type="text" id="orderNumber" class="w-full px-3 py-2 rounded-lg border-slate-200 text-sm font-mono bg-slate-50">
+                </div>
+                <div class="col-span-12 md:col-span-6">
+                    <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Ubicación</label>
+                    <select id="resourceSelect" class="w-full px-3 py-2 rounded-lg border-slate-200 text-sm bg-white font-medium">
+                        <option value="PENDIENTE">📦 Bandeja de Entrada</option>
+                        <option value="1">Puerta 1</option>
+                        <option value="2">Puerta 2</option>
+                        <option value="3">Puerta 3</option>
+                        <option value="4">Puerta 4</option>
+                    </select>
+                </div>
+                <div class="col-span-6 md:col-span-3">
+                    <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Hora Inicio</label>
+                    <input type="time" id="startTime" required class="w-full px-3 py-2 rounded-lg border-slate-200 text-sm">
+                </div>
+                <div class="col-span-6 md:col-span-3">
+                    <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Duración (min)</label>
+                    <input type="number" id="duration" required step="30" min="30" value="30" class="w-full px-3 py-2 rounded-lg border-slate-200 text-sm">
+                </div>
+                <div class="col-span-12 bg-slate-50 p-3 rounded-lg border border-slate-100">
+                    <div class="flex items-center gap-2 mb-2">
+                        <i class="fa-solid fa-weight-hanging text-indigo-500"></i>
+                        <span class="text-xs font-bold text-slate-700 uppercase">Carga</span>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-500 mb-1">Total Kg</label>
+                            <input type="number" id="kg" required step="0.01" class="w-full px-3 py-2 rounded-lg border-slate-200 text-sm font-bold text-slate-800" placeholder="0">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-purple-600 mb-1">Sampi Kg</label>
+                            <input type="number" id="sampiKg" step="0.01" class="w-full px-3 py-2 rounded-lg border-purple-200 focus:border-purple-500 text-sm font-bold text-purple-700 bg-purple-50" placeholder="0">
+                        </div>
+                    </div>
+                </div>
+                <div class="col-span-12">
+                    <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Observaciones</label>
+                    <textarea id="description" rows="2" class="w-full px-3 py-2 rounded-lg border-slate-200 text-sm resize-none"></textarea>
+                </div>
+            </form>
+            <div class="px-6 py-4 bg-slate-50 border-t border-slate-100 flex justify-between rounded-b-xl">
+                 <button type="button" id="deleteBtn" onclick="deleteBooking()" class="text-red-500 hover:text-red-700 text-sm font-bold flex items-center gap-2">
+                    <i class="fa-regular fa-trash-can"></i> Eliminar
+                </button>
+                <div class="flex gap-3">
+                    <button onclick="closeModal()" class="text-slate-500 hover:bg-slate-200 px-4 py-2 rounded-lg text-sm font-bold">Cancelar</button>
+                    <button onclick="saveBooking()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2 rounded-lg text-sm font-bold shadow-lg transition-all active:scale-95">Guardar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = AppConfig.API_URL; 
+        const WEBHOOK_N8N = AppConfig.WEBHOOKS.PDF_UPLOAD;
+        const START_HOUR = AppConfig.START_HOUR;
+        const END_HOUR = AppConfig.END_HOUR;
+        
+        let currentDate = new Date().toISOString().split('T')[0];
+        let bookings = [];
+        let sortables = [];
+        let sidebarOpen = false;
+
+        function checkAuth() { if(!localStorage.getItem('token')) mockLogin(); }
+        function mockLogin() {
+            const token = btoa(JSON.stringify({})) + '.' + btoa(JSON.stringify({
+                sub: "1", username: "Admin", role: "ADMIN", iat: Date.now()/1000, exp: (Date.now()/1000)+999999
+            })) + '.sig';
+            localStorage.setItem('token', token);
+        }
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            checkAuth();
+            document.getElementById('currentDate').value = currentDate;
+            initGrid(); 
+            initSortable(document.getElementById('col-PENDIENTE'));
+
+            await fetchBookings();
+
+            document.getElementById('currentDate').addEventListener('change', (e) => { currentDate = e.target.value; fetchBookings(); });
+            document.getElementById('prevDayBtn').addEventListener('click', () => changeDay(-1));
+            document.getElementById('nextDayBtn').addEventListener('click', () => changeDay(1));
+            document.getElementById('pendingSearch').addEventListener('input', renderPendingColumn);
+
+            document.getElementById('loader').style.display = 'none';
+        });
+
+        function initGrid() {
+            const grid = document.getElementById('scheduleGrid');
+            grid.innerHTML = '';
+            for (let h = START_HOUR; h < END_HOUR; h++) {
+                for (let m = 0; m < 60; m += 30) {
+                    const rowHTML = `
+                        <div class="grid grid-cols-[60px_1fr_1fr_1fr_1fr] border-b border-slate-100 hover:bg-slate-50 group">
+                            <div class="time-label bg-white border-r border-slate-100 group-hover:bg-slate-50">${m === 0 ? h + ':00' : ''}</div>
+                            ${[1,2,3,4].map(r => `
+                                <div class="time-slot border-r border-slate-100" 
+                                     id="slot-${r}-${h}-${m}" 
+                                     data-resource="${r}" data-h="${h}" data-m="${m}"
+                                     onclick="handleSlotClick(${r}, ${h}, ${m}, event)"></div>
+                            `).join('')}
+                        </div>
+                    `;
+                    grid.insertAdjacentHTML('beforeend', rowHTML);
+                }
+            }
+            document.querySelectorAll('.time-slot').forEach(el => initSortable(el));
+        }
+
+        function initSortable(el) {
+            sortables.push(new Sortable(el, {
+                group: 'shared', animation: 150, ghostClass: 'opacity-50',
+                onEnd: (evt) => {
+                    if (evt.to !== evt.from) {
+                        const newRes = evt.to.dataset.resource;
+                        const newH = evt.to.dataset.h;
+                        const newM = evt.to.dataset.m || 0;
+                        const id = evt.item.dataset.id;
+                        updateBookingMove(id, newRes || 'PENDIENTE', newH || 8, newM);
+                    }
+                }
+            }));
+        }
+
+        // --- CLICK EN HORA VACÍA (NUEVA FUNCIÓN) ---
+        window.handleSlotClick = function(resourceId, h, m, event) {
+            // Si el click fue en una tarjeta, no abrir modal nuevo
+            if (event.target.closest('.card-item')) return;
+
+            openModal();
+            document.getElementById('resourceSelect').value = resourceId;
+            const timeStr = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+            document.getElementById('startTime').value = timeStr;
+        }
+
+        async function fetchBookings() {
+            try {
+                const res = await fetch(`${API_URL}/index.php?date=${currentDate}`, {
+                    headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+                });
+                if(!res.ok) throw new Error("API Error");
+                bookings = await res.json();
+            } catch(e) { 
+                console.warn("Offline/Mock");
+                if(bookings.length===0) bookings = []; 
+            }
+            renderAll();
+        }
+
+        function renderAll() {
+            document.querySelectorAll('.time-slot').forEach(el => el.innerHTML = '');
+            document.getElementById('col-PENDIENTE').innerHTML = '';
+            renderPendingColumn();
+
+            bookings.forEach(b => {
+                if(b.resourceId === 'PENDIENTE') return;
+                const h = parseInt(b.startTimeHour);
+                const m = parseInt(b.startTimeMinute);
+                const normM = m < 30 ? 0 : 30;
+                
+                const slot = document.getElementById(`slot-${b.resourceId}-${h}-${normM}`);
+                if(slot) slot.appendChild(createCard(b));
+            });
+            recalcTotals();
+        }
+
+        function renderPendingColumn() {
+            const col = document.getElementById('col-PENDIENTE');
+            col.innerHTML = '';
+            const term = document.getElementById('pendingSearch').value.toLowerCase();
+            const pending = bookings.filter(b => b.resourceId === 'PENDIENTE');
+            
+            pending.forEach(b => {
+                if(term && !b.client.toLowerCase().includes(term)) return;
+                col.appendChild(createCard(b));
+            });
+            
+            const count = pending.length;
+            document.getElementById('pendingCount').textContent = count;
+            const badge = document.getElementById('pendingCountBadge');
+            badge.textContent = count;
+            if(count>0 && !sidebarOpen) badge.classList.remove('hidden'); else badge.classList.add('hidden');
+        }
+
+        function createCard(b) {
+            const el = document.createElement('div');
+            el.className = 'card-item bg-white rounded border border-slate-200 shadow-sm text-xs flex flex-col justify-between p-2';
+            el.dataset.id = b.id;
+            
+            let sampiKg = 0;
+            const sampiMatch = (b.description || '').match(/\{Sampi:(\d+(\.\d+)?)kg\}/);
+            if(sampiMatch) sampiKg = parseFloat(sampiMatch[1]);
+            const totalKg = parseFloat(b.kg || 0);
+
+            if (totalKg > 0 && sampiKg > 0) {
+                const sampiPct = Math.min(100, Math.round((sampiKg / totalKg) * 100));
+                el.style.background = `linear-gradient(90deg, #e9d5ff ${sampiPct}%, #dbeafe ${sampiPct}%)`;
+            } else if (totalKg > 0) {
+                el.classList.add('bg-blue-50');
+            }
+
+            el.innerHTML = `
+                <div class="flex justify-between items-start pointer-events-none">
+                    <span class="font-bold truncate text-slate-800 leading-tight w-full" title="${b.client}">${b.client}</span>
+                    <button onclick="editBooking(${b.id})" class="pointer-events-auto text-slate-400 hover:text-indigo-600 ml-1"><i class="fa-solid fa-pen"></i></button>
+                </div>
+                <div class="flex justify-between items-end mt-1 pointer-events-none">
+                    <span class="font-mono text-[10px] text-slate-500">#${b.orderNumber || '-'}</span>
+                    <span class="font-bold text-slate-700">${Math.round(totalKg)}kg</span>
+                </div>
+            `;
+            return el;
+        }
+
+        async function handlePdfUpload(input) {
+            if (!input.files[0]) return;
+            Swal.fire({title:'Subiendo PDF...', text:'Procesando con IA...', didOpen:()=>Swal.showLoading()});
+            const fd = new FormData(); fd.append('file', input.files[0]);
+            try {
+                const res = await fetch(WEBHOOK_N8N, {method:'POST', body:fd});
+                if(!res.ok) throw new Error("Fallo n8n");
+                Swal.fire('¡Enviado!', 'Revisa la bandeja en unos segundos', 'success');
+                if(!sidebarOpen) toggleSidebar();
+                setTimeout(fetchBookings, 3000);
+            } catch(e) { Swal.fire('Error', 'No se pudo procesar', 'error'); }
+            input.value = '';
+        }
+
+        async function handleExcelUpload(input) {
+            if (!input.files[0]) return;
+            Swal.fire({title:'Importando CSV...', didOpen:()=>Swal.showLoading()});
+            const fd = new FormData(); fd.append('file', input.files[0]);
+            try {
+                const res = await fetch('/api/bookings/bulk-upload.php', {
+                    method: 'POST', 
+                    headers: {'Authorization': `Bearer ${localStorage.getItem('token')}`},
+                    body: fd
+                });
+                const data = await res.json();
+                if(!res.ok) throw new Error(data.error || "Error al importar");
+                
+                Swal.fire('Éxito', data.message, 'success');
+                if(!sidebarOpen) toggleSidebar();
+                fetchBookings();
+            } catch(e) { Swal.fire('Error', e.message, 'error'); }
+            input.value = '';
+        }
+
+        async function updateBookingMove(id, resId, h, m) {
+            const bIndex = bookings.findIndex(x => x.id == id);
+            if(bIndex !== -1) {
+                bookings[bIndex].resourceId = resId;
+                bookings[bIndex].startTimeHour = parseInt(h);
+                bookings[bIndex].startTimeMinute = parseInt(m);
+                renderAll();
+            }
+            try {
+                await fetch(`${API_URL}/manage.php`, {
+                    method: 'PUT', headers: {'Content-Type':'application/json', 'Authorization': `Bearer ${localStorage.getItem('token')}`},
+                    body: JSON.stringify({ id, resourceId: resId, startTimeHour: h, startTimeMinute: m })
+                });
+            } catch(e) { fetchBookings(); }
+        }
+
+        window.openModal = function() {
+            document.getElementById('bookingForm').reset();
+            document.getElementById('bookingId').value = '';
+            document.getElementById('deleteBtn').classList.add('hidden');
+            document.getElementById('bookingModal').classList.remove('hidden');
+        }
+        window.closeModal = function() { document.getElementById('bookingModal').classList.add('hidden'); }
+
+        window.editBooking = function(id) {
+            // Detener propagación para no activar el click del slot de fondo
+            if (event) event.stopPropagation(); 
+            
+            const b = bookings.find(x => x.id == id);
+            if(!b) return;
+            document.getElementById('bookingId').value = b.id;
+            document.getElementById('clientName').value = b.client;
+            document.getElementById('orderNumber').value = b.orderNumber || '';
+            document.getElementById('resourceSelect').value = b.resourceId;
+            document.getElementById('kg').value = b.kg;
+            
+            const sampiMatch = (b.description || '').match(/\{Sampi:(\d+(\.\d+)?)kg\}/);
+            document.getElementById('sampiKg').value = sampiMatch ? sampiMatch[1] : '';
+            document.getElementById('description').value = (b.description || '').replace(/\{Sampi:.*?kg\}/, '').trim();
+
+            document.getElementById('startTime').value = `${String(b.startTimeHour).padStart(2,'0')}:${String(b.startTimeMinute).padStart(2,'0')}`;
+            document.getElementById('duration').value = b.duration;
+            
+            document.getElementById('deleteBtn').classList.remove('hidden');
+            document.getElementById('bookingModal').classList.remove('hidden');
+        }
+
+        window.saveBooking = async function() {
+            const id = document.getElementById('bookingId').value;
+            const kg = parseFloat(document.getElementById('kg').value || 0);
+            const sampiKg = parseFloat(document.getElementById('sampiKg').value || 0);
+            let desc = document.getElementById('description').value;
+            if(sampiKg > 0) desc += ` {Sampi:${sampiKg}kg}`;
+            const timeParts = document.getElementById('startTime').value.split(':');
+
+            const payload = {
+                id,
+                client: document.getElementById('clientName').value,
+                orderNumber: document.getElementById('orderNumber').value,
+                resourceId: document.getElementById('resourceSelect').value,
+                kg, description: desc,
+                startTimeHour: parseInt(timeParts[0]),
+                startTimeMinute: parseInt(timeParts[1]),
+                duration: document.getElementById('duration').value,
+                date: currentDate,
+                status: 'PLANNED'
+            };
+
+            try {
+                const res = await fetch(`${API_URL}/manage.php`, {
+                    method: id ? 'PUT' : 'POST', 
+                    headers: {'Content-Type':'application/json', 'Authorization': `Bearer ${localStorage.getItem('token')}`},
+                    body: JSON.stringify(payload)
+                });
+                if(!res.ok) throw new Error("Error guardando");
+                closeModal();
+                fetchBookings();
+            } catch(e) { Swal.fire('Error', e.message, 'error'); }
+        }
+
+        window.deleteBooking = async function() {
+            const id = document.getElementById('bookingId').value;
+            if(!id) return;
+            if(!(await Swal.fire({title:'¿Eliminar?', icon:'warning', showCancelButton:true})).isConfirmed) return;
+
+            try {
+                const res = await fetch(`${API_URL}/manage.php`, {
+                    method: 'DELETE',
+                    headers: {'Content-Type':'application/json', 'Authorization': `Bearer ${localStorage.getItem('token')}`},
+                    body: JSON.stringify({ id })
+                });
+                if(!res.ok) {
+                    const data = await res.json();
+                    throw new Error(data.error || "Fallo al borrar");
+                }
+                closeModal();
+                fetchBookings();
+                Swal.fire('Eliminado', '', 'success');
+            } catch(e) { Swal.fire('Error', e.message, 'error'); }
+        }
+
+        function recalcTotals() {
+            let total = 0, sampi = 0;
+            const weights = {1:0, 2:0, 3:0, 4:0};
+            bookings.forEach(b => {
+                const k = parseFloat(b.kg || 0);
+                total += k;
+                const sm = (b.description||'').match(/\{Sampi:(\d+(\.\d+)?)kg\}/);
+                if(sm) sampi += parseFloat(sm[1]);
+                if(weights[b.resourceId] !== undefined) weights[b.resourceId] += k;
+            });
+            document.getElementById('kpi-total-kg').textContent = Math.round(total).toLocaleString();
+            document.getElementById('kpi-sampi').textContent = Math.round(sampi).toLocaleString();
+            for(let i=1; i<=4; i++) document.getElementById(`weight-${i}`).textContent = Math.round(weights[i]).toLocaleString() + ' kg';
+        }
+
+        function toggleSidebar() {
+            const sb = document.getElementById('pendingSidebar');
+            sidebarOpen = !sidebarOpen;
+            if(sidebarOpen) sb.classList.remove('closed'); else sb.classList.add('closed');
+        }
+        function changeDay(d) {
+            const dt = new Date(currentDate); dt.setDate(dt.getDate() + d);
+            currentDate = dt.toISOString().split('T')[0];
+            document.getElementById('currentDate').value = currentDate;
+            fetchBookings();
+        }
+        window.logout = function() { localStorage.removeItem('token'); window.location.href='index.html'; }
+    </script>
+</body>
+</html>
