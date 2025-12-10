@@ -55,12 +55,6 @@
         </div>
 
         <div class="flex items-center gap-2">
-            <button id="openBulkModal"
-                class="hidden px-3 py-2 rounded-lg bg-emerald-600 text-white text-xs font-bold shadow hover:bg-emerald-700 transition flex items-center gap-2">
-                <i data-lucide="rows" class="w-4 h-4"></i>
-                Carga masiva
-            </button>
-            <span id="userRoleDisplay"
                 class="text-xs font-bold px-2 py-1 rounded bg-slate-200 text-slate-600 uppercase"></span>
             <button id="bulkUploadBtn" class="hidden text-xs font-bold px-3 py-1.5 rounded bg-green-100 text-green-700 border border-green-200 hover:bg-green-200 transition flex items-center gap-1"
                 title="Carga Masiva">
@@ -651,7 +645,6 @@
             document.getElementById('bookingForm').onsubmit = handleCreateBooking;
             document.getElementById('editForm').onsubmit = handleUpdateBooking;
             document.getElementById('deleteBtn').onclick = handleDeleteBooking;
-            document.getElementById('openBulkModal').onclick = openBulkModal;
             document.getElementById('bulkFileInput').onchange = handleBulkFileUpload;
             document.getElementById('bulkApplySequential').onclick = applySequentialSchedule;
             document.getElementById('bulkSubmit').onclick = submitBulkSchedule;
