@@ -3,9 +3,15 @@
 require_once '../cors.php';
 require_once '../db.php';
 require_once '../jwt_helper.php';
+require_once '../users/bootstrap.php';
 
 // Load .env manually if needed, or use hardcoded secret for now (User should set env var in hosting)
 $SECRET_KEY = getenv('JWT_SECRET') ?: 'secret_key_change_me';
+$ROLES = bootstrap_roles();
+
+// Ensure schema and seed default admin to avoid lockouts if install.php was skipped
+ensure_users_schema($pdo, $ROLES);
+ensure_admin_exists($pdo);
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $input = json_decode(file_get_contents('php://input'), true);
