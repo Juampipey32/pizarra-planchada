@@ -1,2097 +1,660 @@
 <!DOCTYPE html>
 <html lang="es">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pizarra Logística</title>
-    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
-    <link rel="stylesheet" href="/css/tailwind-lite.css">
-    <script src="https://unpkg.com/lucide@latest"></script>
+    <title>Pizarra Logística - Dashboard</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- SortableJS para Drag & Drop -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.css"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
+    <!-- SweetAlert2 -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
     <style>
-        /* Custom scrollbar for better look */
-        ::-webkit-scrollbar {
-            width: 8px;
-            height: 8px;
+        /* Estilos personalizados para complementar Tailwind */
+        .kanban-col {
+            min-height: 200px; /* Altura mínima para permitir soltar items en columnas vacías */
+            transition: background-color 0.2s;
         }
-
-        ::-webkit-scrollbar-track {
-            background: #f1f5f9;
+        .kanban-col.sortable-drag-over {
+            background-color: #f3f4f6; /* bg-gray-100 */
         }
-
-        ::-webkit-scrollbar-thumb {
-            background: #cbd5e1;
-            border-radius: 4px;
+        .card-item {
+            touch-action: manipulation; /* Mejorar tactil */
+            cursor: grab;
         }
-
-        ::-webkit-scrollbar-thumb:hover {
-            background: #94a3b8;
+        .card-item:active {
+            cursor: grabbing;
         }
+        /* Ocultar scrollbar pero permitir scroll */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+        /* Loader */
+        #loader {
+            position: fixed; top:0; left:0; width:100%; height:100%;
+            background: rgba(255,255,255,0.9); z-index: 9999;
+            display: flex; justify-content: center; align-items: center;
+        }
+        /* Clases para estados visuales */
+        .status-planned { border-left: 4px solid #3b82f6; } /* Blue */
+        .status-loaded { border-left: 4px solid #22c55e; } /* Green */
+        .status-issue { border-left: 4px solid #ef4444; } /* Red */
+        
+        /* Solo lectura (Planchada) */
+        .readonly-mode .card-item { cursor: default !important; }
+        .readonly-mode .action-btn { display: none !important; }
     </style>
 </head>
+<body class="bg-slate-100 text-slate-800 h-screen flex flex-col overflow-hidden">
 
-<body class="bg-slate-100 h-screen flex flex-col font-sans text-slate-900 overflow-hidden">
+    <!-- Loader -->
+    <div id="loader">
+        <div class="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600"></div>
+    </div>
 
     <!-- Header -->
-    <header class="bg-white border-b border-slate-200 px-4 py-3 flex justify-between items-center shadow-sm z-40">
-        <div class="flex items-center gap-2">
-            <div class="bg-blue-600 p-1.5 rounded text-white shadow-lg shadow-blue-200">
-                <i data-lucide="truck" class="w-5 h-5"></i>
-            </div>
-            <h1 class="text-lg font-bold text-slate-800 hidden md:block">Logística <span
-                    class="text-blue-600">Pro</span></h1>
-        </div>
+    <header class="bg-white shadow-sm z-10 shrink-0">
+        <div class="max-w-full mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <div class="flex items-center gap-4">
+                    <div class="flex-shrink-0 flex items-center gap-2 text-blue-600">
+                        <i class="fa-solid fa-truck-ramp-box text-2xl"></i>
+                        <span class="font-bold text-xl tracking-tight hidden sm:block">LOGÍSTICA COSALTA</span>
+                    </div>
+                    <!-- Date Picker -->
+                    <div class="flex items-center bg-slate-100 rounded-lg p-1">
+                        <button id="prevDayBtn" class="p-2 hover:bg-white rounded-md text-slate-500 transition-colors"><i class="fa-solid fa-chevron-left"></i></button>
+                        <input type="date" id="currentDate" class="bg-transparent border-0 focus:ring-0 text-sm font-medium text-slate-700 w-32 text-center">
+                        <button id="nextDayBtn" class="p-2 hover:bg-white rounded-md text-slate-500 transition-colors"><i class="fa-solid fa-chevron-right"></i></button>
+                    </div>
+                </div>
+                
+                <div class="flex items-center gap-3">
+                    <span id="userInfo" class="text-sm font-medium text-slate-600 hidden md:block">Cargando...</span>
+                    
+                    <!-- Admin Controls (Ocultos por defecto) -->
+                    <div id="adminControls" class="hidden flex gap-2">
+                        <button onclick="openModal()" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg text-sm font-medium shadow-sm transition-all flex items-center gap-2">
+                            <i class="fa-solid fa-plus"></i> <span class="hidden sm:inline">Nuevo</span>
+                        </button>
+                        <div class="relative group">
+                            <button class="bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 px-3 py-2 rounded-lg text-sm font-medium shadow-sm transition-all">
+                                <i class="fa-solid fa-gear"></i>
+                            </button>
+                            <div class="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 hidden group-hover:block border border-slate-100">
+                                <a href="admin-users.html" class="block px-4 py-2 text-sm text-slate-700 hover:bg-slate-100">Usuarios</a>
+                                <a href="admin-products.html" class="block px-4 py-2 text-sm text-slate-700 hover:bg-slate-100">Productos</a>
+                            </div>
+                        </div>
+                    </div>
 
-        <div class="flex items-center bg-slate-100 rounded-lg p-0.5 border border-slate-200 shadow-inner">
-            <button id="prevDay" class="p-1.5 hover:bg-white rounded transition text-slate-500"><i
-                    data-lucide="chevron-left" class="w-4 h-4"></i></button>
-            <div
-                class="flex items-center gap-2 px-4 py-1 min-w-[180px] justify-center font-semibold text-sm text-slate-700">
-                <i data-lucide="calendar" class="w-3 h-3 text-blue-500"></i>
-                <span id="currentDateDisplay" class="capitalize">Hoy</span>
+                    <button onclick="logout()" class="text-slate-400 hover:text-red-500 p-2 transition-colors" title="Cerrar Sesión">
+                        <i class="fa-solid fa-arrow-right-from-bracket text-lg"></i>
+                    </button>
+                </div>
             </div>
-            <button id="nextDay" class="p-1.5 hover:bg-white rounded transition text-slate-500"><i
-                    data-lucide="chevron-right" class="w-4 h-4"></i></button>
-        </div>
-
-        <div class="flex items-center gap-2">
-            <span id="userRoleDisplay" class="text-xs font-bold px-2 py-1 rounded bg-slate-200 text-slate-600 uppercase"></span>
-            <button id="bulkUploadBtn" class="hidden text-xs font-bold px-3 py-1.5 rounded bg-green-100 text-green-700 border border-green-200 hover:bg-green-200 transition flex items-center gap-1"
-                title="Carga Masiva">
-                <i data-lucide="upload" class="w-4 h-4"></i>
-                Carga Masiva
-            </button>
-            <a id="adminLink" href="/admin-products.html" class="hidden text-xs font-bold px-2 py-1 rounded bg-amber-100 text-amber-700 border border-amber-200">Productos</a>
-            <a id="adminUsersLink" href="/admin-users.html" class="hidden text-xs font-bold px-2 py-1 rounded bg-blue-100 text-blue-700 border border-blue-200">Usuarios</a>
-            <button id="logoutBtn" class="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-full transition"
-                title="Cerrar Sesion">
-                <i data-lucide="log-out" class="w-5 h-5"></i>
-            </button>
         </div>
     </header>
 
-    <!-- Main Grid -->
-    <main class="flex-1 overflow-auto relative" id="mainContainer">
-        <div class="min-w-[800px] h-full">
-            <!-- Grid Header (Resources) -->
-            <div class="grid grid-cols-[60px_repeat(5,1fr)] sticky top-0 z-30 bg-slate-50 border-b border-slate-200 shadow-sm"
-                id="gridHeader">
-                <div class="p-3 border-r border-slate-200 flex justify-center items-center">
-                    <i data-lucide="clock" class="w-4 h-4 text-slate-300"></i>
-                </div>
-                <!-- Resources injected by JS -->
-            </div>
-
-            <!-- Grid Body (Time Slots) -->
-            <div class="pb-20" id="gridBody">
-                <!-- Slots injected by JS -->
-            </div>
+    <!-- Main Board Area -->
+    <main class="flex-1 overflow-x-auto overflow-y-hidden p-4">
+        <div class="h-full flex gap-4 min-w-max" id="boardContainer">
+            <!-- Columns will be injected here by JS -->
         </div>
     </main>
 
-    <!-- Booking Modal (Create) -->
-    <div id="bookingModal"
-        class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50 p-4 backdrop-blur-sm overflow-y-auto">
-        <div
-            class="bg-white rounded-xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-hidden animate-in fade-in zoom-in duration-200 my-auto">
-            <div class="bg-blue-600 p-4 flex justify-between items-center text-white sticky top-0 z-10">
-                <h3 class="font-bold text-lg flex items-center gap-2"><i data-lucide="plus" class="w-5 h-5"></i> Nueva
-                    Carga</h3>
-                <button onclick="closeModal('bookingModal')"><i data-lucide="x" class="w-6 h-6"></i></button>
+    <!-- Create/Edit Booking Modal -->
+    <div id="bookingModal" class="fixed inset-0 bg-black/50 hidden z-50 flex items-center justify-center backdrop-blur-sm">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg mx-4 flex flex-col max-h-[90vh]">
+            <div class="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50 rounded-t-xl">
+                <h3 class="text-lg font-bold text-slate-800" id="modalTitle">Nuevo Pedido</h3>
+                <button onclick="closeModal()" class="text-slate-400 hover:text-slate-600 transition-colors">
+                    <i class="fa-solid fa-xmark text-xl"></i>
+                </button>
             </div>
-            <div class="p-6 overflow-y-auto max-h-[calc(90vh-80px)]">
-                <!-- Tabs -->
-                <div class="flex border-b border-slate-200 mb-4" id="modalTabs">
-                    <button onclick="setModalMode('drop')"
-                        class="flex-1 pb-2 text-sm font-medium text-blue-600 border-b-2 border-blue-600"
-                        id="tabDrop">Subir PDF</button>
-                    <button onclick="setModalMode('manual')" class="flex-1 pb-2 text-sm font-medium text-slate-400"
-                        id="tabManual">Manual</button>
-                </div>
-
-                <!-- Drop Zone -->
-                <div id="modeDrop" class="space-y-4">
-                    <div id="dropZone"
-                        class="border-2 border-dashed border-slate-300 rounded-xl h-40 flex flex-col items-center justify-center transition-all cursor-pointer relative hover:border-blue-500 hover:bg-blue-50">
-                        <input type="file" id="pdfInput" accept=".pdf"
-                            class="absolute inset-0 w-full h-full opacity-0 cursor-pointer">
-                        <div id="dropContent" class="text-center text-slate-500">
-                            <i data-lucide="upload-cloud" class="w-8 h-8 mx-auto mb-2"></i>
-                            Arrastra PDF aquí
-                        </div>
-                        <div id="uploadingSpinner" class="hidden animate-pulse text-blue-600 font-bold">Procesando...
-                        </div>
+            
+            <form id="bookingForm" class="p-6 overflow-y-auto space-y-4">
+                <input type="hidden" id="bookingId">
+                
+                <!-- Cliente Search -->
+                <div>
+                    <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Cliente</label>
+                    <div class="relative">
+                        <i class="fa-solid fa-user absolute left-3 top-3 text-slate-400"></i>
+                        <input type="text" id="clientName" required
+                            class="w-full pl-10 pr-4 py-2 rounded-lg border-slate-200 focus:border-blue-500 focus:ring-blue-500 text-sm"
+                            placeholder="Buscar o escribir nombre...">
                     </div>
                 </div>
 
-                <!-- Manual Form -->
-                <form id="bookingForm" class="space-y-4 hidden">
-                    <input type="hidden" id="newResourceId">
-                    <input type="hidden" id="newTimeSlotHour">
-                    <input type="hidden" id="newTimeSlotMinute">
-
-                    <div class="grid grid-cols-2 gap-4">
-                        <div>
-                            <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Hora</label>
-                            <div id="timeSlotDisplay" class="text-sm bg-slate-100 p-2 rounded font-mono font-bold text-slate-700">--:--</div>
-                        </div>
-                        <div>
-                            <label class="block text-xs font-bold text-slate-500 uppercase mb-1">
-                                Carga (Kg)
-                                <span id="kgBadge" class="hidden ml-1 text-[10px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-full font-normal">Auto</span>
-                            </label>
-                            <input type="number" id="newKg" class="w-full p-2 border border-slate-300 rounded text-sm font-bold" placeholder="0">
-                        </div>
-                    </div>
-                    <div>
-                        <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Cliente</label>
-                        <input type="text" id="newClient" required class="w-full p-2 border border-slate-300 rounded text-sm font-semibold">
-                    </div>
-                    <div class="grid grid-cols-2 gap-2">
-                        <div>
-                            <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Cod Cliente</label>
-                            <input type="text" id="newClientCode" class="w-full p-2 border border-slate-300 rounded text-sm font-mono" placeholder="C4099">
-                        </div>
-                        <div>
-                            <label class="block text-xs font-bold text-slate-500 uppercase mb-1">N° Pedido</label>
-                            <input type="text" id="newOrderNumber" class="w-full p-2 border border-slate-300 rounded text-sm font-mono" placeholder="918.284">
-                        </div>
-                    </div>
-
-                    <!-- Products Table -->
-                    <div id="productsSection" class="hidden">
-                        <div class="flex items-center justify-between mb-2">
-                            <label class="block text-xs font-bold text-slate-500 uppercase flex items-center gap-2">
-                                Productos
-                                <span id="productCount" class="text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full font-normal">0</span>
-                            </label>
-                            <button type="button" onclick="addProductRow()" class="text-xs text-blue-600 hover:text-blue-700 font-bold flex items-center gap-1 transition-colors">
-                                <i data-lucide="plus-circle" class="w-3.5 h-3.5"></i> Agregar
-                            </button>
-                        </div>
-                        <div class="border border-slate-200 rounded-lg overflow-hidden max-h-48 overflow-y-auto shadow-sm">
-                            <table class="w-full text-xs">
-                                <thead class="bg-gradient-to-r from-slate-50 to-slate-100 sticky top-0">
-                                    <tr class="text-left border-b border-slate-200">
-                                        <th class="p-2 font-bold text-slate-600 w-20">Código</th>
-                                        <th class="p-2 font-bold text-slate-600 w-16 text-right">Cant.</th>
-                                        <th class="p-2 font-bold text-slate-600 w-14 text-right">Coef.</th>
-                                        <th class="p-2 font-bold text-slate-600 w-20 text-right">Kg</th>
-                                        <th class="p-2 w-8"></th>
-                                    </tr>
-                                </thead>
-                                <tbody id="productsTableBody" class="divide-y divide-slate-100 bg-white">
-                                    <!-- Products will be inserted here -->
-                                </tbody>
-                            </table>
-                        </div>
-                        <div class="mt-2 flex justify-between items-center bg-gradient-to-r from-blue-50 to-blue-100 p-3 rounded-lg border border-blue-200">
-                            <span class="text-xs font-bold text-slate-700">TOTAL:</span>
-                            <span id="totalKgDisplay" class="text-base font-bold text-blue-700">0 kg</span>
-                        </div>
-                    </div>
-
-                    <!-- Observaciones -->
-                    <div>
-                        <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Observaciones (opcional)</label>
-                        <textarea id="newObservations"
-                            class="w-full p-2 border border-slate-300 rounded h-16 text-sm resize-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                            placeholder="Notas adicionales para la carga..."></textarea>
-                    </div>
-
-                    <div class="bg-gradient-to-br from-slate-50 to-slate-100 p-3 rounded-lg grid grid-cols-2 gap-4 border border-slate-200">
-                        <div>
-                            <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Tiempo</label>
-                            <select id="newDuration" class="w-full p-2 border border-slate-300 rounded text-sm font-semibold focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                                <option value="30">30m</option>
-                                <option value="60">1h</option>
-                                <option value="90">1h 30m</option>
-                                <option value="120">2h</option>
-                                <option value="150">2h 30m</option>
-                                <option value="180">3h</option>
-                                <option value="240">4h</option>
-                                <option value="300">5h</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Prioridad</label>
-                            <select id="newColor" class="w-full p-2 border border-slate-300 rounded text-sm font-semibold focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                                <option value="blue">🔵 Normal</option>
-                                <option value="red">🔴 Urgente</option>
-                                <option value="green">🟢 Lista</option>
-                                <option value="orange">🟠 Espera</option>
-                            </select>
-                        </div>
-                    </div>
-                    <button type="submit"
-                        class="w-full bg-gradient-to-r from-blue-600 to-blue-700 text-white font-bold py-3 rounded-lg hover:from-blue-700 hover:to-blue-800 transition-all shadow-md hover:shadow-lg">
-                        <span class="flex items-center justify-center gap-2">
-                            <i data-lucide="check-circle" class="w-4 h-4"></i>
-                            Confirmar Carga
-                        </span>
-                    </button>
-                </form>
-            </div>
-        </div>
-    </div>
-
-    <!-- Bulk Upload Modal -->
-    <div id="bulkModal" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50 p-4 backdrop-blur-sm overflow-y-auto">
-        <div class="bg-white rounded-xl shadow-2xl w-full max-w-5xl max-h-[90vh] overflow-hidden animate-in fade-in zoom-in duration-200 my-auto">
-            <div class="bg-emerald-600 p-4 flex justify-between items-center text-white sticky top-0 z-10">
-                <h3 class="font-bold text-lg flex items-center gap-2"><i data-lucide="rows" class="w-5 h-5"></i> Carga masiva de pedidos</h3>
-                <button onclick="closeModal('bulkModal')"><i data-lucide="x" class="w-6 h-6"></i></button>
-            </div>
-            <div class="p-6 space-y-4 overflow-y-auto max-h-[calc(90vh-80px)]">
-                <div class="flex flex-col gap-2">
-                    <p class="text-sm text-slate-600">Fecha seleccionada: <span id="bulkDateDisplay" class="font-semibold text-slate-900"></span></p>
-                    <div class="border-2 border-dashed border-emerald-200 rounded-lg p-4 flex flex-col md:flex-row md:items-center md:justify-between gap-3 bg-emerald-50">
-                        <div class="flex items-center gap-3">
-                            <i data-lucide="file-spreadsheet" class="w-10 h-10 text-emerald-600"></i>
-                            <div>
-                                <p class="font-bold text-slate-800">Sube el Excel de pedidos</p>
-                                <p class="text-xs text-slate-600">Formato .xlsx como el reporte de la suite</p>
-                            </div>
-                        </div>
-                        <div class="flex items-center gap-2">
-                            <div id="bulkUploadSpinner" class="hidden text-emerald-700 font-bold animate-pulse">Procesando...</div>
-                            <label for="bulkFileInput" class="cursor-pointer bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold px-4 py-2 rounded-lg shadow">Seleccionar archivo</label>
-                            <input type="file" id="bulkFileInput" accept=".xlsx" class="hidden">
-                        </div>
-                    </div>
-                    <div id="bulkStatus" class="text-xs text-slate-500"></div>
-                </div>
-
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 bg-slate-50 border border-slate-200 rounded-lg p-4">
-                    <div>
-                        <label class="block text-xs font-bold text-slate-600 uppercase mb-1">Hora base</label>
-                        <input type="time" id="bulkBaseTime" list="bulkBaseOptions" step="1800" min="04:00" max="20:00"
-                            class="w-full p-2 border border-slate-300 rounded text-sm">
-                        <datalist id="bulkBaseOptions"></datalist>
-                    </div>
-                    <div>
-                        <label class="block text-xs font-bold text-slate-600 uppercase mb-1">Recurso</label>
-                        <select id="bulkResourceSelect" class="w-full p-2 border border-slate-300 rounded text-sm font-semibold text-slate-800"></select>
-                    </div>
-                    <div class="flex items-end">
-                        <button type="button" id="bulkApplySequential" class="w-full bg-slate-900 text-white py-2 rounded-lg font-bold hover:bg-slate-800 transition">
-                            Asignar horarios secuenciales
-                        </button>
-                    </div>
-                </div>
-
-                <div class="border border-slate-200 rounded-lg overflow-hidden shadow-sm">
-                    <div class="bg-slate-50 px-4 py-2 flex items-center justify-between">
-                        <div class="text-sm text-slate-700 font-semibold">Pedidos detectados</div>
-                        <div id="bulkSummary" class="text-xs text-slate-500"></div>
-                    </div>
-                    <div class="overflow-x-auto max-h-[40vh]">
-                        <table class="w-full text-xs">
-                            <thead class="bg-slate-100 text-slate-600 sticky top-0">
-                                <tr class="text-left">
-                                    <th class="p-2 w-16">Programar</th>
-                                    <th class="p-2">Pedido</th>
-                                    <th class="p-2">Cliente</th>
-                                    <th class="p-2 text-right">Kg</th>
-                                    <th class="p-2 text-right">Duración</th>
-                                    <th class="p-2">Recurso</th>
-                                    <th class="p-2">Hora</th>
-                                </tr>
-                            </thead>
-                            <tbody id="bulkTableBody" class="divide-y divide-slate-100 bg-white">
-                                <tr id="bulkEmptyRow">
-                                    <td colspan="7" class="p-4 text-center text-slate-400">Sube un Excel para ver los pedidos</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-
-                <div class="flex items-center justify-end gap-2">
-                    <button type="button" onclick="closeModal('bulkModal')" class="px-4 py-2 rounded border border-slate-200 text-slate-600 bg-white">Cancelar</button>
-                    <button type="button" id="bulkSubmit" class="px-5 py-2 rounded bg-emerald-600 text-white font-bold hover:bg-emerald-700 shadow">Crear horarios</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Edit Modal -->
-    <div id="editModal" class="fixed inset-0 bg-black/60 hidden items-center justify-center z-50 p-4 backdrop-blur-sm overflow-y-auto">
-        <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-hidden animate-in zoom-in duration-200 my-auto">
-            <div class="bg-slate-800 p-4 flex justify-between items-center text-white sticky top-0 z-10">
-                <h3 class="font-bold text-lg flex items-center gap-2"><i data-lucide="edit-2" class="w-4 h-4"></i>
-                    Editar Carga</h3>
-                <button onclick="closeModal('editModal')"><i data-lucide="x" class="w-6 h-6"></i></button>
-            </div>
-            <form id="editForm" class="p-6 space-y-4 overflow-y-auto max-h-[calc(90vh-80px)]">
-                <input type="hidden" id="editId">
                 <div class="grid grid-cols-2 gap-4">
-                    <div><label class="block text-xs font-bold text-slate-500 uppercase mb-1">Cliente</label><input
-                            type="text" id="editClient" class="w-full p-2 border border-slate-300 rounded font-bold">
+                     <div>
+                        <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Cód. Cliente</label>
+                        <input type="text" id="clientCode" class="w-full px-3 py-2 rounded-lg border-slate-200 text-sm">
                     </div>
-                    <div><label class="block text-xs font-bold text-slate-500 uppercase mb-1">Carga (Kg)</label><input
-                            type="number" id="editKg" class="w-full p-2 border border-slate-300 rounded"></div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">N° Pedido</label>
+                        <input type="text" id="orderNumber" class="w-full px-3 py-2 rounded-lg border-slate-200 text-sm">
+                    </div>
                 </div>
+
                 <div class="grid grid-cols-2 gap-4">
-                    <div><label class="block text-xs font-bold text-slate-500 uppercase mb-1">Cod Cliente</label><input
-                            type="text" id="editClientCode" class="w-full p-2 border border-slate-300 rounded"></div>
-                    <div><label class="block text-xs font-bold text-slate-500 uppercase mb-1">N° Pedido</label><input
-                            type="text" id="editOrderNumber" class="w-full p-2 border border-slate-300 rounded"></div>
-                </div>
-                <div><label class="block text-xs font-bold text-slate-500 uppercase mb-1">Detalle</label><textarea
-                        id="editDescription" class="w-full p-2 border border-slate-300 rounded text-sm h-16"></textarea>
-                </div>
-
-                <div class="grid grid-cols-2 gap-4 bg-slate-50 p-3 rounded border border-slate-200">
                     <div>
-                        <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Duración</label>
-                        <select id="editDuration"
-                            class="w-full p-2 border border-blue-200 rounded font-bold text-blue-900">
-                            <option value="30">30m</option>
-                            <option value="60">1h</option>
-                            <option value="90">1h 30m</option>
-                            <option value="120">2h</option>
-                            <option value="150">2h 30m</option>
-                            <option value="180">3h</option>
-                            <option value="240">4h</option>
-                            <option value="300">5h</option>
-                        </select>
+                        <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Hora Inicio</label>
+                        <input type="time" id="startTime" required class="w-full px-3 py-2 rounded-lg border-slate-200 text-sm">
                     </div>
                     <div>
-                        <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Prioridad</label>
-                        <select id="editColor" class="w-full p-2 border border-slate-300 rounded">
-                            <option value="blue">Normal</option>
-                            <option value="red">Urgente</option>
-                            <option value="green">Lista</option>
-                            <option value="orange">Espera</option>
-                        </select>
+                        <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Duración (min)</label>
+                        <input type="number" id="duration" required min="15" step="15" value="30" 
+                            class="w-full px-3 py-2 rounded-lg border-slate-200 text-sm">
                     </div>
                 </div>
 
-                <!-- Real Time Controls -->
-                <div class="border-t-2 border-slate-100 pt-4 mt-2">
-                    <h4 class="text-sm font-bold text-slate-700 mb-3 flex items-center gap-2"><i data-lucide="clock"
-                            class="w-4 h-4 text-slate-400"></i> Horario Real de Operación</h4>
-                    <div class="grid grid-cols-2 gap-4">
-                        <div>
-                            <label class="block text-xs font-bold text-green-600 uppercase mb-1 flex items-center gap-1">
-                                <i data-lucide="log-in" class="w-3 h-3"></i> Hora Llegada
-                            </label>
-                            <input type="time" id="editRealStartTime" list="editTimeOptions" step="1800" min="04:00"
-                                max="20:00" class="w-full p-2 border border-green-200 bg-green-50 rounded font-mono text-sm">
-                            <datalist id="editTimeOptions"></datalist>
-                        </div>
-                        <div>
-                            <label class="block text-xs font-bold text-blue-600 uppercase mb-1 flex items-center gap-1">
-                                <i data-lucide="log-out" class="w-3 h-3"></i> Hora Salida (auto)
-                            </label>
-                            <input type="text" id="editRealEndTimeDisplay" readonly
-                                class="w-full p-2 border border-blue-200 bg-blue-50 rounded font-mono text-sm text-slate-500"
-                                placeholder="Se calcula automático">
-                            <input type="hidden" id="editRealEndTime">
-                        </div>
-                    </div>
-                    <p class="text-xs text-slate-500 mt-2 italic">
-                        💡 La hora de salida se calcula automáticamente sumando la duración a la hora de llegada
-                    </p>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Recurso (Puerta)</label>
+                    <select id="resourceSelect" class="w-full px-3 py-2 rounded-lg border-slate-200 text-sm bg-white">
+                        <!-- Options filled by JS -->
+                    </select>
                 </div>
 
-                <div class="flex gap-2 pt-2">
-                    <button type="button" id="deleteBtn"
-                        class="px-4 py-2 text-red-500 hover:bg-red-50 border border-red-200 rounded">Eliminar</button>
-                    <button type="submit"
-                        class="flex-1 bg-slate-900 text-white font-bold py-2 rounded shadow hover:bg-slate-800">Guardar
-                        Cambios</button>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Kilos (kg)</label>
+                        <input type="number" id="kg" step="0.01" class="w-full px-3 py-2 rounded-lg border-slate-200 text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Color Etiqueta</label>
+                        <div class="flex gap-2 mt-1">
+                            <button type="button" onclick="selectColor('blue')" class="w-6 h-6 rounded-full bg-blue-500 hover:ring-2 ring-offset-1 ring-blue-500 color-opt" data-color="blue"></button>
+                            <button type="button" onclick="selectColor('green')" class="w-6 h-6 rounded-full bg-green-500 hover:ring-2 ring-offset-1 ring-green-500 color-opt" data-color="green"></button>
+                            <button type="button" onclick="selectColor('red')" class="w-6 h-6 rounded-full bg-red-500 hover:ring-2 ring-offset-1 ring-red-500 color-opt" data-color="red"></button>
+                            <button type="button" onclick="selectColor('purple')" class="w-6 h-6 rounded-full bg-purple-500 hover:ring-2 ring-offset-1 ring-purple-500 color-opt" data-color="purple"></button>
+                            <input type="hidden" id="selectedColor" value="blue">
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Detalles / Carga</label>
+                    <textarea id="description" rows="3" class="w-full px-3 py-2 rounded-lg border-slate-200 text-sm resize-none"></textarea>
                 </div>
             </form>
+            
+            <div class="px-6 py-4 bg-slate-50 border-t border-slate-100 flex justify-between rounded-b-xl">
+                 <button type="button" id="deleteBtn" onclick="deleteBooking()" class="hidden text-red-600 hover:bg-red-50 px-4 py-2 rounded-lg text-sm font-medium transition-colors">
+                    <i class="fa-solid fa-trash mr-1"></i> Eliminar
+                </button>
+                <div class="flex gap-3 ml-auto">
+                    <button type="button" onclick="closeModal()" class="text-slate-600 hover:bg-slate-200 px-4 py-2 rounded-lg text-sm font-medium transition-colors">Cancelar</button>
+                    <button type="button" onclick="saveBooking()" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg text-sm font-medium shadow-sm transition-all transform active:scale-95">Guardar</button>
+                </div>
+            </div>
         </div>
     </div>
 
-    <!-- Logic -->
+    <!-- JS Logic -->
     <script>
-        // Constants
+        // CONFIGURACIÓN
+        const API_URL = '/api/bookings'; 
+        // Definición de Recursos (Puertas)
         const RESOURCES = [
-            { id: 'p1', name: 'Puerta 1', type: 'dock' },
-            { id: 'p2', name: 'Puerta 2', type: 'dock' },
-            { id: 'p3', name: 'Puerta 3', type: 'dock' },
-            { id: 'p4', name: 'Puerta 4', type: 'dock' },
-            { id: 'sampi', name: 'Sampi', type: 'machinery' },
+            { id: 'PENDIENTE', name: '📦 PENDIENTE', color: 'bg-yellow-50' }, // Bandeja de entrada
+            { id: '1', name: 'Puerta 1', color: 'bg-slate-50' },
+            { id: '2', name: 'Puerta 2', color: 'bg-slate-50' },
+            { id: '3', name: 'Puerta 3', color: 'bg-slate-50' },
+            { id: '4', name: 'Puerta 4', color: 'bg-slate-50' },
+            { id: '5', name: 'Puerta 5', color: 'bg-slate-50' },
+            { id: 'sampi', name: '🏭 SAMPI', color: 'bg-purple-50' } // Recurso especial
         ];
-        const START_HOUR = 4;
-        const END_HOUR = 20;
-        const formatKg = (kg) => {
-            if (!kg || Number.isNaN(kg)) return '';
-            const val = Math.round(parseFloat(kg) * 100) / 100;
-            return `${val}kg`;
-        };
-        const SLOT_STEP = 30; // minutes
-        const SAMPI_CODES = ['1011', '1015', '1016'];
-        const SAMPI_THRESHOLD = 648;
-        let productMap = {};
-        let currentProducts = []; // Products for current booking
-        var bulkOrders = [];
 
-        const resourceOptions = (selectedValue = '') => {
-            return RESOURCES.map(r => `<option value="${r.id}" ${r.id === selectedValue ? 'selected' : ''}>${r.name}</option>`).join('');
-        };
-
-        const minutesToTimeLabel = (minutes) => {
-            const h = Math.floor(minutes / 60);
-            const m = minutes % 60;
-            return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
-        };
-
-        const timeLabelToMinutes = (label) => {
-            if (!label) return null;
-            const [h, m] = label.split(':').map(Number);
-            if (Number.isNaN(h) || Number.isNaN(m)) return null;
-            return (h * 60) + m;
-        };
-
-        const getBusyIntervals = (resourceId, ignoreBookingId = null, ignoreOrderIndex = null) => {
-            const intervals = bookings
-                .filter(b => b.resourceId === resourceId && b.id !== ignoreBookingId)
-                .map(b => ({
-                    start: (b.startTimeHour * 60) + b.startTimeMinute,
-                    end: (b.startTimeHour * 60) + b.startTimeMinute + (b.duration || 0)
-                }));
-
-            bulkOrders.forEach((order, idx) => {
-                if (!order || !order.scheduled || order.resourceId !== resourceId || idx === ignoreOrderIndex) return;
-                const startMinutes = timeLabelToMinutes(order.startTime);
-                if (startMinutes === null) return;
-                const orderDuration = order.duration || suggestDuration(order.kg);
-                intervals.push({ start: startMinutes, end: startMinutes + orderDuration });
-            });
-
-            return intervals;
-        };
-
-        const isRangeFree = (start, duration, intervals) => {
-            if (start === null || Number.isNaN(start) || Number.isNaN(duration)) return false;
-            const end = start + duration;
-            if (end > END_HOUR * 60) return false;
-            return intervals.every(({ start: s, end: e }) => end <= s || start >= e);
-        };
-
-        const getAvailableSlots = (resourceId, duration, ignoreOrderIndex = null, ignoreBookingId = null) => {
-            if (!resourceId) return [];
-            const intervals = getBusyIntervals(resourceId, ignoreBookingId, ignoreOrderIndex);
-            const slots = [];
-            for (let t = START_HOUR * 60; t + duration <= END_HOUR * 60; t += SLOT_STEP) {
-                if (isRangeFree(t, duration, intervals)) slots.push(minutesToTimeLabel(t));
-            }
-            return slots;
-        };
-
-        // State
-        let currentDate = new Date();
+        // ESTADO GLOBAL
+        let currentUser = null;
+        let currentDate = new Date().toISOString().split('T')[0];
         let bookings = [];
-        let editingBooking = null;
-        const rawRole = localStorage.getItem('role');
-        const normalizeRole = (role) => {
-            switch ((role || '').toUpperCase()) {
-                case 'ADMIN':
-                    return 'ADMIN';
-                case 'VENTAS':
-                    return 'VENTAS';
-                case 'PLANCHADA':
-                    return 'PLANCHADA';
-                default:
-                    return 'PLANCHADA';
-            }
-        };
-        let userRole = normalizeRole(rawRole);
-        const isLegacyPlanchada = (rawRole || '').toUpperCase() === 'PLANCHADA';
-        const canCreate = ['ADMIN', 'VENTAS'].includes(userRole);
-        const canEditAll = userRole === 'ADMIN';
-        const canEdit = ['ADMIN', 'VENTAS'].includes(userRole);
-        const isReadOnly = userRole === 'PLANCHADA';
-        let token = localStorage.getItem('token');
+        let sortables = [];
 
-        async function loadProductCoefficients() {
+        // Helper para redirección segura (evita errores en entornos de vista previa)
+        function redirectToLogin() {
             try {
-                const res = await fetch('/api/products', { headers: { 'Authorization': `Bearer ${token}` } });
-                if (!res.ok) return;
-                const data = await res.json();
-                productMap = {};
-                data.forEach(p => { productMap[p.code] = parseFloat(p.coefficient); });
-            } catch (_) {
-                // ignore, we fall back to coef 1
-            }
-        }
-
-        function suggestDuration(kgTotal) {
-            if (!kgTotal || kgTotal <= 0) return 30;
-            const minutes = Math.ceil(((kgTotal / 2000) * 60) / 30) * 30;
-            return Math.max(30, minutes);
-        }
-
-        const calculateSampiInfoFromOrder = (order) => {
-            const backendInfo = order.sampiInfo || {};
-            if (backendInfo && typeof backendInfo === 'object' && backendInfo.needsSampi !== undefined) {
-                const cloned = { ...backendInfo };
-                if (cloned.needsSampi) {
-                    cloned.sampiDuration = cloned.sampiDuration || suggestDuration(cloned.sampiKg || 0);
-                    cloned.regularDuration = cloned.regularDuration || suggestDuration(cloned.regularKg || 0);
-                }
-                return cloned;
-            }
-
-            const items = order.items || [];
-            const totalKg = order.kg || items.reduce((sum, item) => sum + (parseFloat(item.kg) || 0), 0);
-            let sampiKg = 0;
-            const codes = new Set();
-
-            items.forEach(item => {
-                const rawCode = String(item.code || '').toUpperCase();
-                const numericCode = rawCode.replace(/[^0-9]/g, '');
-                if (SAMPI_CODES.includes(rawCode) || SAMPI_CODES.includes(numericCode)) {
-                    sampiKg += parseFloat(item.kg) || 0;
-                    codes.add(rawCode || numericCode);
-                }
-            });
-
-            sampiKg = Math.round(sampiKg * 100) / 100;
-            const regularKg = Math.round(Math.max(totalKg - sampiKg, 0) * 100) / 100;
-
-            return {
-                needsSampi: sampiKg > SAMPI_THRESHOLD,
-                sampiKg,
-                regularKg,
-                sampiDuration: sampiKg > 0 ? suggestDuration(sampiKg) : null,
-                regularDuration: regularKg > 0 ? suggestDuration(regularKg) : null,
-                sampiCodes: Array.from(codes)
-            };
-        };
-
-        const expandBulkOrders = (parsedOrders) => {
-            const expanded = [];
-            parsedOrders.forEach(order => {
-                const sampiInfo = calculateSampiInfoFromOrder(order);
-                const base = {
-                    ...order,
-                    part: 'single',
-                    forceResource: order.forceResource || null,
-                    startTime: '',
-                    resourceId: order.forceResource || order.resourceId || '',
-                    scheduled: false
-                };
-
-                if (sampiInfo.needsSampi) {
-                    const regularKg = sampiInfo.regularKg || 0;
-                    if (regularKg > 0) {
-                        expanded.push({
-                            ...base,
-                            part: 'regular',
-                            kg: regularKg,
-                            duration: sampiInfo.regularDuration || suggestDuration(regularKg),
-                            description: `${order.description || ''} [Puerta]`.trim()
-                        });
+                window.location.href = 'index.html';
+            } catch (e) {
+                console.warn("No se pudo redirigir (Entorno de pruebas):", e);
+                document.getElementById('loader').style.display = 'none';
+                Swal.fire({
+                    title: 'Acceso Denegado',
+                    text: 'No hay sesión activa. En producción, esto redirigiría al Login. ¿Deseas simular un acceso Admin para probar?',
+                    icon: 'warning',
+                    confirmButtonText: 'Simular Login Admin',
+                    showCancelButton: true,
+                    cancelButtonText: 'Cerrar'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        mockLogin();
                     }
-
-                    const codeLabel = (sampiInfo.sampiCodes || []).filter(Boolean).join(', ');
-                    expanded.push({
-                        ...base,
-                        part: 'sampi',
-                        kg: sampiInfo.sampiKg || 0,
-                        duration: sampiInfo.sampiDuration || suggestDuration(sampiInfo.sampiKg || 0),
-                        forceResource: 'sampi',
-                        resourceId: 'sampi',
-                        sampiCodes: sampiInfo.sampiCodes || [],
-                        description: `${order.description || ''} [Sampi${codeLabel ? ': ' + codeLabel : ''}]`.trim()
-                    });
-                } else {
-                    expanded.push(base);
-                }
-            });
-
-            return expanded;
-        };
-
-        // PDF parsing now delegated to backend (upload.php) to avoid CDN/worker issues on hosting.
-
-        // Init
-        document.addEventListener('DOMContentLoaded', () => {
-            if (!token) window.location.href = '/index.html';
-
-            document.getElementById('userRoleDisplay').textContent = userRole;
-            const adminLink = document.getElementById('adminLink');
-            const bulkUploadBtn = document.getElementById('bulkUploadBtn');
-            // ADMIN y VENDEDOR tienen acceso completo
-            if (['ADMIN', 'VENTAS'].includes(userRole)) {
-                adminLink.classList.remove('hidden');
-                bulkUploadBtn.classList.remove('hidden');
-            }
-            const bulkResourceSelect = document.getElementById('bulkResourceSelect');
-            bulkResourceSelect.innerHTML = resourceOptions();
-            bulkResourceSelect.value = RESOURCES[0]?.id || '';
-            lucide.createIcons();
-            renderGridHeader();
-            renderGridBody();
-            loadBookings();
-            loadProductCoefficients();
-
-            // Event Listeners
-            document.getElementById('prevDay').onclick = () => changeDate(-1);
-            document.getElementById('nextDay').onclick = () => changeDate(1);
-            document.getElementById('logoutBtn').onclick = () => {
-                localStorage.clear();
-                window.location.href = '/index.html';
-            };
-
-            // Modal Events
-            document.getElementById('pdfInput').onchange = handleFileUpload;
-            document.getElementById('bookingForm').onsubmit = handleCreateBooking;
-            document.getElementById('editForm').onsubmit = handleUpdateBooking;
-            document.getElementById('deleteBtn').onclick = handleDeleteBooking;
-            document.getElementById('bulkFileInput').onchange = handleBulkFileUpload;
-            document.getElementById('bulkApplySequential').onclick = applySequentialSchedule;
-            document.getElementById('bulkSubmit').onclick = submitBulkSchedule;
-            document.getElementById('bulkResourceSelect').onchange = () => {
-                renderBaseTimeOptions();
-                renderBulkOrdersTable();
-            };
-
-            // Auto-calc duration based on kg (simple version)
-            document.getElementById('newKg').oninput = (e) => autoCalcDuration(e.target.value, 'newDuration');
-            document.getElementById('editKg').oninput = (e) => autoCalcDuration(e.target.value, 'editDuration');
-
-            // Auto-calc end time when start time changes
-            document.getElementById('editRealStartTime').onchange = (e) => handleRealStartChange(e.target.value);
-            document.getElementById('editDuration').onchange = () => handleRealStartChange(document.getElementById('editRealStartTime').value);
-        });
-
-        function changeDate(days) {
-            currentDate.setDate(currentDate.getDate() + days);
-            loadBookings();
-        }
-
-        async function loadBookings() {
-            const dateStr = currentDate.toISOString().split('T')[0];
-            document.getElementById('currentDateDisplay').textContent = currentDate.toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'long' });
-
-            try {
-                const res = await fetch(`/api/bookings?date=${dateStr}`, { headers: { 'Authorization': `Bearer ${token}` } });
-                if (res.status === 401) {
-                    localStorage.clear();
-                    window.location.href = '/index.html';
-                    return;
-                }
-                if (res.ok) {
-                    bookings = await res.json();
-                    renderGridBody(); // Re-render to place bookings
-                    renderBaseTimeOptions();
-                }
-            } catch (e) { console.error(e); }
-        }
-
-        function renderGridHeader() {
-            const header = document.getElementById('gridHeader');
-            RESOURCES.forEach(r => {
-                const div = document.createElement('div');
-                div.className = 'p-2 text-center border-r border-slate-200 last:border-r-0 bg-slate-50';
-                div.innerHTML = `<div class="font-bold text-base ${r.type === 'machinery' ? 'text-amber-700' : 'text-slate-700'}">${r.name}</div>`;
-                header.appendChild(div);
-            });
-        }
-
-        function renderGridBody() {
-            const body = document.getElementById('gridBody');
-            body.innerHTML = '';
-
-            for (let h = START_HOUR; h < END_HOUR; h++) {
-                [0, 30].forEach(m => {
-                    const row = document.createElement('div');
-                    row.className = 'grid grid-cols-[60px_repeat(5,1fr)] hover:bg-blue-50/20 group';
-
-                    // Time Label
-                    const timeLabel = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
-                    row.innerHTML = `<div class="h-[60px] flex items-center justify-center text-xs font-bold text-slate-500 border-r border-b border-slate-200 bg-white sticky left-0 z-20">${timeLabel}</div>`;
-
-                    RESOURCES.forEach(r => {
-                        const cell = document.createElement('div');
-                        cell.className = 'relative h-[60px] border-r border-b border-slate-200 last:border-r-0';
-                        cell.innerHTML = `<div class="absolute top-1/2 w-full border-t border-dotted border-slate-100"></div>`;
-
-                        // Find bookings starting here
-                        const cellBookings = bookings.filter(b => b.resourceId === r.id && b.startTimeHour === h && b.startTimeMinute === m);
-                        cellBookings.forEach(b => {
-                            const card = createBookingCard(b);
-                            cell.appendChild(card);
-                        });
-
-                        // Add Button (Admin/Vendedor can create)
-                        if (cellBookings.length === 0 && canCreate) {
-                            const btn = document.createElement('button');
-                            btn.className = 'absolute inset-0 w-full h-full opacity-0 group-hover:opacity-100 flex items-center justify-center z-0 transition';
-                            btn.innerHTML = `<div class="bg-blue-100 text-blue-600 rounded-full p-1 shadow-sm transform scale-75 hover:scale-100"><i data-lucide="plus" class="w-6 h-6"></i></div>`;
-                            btn.onclick = () => openCreateModal(r.id, h, m, timeLabel);
-                            cell.appendChild(btn);
-                        }
-
-                        row.appendChild(cell);
-                    });
-                    body.appendChild(row);
                 });
             }
-            lucide.createIcons();
         }
 
-        function createBookingCard(b) {
-            const height = (b.duration / 30) * 60;
-            const styles = {
-                blue: 'bg-blue-100 border-blue-600 text-blue-950 shadow-blue-200',
-                red: 'bg-red-100 border-red-600 text-red-950 shadow-red-200',
-                green: 'bg-green-100 border-green-600 text-green-950 shadow-green-200',
-                orange: 'bg-amber-100 border-amber-600 text-amber-950 shadow-amber-200'
-            };
-            const style = styles[b.color] || styles.blue;
+        // Mock Login para pruebas rápidas en el entorno immersive
+        function mockLogin() {
+            // Token falso pero con estructura válida para pasar el decoder
+            const header = btoa(JSON.stringify({alg: "HS256", typ: "JWT"}));
+            const payload = btoa(JSON.stringify({
+                sub: "999",
+                username: "AdminTest",
+                role: "ADMIN",
+                iat: Date.now() / 1000,
+                exp: (Date.now() / 1000) + 3600
+            }));
+            const signature = "dummy_signature";
+            const mockToken = `${header}.${payload}.${signature}`;
+            localStorage.setItem('token', mockToken);
+            window.location.reload();
+        }
 
-            // INVITADO Logic: Mask data
-            const isGuest = isReadOnly;
-            const displayClient = isGuest ? 'OCUPADO' : b.client;
-            const displayClientCode = isGuest ? '' : (b.clientCode || '');
-            const displayOrder = isGuest ? '' : (b.orderNumber || '');
-            const displayKg = b.kg > 0 ? formatKg(b.kg) : '';
-            const displayDesc = isGuest ? '' : (b.description || '');
-
-            const div = document.createElement('div');
-            // Enhanced 3D effect: border-l-4, shadow-lg, transform hover
-            // Reduced padding (p-1.5) and text size (text-xs) to fit better
-            div.className = `absolute inset-x-1 p-1.5 rounded-r-md border-l-[6px] shadow-lg text-xs overflow-hidden cursor-pointer group transition-all z-10 hover:scale-[1.02] hover:z-20 ${style}`;
-            div.style.height = `${height - 4}px`;
-            div.style.top = '2px';
-
-            if (canEdit) {
-                div.onclick = (e) => { e.stopPropagation(); openEditModal(b); };
+        // INICIALIZACIÓN
+        document.addEventListener('DOMContentLoaded', async () => {
+            // 1. Verificar Autenticación
+            const token = localStorage.getItem('token');
+            if (!token) {
+                redirectToLogin();
+                return;
             }
 
+            // 2. Decodificar Token (Seguro)
+            try {
+                const base64Url = token.split('.')[1];
+                const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+                const jsonPayload = decodeURIComponent(window.atob(base64).split('').map(function(c) {
+                    return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+                }).join(''));
+
+                currentUser = JSON.parse(jsonPayload);
+                console.log(" Usuario Logueado:", currentUser); // DEBUG: Ver rol en consola
+
+                // Validar Expiración
+                if (Date.now() >= currentUser.exp * 1000) {
+                    throw new Error("Token expirado");
+                }
+
+            } catch (e) {
+                console.error("Error token:", e);
+                localStorage.removeItem('token');
+                redirectToLogin();
+                return;
+            }
+
+            // 3. Configurar UI según Rol
+            setupUIByRole();
+
+            // 4. Inicializar Fecha y Tablero
+            document.getElementById('currentDate').value = currentDate;
+            initBoardLayout();
+            await fetchBookings();
+            
+            // 5. Event Listeners de Fecha
+            document.getElementById('currentDate').addEventListener('change', (e) => {
+                currentDate = e.target.value;
+                fetchBookings();
+            });
+            document.getElementById('prevDayBtn').addEventListener('click', () => changeDay(-1));
+            document.getElementById('nextDayBtn').addEventListener('click', () => changeDay(1));
+
+            // Quitar Loader
+            document.getElementById('loader').style.display = 'none';
+        });
+
+        // --- LÓGICA DE ROLES ---
+        function setupUIByRole() {
+            const role = currentUser.role || 'PLANCHADA';
+            document.getElementById('userInfo').textContent = `${currentUser.username} (${role})`;
+
+            const isAdmin = role === 'ADMIN';
+            const isLogistica = role === 'LOGISTICA';
+            const canEdit = isAdmin || isLogistica;
+
+            if (canEdit) {
+                document.getElementById('adminControls').classList.remove('hidden');
+                document.body.classList.remove('readonly-mode');
+            } else {
+                document.getElementById('adminControls').classList.add('hidden');
+                document.body.classList.add('readonly-mode');
+                // Nota: CSS .readonly-mode deshabilita punteros, pero SortableJS se deshabilita abajo
+            }
+        }
+
+        // --- TABLERO KANBAN ---
+        function initBoardLayout() {
+            const container = document.getElementById('boardContainer');
+            container.innerHTML = '';
+            const select = document.getElementById('resourceSelect');
+            select.innerHTML = '';
+
+            RESOURCES.forEach(res => {
+                // Agregar al Select del Modal
+                const option = document.createElement('option');
+                option.value = res.id;
+                option.textContent = res.name;
+                select.appendChild(option);
+
+                // Crear Columna
+                const colDiv = document.createElement('div');
+                colDiv.className = `flex flex-col w-72 h-full rounded-xl border border-slate-200 shadow-sm shrink-0 bg-white overflow-hidden`;
+                
+                // Header Columna
+                colDiv.innerHTML = `
+                    <div class="p-3 border-b border-slate-100 flex justify-between items-center ${res.color}">
+                        <h2 class="font-bold text-slate-700">${res.name}</h2>
+                        <span class="text-xs font-mono bg-white px-2 py-0.5 rounded text-slate-500 count-badge" id="count-${res.id}">0</span>
+                    </div>
+                    <div class="flex-1 p-2 overflow-y-auto kanban-col no-scrollbar" id="col-${res.id}" data-resource="${res.id}">
+                        <!-- Tarjetas aquí -->
+                    </div>
+                `;
+                container.appendChild(colDiv);
+
+                // Inicializar Drag & Drop
+                initSortable(document.getElementById(`col-${res.id}`));
+            });
+        }
+
+        function initSortable(el) {
+            const canEdit = currentUser.role === 'ADMIN' || currentUser.role === 'LOGISTICA';
+
+            sortables.push(new Sortable(el, {
+                group: 'shared', // Permite mover entre columnas
+                animation: 150,
+                disabled: !canEdit, // Deshabilitar si es Planchada
+                ghostClass: 'bg-blue-50',
+                delay: 100, // Prevenir arrastre accidental en touch
+                delayOnTouchOnly: true,
+                onEnd: function (evt) {
+                    const itemEl = evt.item;
+                    const newResourceId = evt.to.getAttribute('data-resource');
+                    const oldResourceId = evt.from.getAttribute('data-resource');
+                    const bookingId = itemEl.getAttribute('data-id');
+
+                    // Solo actualizar si cambió de columna
+                    if (newResourceId !== oldResourceId) {
+                        updateBookingResource(bookingId, newResourceId);
+                    }
+                }
+            }));
+        }
+
+        // --- API & DATOS ---
+        async function fetchBookings() {
+            try {
+                // Mostrar spinner suave en columnas? Opcional.
+                
+                const response = await fetch(`${API_URL}/index.php?date=${currentDate}`, {
+                    headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+                });
+                
+                if (!response.ok) throw new Error('Error al cargar datos');
+                
+                const data = await response.json();
+                bookings = data; // Guardar en memoria
+                renderBookings();
+
+            } catch (error) {
+                // Omitir error de JSON si es mock
+                if(error.message.includes('JSON')) return;
+                Swal.fire('Error', error.message, 'error');
+            }
+        }
+
+        function renderBookings() {
+            // Limpiar columnas
+            RESOURCES.forEach(res => {
+                document.getElementById(`col-${res.id}`).innerHTML = '';
+                document.getElementById(`count-${res.id}`).textContent = '0';
+            });
+
+            // Llenar columnas
+            bookings.forEach(booking => {
+                const col = document.getElementById(`col-${booking.resourceId}`);
+                if (col) {
+                    const card = createCardElement(booking);
+                    col.appendChild(card);
+                }
+            });
+
+            // Actualizar contadores
+            RESOURCES.forEach(res => {
+                const count = document.getElementById(`col-${res.id}`).children.length;
+                document.getElementById(`count-${res.id}`).textContent = count;
+            });
+        }
+
+        function createCardElement(booking) {
+            const div = document.createElement('div');
+            // Formatear hora: 8:0 -> 08:00
+            const timeStr = `${booking.startTimeHour.toString().padStart(2,'0')}:${booking.startTimeMinute.toString().padStart(2,'0')}`;
+            
+            // Colores
+            const colorClasses = {
+                'blue': 'bg-white border-l-4 border-blue-500',
+                'green': 'bg-white border-l-4 border-green-500',
+                'red': 'bg-white border-l-4 border-red-500',
+                'purple': 'bg-white border-l-4 border-purple-500',
+            };
+            const bgClass = colorClasses[booking.color] || colorClasses['blue'];
+
+            div.className = `p-3 mb-3 rounded-lg shadow-sm border border-slate-200 card-item relative group hover:shadow-md transition-shadow ${bgClass}`;
+            div.setAttribute('data-id', booking.id);
+            
+            // Icono de editar (Solo visible si tiene permisos)
+            const editBtn = (currentUser.role === 'ADMIN' || currentUser.role === 'LOGISTICA') 
+                ? `<button onclick="editBooking(${booking.id})" class="absolute top-2 right-2 text-slate-300 hover:text-blue-600 action-btn p-1"><i class="fa-solid fa-pen-to-square"></i></button>` 
+                : '';
+
             div.innerHTML = `
-            <div class="flex justify-between items-start mb-0.5">
-                <span class="font-black truncate w-full text-[11px] uppercase tracking-tight flex items-center gap-1 leading-tight">
-                    ${displayClientCode ? `<span class="px-1 py-0.5 rounded bg-white/50 text-[10px] font-bold">${displayClientCode}</span>` : ''}
-                    ${displayClient}
-                </span>
-            </div>
-            <div class="flex gap-1 mb-0.5 items-center flex-wrap">
-                ${displayOrder ? `<span class="text-[10px] px-1.5 py-0.5 rounded-md font-bold bg-white/60 leading-none">Pedido ${displayOrder}</span>` : ''}
-                ${displayKg ? `<span class="text-[10px] px-1.5 py-0.5 rounded-md font-extrabold shadow-sm bg-white/60 leading-none">${displayKg}</span>` : ''}
-                <span class="text-[10px] font-bold opacity-80 font-mono flex items-center gap-0.5 leading-none">
-                    <i data-lucide="clock" class="w-3 h-3"></i> ${Math.floor(b.duration / 60)}h${b.duration % 60 || ''}
-                </span>
-            </div>
-            ${!isGuest ? `<div class="font-medium truncate text-[10px] leading-tight opacity-90">${displayDesc}</div>` : ''}
-            ${(b.realStartTime || b.realEndTime) ? `<div class="mt-0.5 text-[9px] font-mono bg-black/10 px-1 rounded inline-block leading-none">Real: ${b.realStartTime || '--'} - ${b.realEndTime || '--'}</div>` : ''}
-        `;
+                <div class="flex justify-between items-start mb-1 pr-6">
+                    <span class="font-bold text-slate-800 text-sm leading-tight">${booking.client}</span>
+                </div>
+                ${editBtn}
+                <div class="flex items-center gap-2 text-xs text-slate-500 mb-2">
+                    <span class="bg-slate-100 px-1.5 py-0.5 rounded font-mono text-slate-700 font-semibold"><i class="fa-regular fa-clock mr-1"></i>${timeStr}</span>
+                    <span>${booking.duration} min</span>
+                </div>
+                
+                ${booking.description ? `<p class="text-xs text-slate-600 mb-2 line-clamp-2 bg-slate-50 p-1 rounded">${booking.description}</p>` : ''}
+
+                <div class="flex justify-between items-center border-t border-slate-100 pt-2 mt-1">
+                     <span class="text-xs font-semibold text-slate-500">
+                        ${booking.clientCode ? `<span class="bg-yellow-50 text-yellow-700 px-1 rounded mr-1">${booking.clientCode}</span>` : ''}
+                        ${booking.orderNumber ? `#${booking.orderNumber}` : ''}
+                    </span>
+                    <span class="text-xs font-bold text-slate-700">${parseFloat(booking.kg).toLocaleString()} kg</span>
+                </div>
+            `;
             return div;
         }
 
-        // Modal Logic
-        function openCreateModal(rId, h, m, label) {
-            if (!canCreate) return;
-            document.getElementById('newResourceId').value = rId;
-            document.getElementById('newTimeSlotHour').value = h;
-            document.getElementById('newTimeSlotMinute').value = m;
-            document.getElementById('timeSlotDisplay').textContent = label;
+        // --- ACCIONES (CRUD) ---
 
-            // Reset form
-            document.getElementById('newClient').value = '';
-            document.getElementById('newKg').value = '';
-            document.getElementById('newClientCode').value = '';
-            document.getElementById('newOrderNumber').value = '';
-            document.getElementById('newObservations').value = '';
-            document.getElementById('newDuration').value = '30';
-            document.getElementById('newColor').value = 'blue';
-
-            // Reset products
-            currentProducts = [];
-            renderProductsTable();
-
-            setModalMode('drop');
-            document.getElementById('bookingModal').classList.remove('hidden');
-            document.getElementById('bookingModal').classList.add('flex');
-        }
-
-        function openEditModal(b) {
-            if (isReadOnly) return; // Should not happen due to click handler, but safety check
-
-            document.getElementById('editId').value = b.id;
-
-            // Fields
-            const clientInput = document.getElementById('editClient');
-            const kgInput = document.getElementById('editKg');
-            const descInput = document.getElementById('editDescription');
-            const durInput = document.getElementById('editDuration');
-            const colorInput = document.getElementById('editColor');
-            const startInput = document.getElementById('editRealStartTime');
-            const endInput = document.getElementById('editRealEndTime');
-            const deleteBtn = document.getElementById('deleteBtn');
-            const saveBtn = document.querySelector('#editForm button[type="submit"]');
-            const clientCodeInput = document.getElementById('editClientCode');
-            const orderNumberInput = document.getElementById('editOrderNumber');
-
-            // Populate
-            clientInput.value = b.client;
-            kgInput.value = b.kg;
-            descInput.value = b.description;
-            durInput.value = b.duration;
-            colorInput.value = b.color;
-            startInput.value = b.realStartTime || '';
-            endInput.value = b.realEndTime || '';
-            clientCodeInput.value = b.clientCode || '';
-            orderNumberInput.value = b.orderNumber || '';
-
-            // Permissions
-            if (isLegacyPlanchada && !canEditAll) {
-                // Disable operational fields
-                clientInput.disabled = true;
-                kgInput.disabled = true;
-                descInput.disabled = true;
-                durInput.disabled = true;
-                colorInput.disabled = true;
-                clientCodeInput.disabled = true;
-                orderNumberInput.disabled = true;
-
-                // Enable Real Time
-                startInput.disabled = false;
-                endInput.disabled = false;
-
-                // Hide Delete
-                deleteBtn.classList.add('hidden');
-
-                // Visual cue
-                saveBtn.textContent = "Actualizar Horario Real";
-                saveBtn.classList.remove('bg-slate-900');
-                saveBtn.classList.add('bg-amber-700');
-            } else if (canEditAll) {
-                // ADMIN: Enable all
-                clientInput.disabled = false;
-                kgInput.disabled = false;
-                descInput.disabled = false;
-                durInput.disabled = false;
-                colorInput.disabled = false;
-                clientCodeInput.disabled = false;
-                orderNumberInput.disabled = false;
-                startInput.disabled = false;
-                endInput.disabled = false;
-
-                deleteBtn.classList.remove('hidden');
-                saveBtn.textContent = "Guardar Cambios";
-                saveBtn.classList.remove('bg-amber-700');
-                saveBtn.classList.add('bg-slate-900');
-            }
-
-            editingBooking = b;
-            populateEditTimeOptions(b);
-            document.getElementById('editModal').classList.remove('hidden');
-            document.getElementById('editModal').classList.add('flex');
-        }
-
-        function closeModal(id) {
-            document.getElementById(id).classList.add('hidden');
-            document.getElementById(id).classList.remove('flex');
-
-            // Limpiar productos y alerta Sampi al cerrar el modal de nueva carga
-            if (id === 'bookingModal') {
-                currentProducts = [];
-                renderProductsTable();
-                const sampiAlert = document.getElementById('sampiAlert');
-                if (sampiAlert) sampiAlert.remove();
-            }
-
-            if (id === 'bulkModal') {
-                bulkOrders = [];
-                renderBulkOrdersTable();
-                document.getElementById('bulkStatus').textContent = '';
-            }
-
-            if (id === 'editModal') {
-                editingBooking = null;
-            }
-        }
-
-        function setModalMode(mode) {
-            const dropTab = document.getElementById('tabDrop');
-            const manualTab = document.getElementById('tabManual');
-            const dropContent = document.getElementById('modeDrop');
-            const manualForm = document.getElementById('bookingForm');
-
-            if (mode === 'drop') {
-                dropTab.className = 'flex-1 pb-2 text-sm font-medium text-blue-600 border-b-2 border-blue-600';
-                manualTab.className = 'flex-1 pb-2 text-sm font-medium text-slate-400';
-                dropContent.classList.remove('hidden');
-                manualForm.classList.add('hidden');
-            } else {
-                manualTab.className = 'flex-1 pb-2 text-sm font-medium text-blue-600 border-b-2 border-blue-600';
-                dropTab.className = 'flex-1 pb-2 text-sm font-medium text-slate-400';
-                manualForm.classList.remove('hidden');
-                dropContent.classList.add('hidden');
-            }
-        }
-
-        function openBulkModal() {
-            document.getElementById('bulkDateDisplay').textContent = currentDate.toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'long' });
-            document.getElementById('bulkResourceSelect').innerHTML = resourceOptions(document.getElementById('bulkResourceSelect').value);
-            renderBaseTimeOptions();
-            renderBulkOrdersTable();
-            document.getElementById('bulkModal').classList.remove('hidden');
-            document.getElementById('bulkModal').classList.add('flex');
-        }
-
-        function renderBulkOrdersTable() {
-            const tbody = document.getElementById('bulkTableBody');
-            tbody.innerHTML = '';
-
-            if (bulkOrders.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="7" class="p-4 text-center text-slate-400">Sube un Excel para ver los pedidos</td></tr>`;
-                document.getElementById('bulkSummary').textContent = '';
-                return;
-            }
-
-            let totalKg = 0;
-            bulkOrders.forEach((order, index) => {
-                totalKg += order.kg || 0;
-                const duration = order.duration || suggestDuration(order.kg);
-                const resourceId = order.resourceId || order.forceResource || '';
-                const slots = resourceId ? getAvailableSlots(resourceId, duration, index) : [];
-                const safeStart = slots.includes(order.startTime) ? order.startTime : '';
-                const partBadge = order.part === 'sampi'
-                    ? '<span class="ml-1 text-[10px] text-orange-700 bg-orange-100 px-2 py-0.5 rounded-full font-semibold">Sampi</span>'
-                    : order.part === 'regular'
-                        ? '<span class="ml-1 text-[10px] text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full font-semibold">Puerta</span>'
-                        : '';
-                const resourceControl = order.forceResource
-                    ? `<div class="text-xs text-slate-600 flex flex-col gap-1">
-                            <select disabled class="w-full p-1.5 border border-slate-200 rounded text-xs bg-slate-50 text-slate-500">
-                                ${resourceOptions(order.forceResource)}
-                            </select>
-                            <span class="text-[10px] text-slate-400">Recurso fijo</span>
-                        </div>`
-                    : `<select onchange="updateBulkResource(${index}, this.value)" class="w-full p-1.5 border border-slate-200 rounded text-xs">
-                            ${resourceOptions(order.resourceId)}
-                        </select>`;
-                const row = document.createElement('tr');
-                row.className = 'hover:bg-emerald-50/40';
-                row.innerHTML = `
-                    <td class="p-2 text-center">
-                        <input type="checkbox" ${order.scheduled ? 'checked' : ''} onchange="toggleBulkSchedule(${index}, this.checked)">
-                    </td>
-                    <td class="p-2 font-mono font-semibold">${order.orderNumber || '-'} ${partBadge}</td>
-                    <td class="p-2 text-slate-700">${order.client || ''}</td>
-                    <td class="p-2 text-right font-bold text-emerald-700">${(order.kg || 0).toFixed(2)} kg</td>
-                    <td class="p-2 text-right text-slate-600">${duration} m</td>
-                    <td class="p-2">
-                        ${resourceControl}
-                    </td>
-                    <td class="p-2">
-                        <input type="time" value="${safeStart}" list="bulkTimeOptions-${index}" step="1800" min="04:00" max="20:00" onchange="updateBulkTime(${index}, this.value)" class="w-full p-1.5 border border-slate-200 rounded text-xs">
-                        <datalist id="bulkTimeOptions-${index}">
-                            ${slots.map(slot => `<option value="${slot}"></option>`).join('')}
-                        </datalist>
-                        ${order.resourceId && slots.length === 0 ? '<p class="text-[10px] text-red-500 mt-1">Sin huecos libres</p>' : ''}
-                    </td>
-                `;
-                tbody.appendChild(row);
-            });
-
-            document.getElementById('bulkSummary').textContent = `${bulkOrders.length} pedidos | ${totalKg.toFixed(2)} kg totales`;
-        }
-
-        function toggleBulkSchedule(index, checked) {
-            bulkOrders[index].scheduled = checked;
-        }
-
-        function updateBulkResource(index, value) {
-            const forcedResource = bulkOrders[index].forceResource;
-            const resourceId = forcedResource || value;
-            bulkOrders[index].resourceId = resourceId;
-            const duration = bulkOrders[index].duration || suggestDuration(bulkOrders[index].kg);
-            const slots = getAvailableSlots(resourceId, duration, index);
-            if (!slots.includes(bulkOrders[index].startTime)) {
-                bulkOrders[index].startTime = slots[0] || '';
-            }
-            bulkOrders[index].scheduled = !!resourceId && !!bulkOrders[index].startTime;
-            renderBulkOrdersTable();
-        }
-
-        function updateBulkTime(index, value) {
-            const duration = bulkOrders[index].duration || suggestDuration(bulkOrders[index].kg);
-            const slots = getAvailableSlots(bulkOrders[index].resourceId, duration, index);
-            if (!slots.includes(value)) {
-                alert('Ese horario ya está ocupado o se solapa con otra carga. Elige un hueco libre.');
-                bulkOrders[index].startTime = '';
-                bulkOrders[index].scheduled = false;
-                renderBulkOrdersTable();
-                return;
-            }
-            bulkOrders[index].startTime = value;
-            bulkOrders[index].scheduled = !!value && !!bulkOrders[index].resourceId;
-        }
-
-        function renderBaseTimeOptions() {
-            const baseInput = document.getElementById('bulkBaseTime');
-            const datalist = document.getElementById('bulkBaseOptions');
-            if (!baseInput || !datalist) return;
-
-            const resource = document.getElementById('bulkResourceSelect')?.value || RESOURCES[0]?.id;
-            const baseDuration = bulkOrders.length > 0
-                ? (bulkOrders[0].duration || suggestDuration(bulkOrders[0].kg))
-                : 30;
-            const slots = getAvailableSlots(resource, baseDuration);
-
-            datalist.innerHTML = slots.map(slot => `<option value="${slot}"></option>`).join('');
-
-            if (baseInput.value && !slots.includes(baseInput.value)) {
-                baseInput.value = '';
-            }
-            if (!baseInput.value && slots.length > 0) {
-                baseInput.value = slots[0];
-            }
-        }
-
-        function applySequentialSchedule() {
-            if (bulkOrders.length === 0) {
-                alert('Primero sube un Excel con pedidos');
-                return;
-            }
-
-            const baseTime = document.getElementById('bulkBaseTime').value;
-            const baseResource = document.getElementById('bulkResourceSelect').value;
-            const baseMinutes = timeLabelToMinutes(baseTime);
-            if (!baseTime || baseMinutes === null) {
-                alert('Define hora base para aplicar la secuencia');
-                return;
-            }
-
-            if (!baseResource && bulkOrders.some(order => !order.forceResource)) {
-                alert('Define recurso base para aplicar la secuencia');
-                return;
-            }
-
-            const intervalsByResource = {};
-            RESOURCES.forEach(r => {
-                intervalsByResource[r.id] = bookings
-                    .filter(b => b.resourceId === r.id)
-                    .map(b => ({
-                        start: (b.startTimeHour * 60) + b.startTimeMinute,
-                        end: (b.startTimeHour * 60) + b.startTimeMinute + (b.duration || 0)
-                    }));
-            });
-
-            const cursorByResource = {};
-
-            bulkOrders = bulkOrders.map(order => {
-                const targetResource = order.forceResource || baseResource;
-                const duration = order.duration || suggestDuration(order.kg);
-                const assigned = { ...order, resourceId: targetResource };
-
-                if (!targetResource) {
-                    assigned.startTime = '';
-                    assigned.scheduled = false;
-                    return assigned;
-                }
-
-                const intervals = intervalsByResource[targetResource] || [];
-                let candidate = cursorByResource[targetResource] ?? baseMinutes;
-                while (!isRangeFree(candidate, duration, intervals)) {
-                    candidate += SLOT_STEP;
-                    if (candidate + duration > END_HOUR * 60) break;
-                }
-
-                if (candidate + duration > END_HOUR * 60) {
-                    assigned.startTime = '';
-                    assigned.scheduled = false;
-                } else {
-                    assigned.startTime = minutesToTimeLabel(candidate);
-                    assigned.scheduled = true;
-                    intervals.push({ start: candidate, end: candidate + duration });
-                    cursorByResource[targetResource] = candidate + duration;
-                }
-
-                intervalsByResource[targetResource] = intervals;
-                return assigned;
-            });
-
-            renderBulkOrdersTable();
-        }
-
-        // API Calls
-        async function handleFileUpload(e) {
-            const file = e.target.files[0];
-            if (!file) return;
-            document.getElementById('newKg').value = '';
-            document.getElementById('newDuration').value = '30';
-
-            const spinner = document.getElementById('uploadingSpinner');
-            const content = document.getElementById('dropContent');
-            spinner.classList.remove('hidden');
-            content.classList.add('hidden');
+        async function updateBookingResource(id, newResourceId) {
+            // Actualización optimista: Ya se movió en la UI, enviamos al server
             try {
-                const formData = new FormData();
-                formData.append('file', file);
-                const res = await fetch('/api/bookings/upload.php', {
-                    method: 'POST',
-                    headers: { 'Authorization': `Bearer ${token}` },
-                    body: formData
-                });
-                let data = {};
-                try { data = await res.json(); } catch (_) { data = {}; }
-                if (!res.ok) throw new Error(data.error || 'No se pudo leer el PDF');
-
-                // Debug: mostrar qué parser se usó
-                const parserSource = res.headers.get('X-Parser-Source');
-                console.log(`🔍 Parser utilizado: ${parserSource || 'unknown'}`);
-                if (parserSource === 'local-php-fallback') {
-                    console.warn('⚠️ ADVERTENCIA: Usando parser PHP local (fallback). El webhook n8n no respondió correctamente.');
-                    console.log('📋 Verifica: https://pizarra-ventas.socialsflow.io/api/debug_env.php');
-                }
-
-                const result = Array.isArray(data) ? data[0] : data;
-                if (result.client) document.getElementById('newClient').value = result.client;
-                if (result.clientCode) document.getElementById('newClientCode').value = result.clientCode;
-                if (result.orderNumber) document.getElementById('newOrderNumber').value = result.orderNumber;
-
-                // Load products from PDF
-                if (result.items && result.items.length > 0) {
-                    currentProducts = result.items.map(item => ({
-                        code: item.code,
-                        qty: item.qty,
-                        coef: item.coef,
-                        kg: item.kg
-                    }));
-                    renderProductsTable();
-
-                    // Check if webhook sent Sampi info
-                    if (result.sampiInfo && result.sampiInfo.needsSampi) {
-                        showSampiAlert(result.sampiInfo);
-                    }
-                } else {
-                    // Fallback to manual kg entry
-                    if (result.kg && result.kg < 50000) {
-                        document.getElementById('newKg').value = result.kg;
-                    }
-                    if (result.duration) {
-                        document.getElementById('newDuration').value = result.duration;
-                    }
-                }
-
-                setModalMode('manual');
-
-                // Mensaje de éxito si se cargaron datos
-                if (result.client || currentProducts.length > 0) {
-                    const itemsCount = currentProducts.length;
-                    const msg = itemsCount > 0
-                        ? `✅ PDF procesado: ${itemsCount} productos detectados`
-                        : '✅ Datos del pedido cargados';
-                    console.log(msg);
-                }
-            } catch (err) {
-                console.error(err);
-                alert('⚠️ No se pudo leer el PDF completo. Puedes completar los datos manualmente.');
-                setModalMode('manual');
-            } finally {
-                spinner.classList.add('hidden');
-                content.classList.remove('hidden');
-                e.target.value = ''; // Reset input
-            }
-        }
-
-        async function handleBulkFileUpload(e) {
-            const file = e.target.files[0];
-            if (!file) return;
-            const spinner = document.getElementById('bulkUploadSpinner');
-            const statusEl = document.getElementById('bulkStatus');
-            spinner.classList.remove('hidden');
-            statusEl.textContent = '';
-
-            try {
-                const formData = new FormData();
-                formData.append('file', file);
-
-                const res = await fetch('/api/bookings/bulk_parse.php', {
-                    method: 'POST',
-                    headers: { 'Authorization': `Bearer ${token}` },
-                    body: formData
-                });
-
-                const data = await res.json();
-                if (!res.ok) throw new Error(data.error || 'No se pudo leer el Excel');
-
-                bulkOrders = expandBulkOrders(data);
-                statusEl.textContent = bulkOrders.length > 0
-                    ? `Se detectaron ${bulkOrders.length} pedidos listos para configurar.`
-                    : 'No se detectaron pedidos en el archivo.';
-
-                renderBulkOrdersTable();
-                renderBaseTimeOptions();
-            } catch (err) {
-                console.error(err);
-                alert('Error al leer el Excel: ' + err.message);
-            } finally {
-                spinner.classList.add('hidden');
-                e.target.value = '';
-            }
-        }
-
-        async function handleCreateBooking(e) {
-            e.preventDefault();
-
-            const SAMPI_CODES = ['1011', '1015', '1016'];
-            const SAMPI_THRESHOLD = 648;
-
-            // Calcular kg: si hay productos usar el total calculado, sino usar el campo manual
-            let totalKg = 0;
-            if (currentProducts.length > 0) {
-                totalKg = currentProducts.reduce((sum, p) => sum + p.kg, 0);
-            } else {
-                totalKg = parseFloat(document.getElementById('newKg').value) || 0;
-            }
-
-            // Base data for booking
-            const baseData = {
-                startTimeHour: parseInt(document.getElementById('newTimeSlotHour').value),
-                startTimeMinute: parseInt(document.getElementById('newTimeSlotMinute').value),
-                date: currentDate.toISOString().split('T')[0],
-                client: document.getElementById('newClient').value,
-                clientCode: document.getElementById('newClientCode').value || null,
-                orderNumber: document.getElementById('newOrderNumber').value || null,
-                color: document.getElementById('newColor').value
-            };
-
-            try {
-                // Check if we need to split Sampi
-                const sampiProducts = currentProducts.filter(p => SAMPI_CODES.includes(p.code));
-                const sampiKg = sampiProducts.reduce((sum, p) => sum + p.kg, 0);
-
-                if (sampiProducts.length > 0 && sampiKg > SAMPI_THRESHOLD) {
-                    // SPLIT INTO TWO BOOKINGS
-                    const regularProducts = currentProducts.filter(p => !SAMPI_CODES.includes(p.code));
-                    const regularKg = regularProducts.reduce((sum, p) => sum + p.kg, 0);
-
-                    // Calculate individual durations
-                    const sampiDuration = calculateDuration(sampiKg);
-                    const regularDuration = calculateDuration(regularKg);
-
-                    // Booking 1: Regular products on Puerta
-                    const puertaData = {
-                        ...baseData,
-                        resourceId: document.getElementById('newResourceId').value, // Original resource (Puerta)
-                        kg: Math.round(regularKg * 100) / 100,
-                        duration: regularDuration,
-                        description: `${document.getElementById('newObservations').value || ''} [Productos regulares]`.trim()
-                    };
-
-                    // Booking 2: Sampi products on Sampi
-                    const sampiData = {
-                        ...baseData,
-                        resourceId: 'sampi', // Force Sampi resource
-                        kg: Math.round(sampiKg * 100) / 100,
-                        duration: sampiDuration,
-                        description: `${document.getElementById('newObservations').value || ''} [Productos Sampi: ${sampiProducts.map(p => p.code).join(', ')}]`.trim()
-                    };
-
-                    // Create both bookings
-                    console.log(`🔀 División automática Sampi detectada:`);
-                    console.log(`  📦 Puerta: ${regularKg.toFixed(0)}kg (${regularDuration}min) - ${regularProducts.length} productos`);
-                    console.log(`  ⚙️ Sampi: ${sampiKg.toFixed(0)}kg (${sampiDuration}min) - ${sampiProducts.length} productos`);
-
-                    const [res1, res2] = await Promise.all([
-                        fetch('/api/bookings', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                            body: JSON.stringify(puertaData)
-                        }),
-                        fetch('/api/bookings', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                            body: JSON.stringify(sampiData)
-                        })
-                    ]);
-
-                    if (res1.ok && res2.ok) {
-                        alert(`✅ Carga dividida automáticamente:\n\n🚪 Puerta: ${regularKg.toFixed(0)}kg (${regularDuration}min)\n⚙️ Sampi: ${sampiKg.toFixed(0)}kg (${sampiDuration}min)`);
-                        closeModal('bookingModal');
-                        loadBookings();
-                    } else {
-                        throw new Error('Error al crear una o ambas cargas');
-                    }
-                } else {
-                    // SINGLE BOOKING (normal flow)
-                    const data = {
-                        ...baseData,
-                        resourceId: document.getElementById('newResourceId').value,
-                        kg: Math.round(totalKg * 100) / 100,
-                        duration: parseInt(document.getElementById('newDuration').value),
-                        description: document.getElementById('newObservations').value || ''
-                    };
-
-                    const res = await fetch('/api/bookings', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                        body: JSON.stringify(data)
-                    });
-
-                    const responseData = await res.json().catch(() => ({}));
-
-                    if (res.ok) {
-                        closeModal('bookingModal');
-                        loadBookings();
-                    } else if (res.status === 409) {
-                        alert('El horario elegido se superpone con otra carga. Ajusta el recurso o la hora.');
-                    } else {
-                        alert(responseData.error || 'Error al crear carga');
-                    }
-                }
-            } catch (err) {
-                console.error(err);
-                alert('Error al crear carga: ' + err.message);
-            }
-        }
-
-        async function submitBulkSchedule() {
-            const dateStr = currentDate.toISOString().split('T')[0];
-            const payloadOrders = bulkOrders.filter(order => order.scheduled && order.startTime && order.resourceId);
-
-            if (payloadOrders.length === 0) {
-                alert('Configura al menos un pedido con recurso y horario');
-                return;
-            }
-
-            try {
-                const res = await fetch('/api/bookings/bulk_schedule.php', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                    body: JSON.stringify({ date: dateStr, orders: payloadOrders })
-                });
-
-                const data = await res.json();
-                if (!res.ok) throw new Error(data.error || 'No se pudo crear la carga masiva');
-
-                const conflictCount = (data.skipped || []).filter(item => (item.reason || '').includes('Conflicto')).length;
-                alert(`Creados ${data.createdCount} pedidos. Omitidos ${data.skippedCount}${conflictCount ? ` (Conflictos: ${conflictCount})` : ''}.`);
-                closeModal('bulkModal');
-                loadBookings();
-            } catch (err) {
-                console.error(err);
-                alert('Error al programar pedidos: ' + err.message);
-            }
-        }
-
-        // Helper function to calculate duration based on kg
-        function calculateDuration(kg) {
-            const KG_PER_HOUR = 2000;
-            const hoursNeeded = kg / KG_PER_HOUR;
-            const minutesNeeded = Math.ceil((hoursNeeded * 60) / 30) * 30;
-            return Math.max(minutesNeeded, 30);
-        }
-
-        async function handleUpdateBooking(e) {
-            e.preventDefault();
-            const id = document.getElementById('editId').value;
-
-            const data = {
-                client: document.getElementById('editClient').value,
-                kg: parseFloat(document.getElementById('editKg').value) || 0,
-                description: document.getElementById('editDescription').value,
-                duration: parseInt(document.getElementById('editDuration').value),
-                color: document.getElementById('editColor').value,
-                clientCode: document.getElementById('editClientCode').value || null,
-                orderNumber: document.getElementById('editOrderNumber').value || null,
-                realStartTime: document.getElementById('editRealStartTime').value,
-                realEndTime: document.getElementById('editRealEndTime').value
-            };
-            try {
-                if (data.realStartTime) {
-                    const duration = data.duration || (editingBooking?.duration) || 30;
-                    const resourceId = editingBooking?.resourceId;
-                    const slots = getAvailableSlots(resourceId, duration, null, editingBooking?.id || id);
-                    if (!slots.includes(data.realStartTime)) {
-                        alert('El horario real elegido está ocupado o se solapa con otra carga. Selecciona uno disponible.');
-                        return;
-                    }
-                }
-
-                const res = await fetch(`/api/bookings/manage.php?id=${id}`, {
+                const response = await fetch(`${API_URL}/manage.php`, {
                     method: 'PUT',
-                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                    body: JSON.stringify(data)
-                });
-                const responseData = await res.json().catch(() => ({}));
-                if (res.ok) {
-                    closeModal('editModal');
-                    loadBookings();
-                } else if (res.status === 409) {
-                    alert('El horario elegido se superpone con otra carga. Ajusta el recurso o la hora.');
-                } else {
-                    alert(responseData.error || 'Error al actualizar carga');
-                }
-            } catch (err) { console.error(err); }
-        }
-
-        async function handleDeleteBooking() {
-            if (!confirm('¿Eliminar carga?')) return;
-            const id = document.getElementById('editId').value;
-            try {
-                const res = await fetch(`/api/bookings/manage.php?id=${id}`, {
-                    method: 'DELETE',
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-                if (res.ok) {
-                    closeModal('editModal');
-                    loadBookings();
-                } else {
-                    alert('Error al eliminar carga');
-                }
-            } catch (err) { console.error(err); }
-        }
-
-        // === PRODUCTS TABLE FUNCTIONS ===
-
-        function renderProductsTable() {
-            const tbody = document.getElementById('productsTableBody');
-            tbody.innerHTML = '';
-
-            currentProducts.forEach((product, index) => {
-                const row = document.createElement('tr');
-                row.className = 'hover:bg-blue-50 transition-colors';
-                row.innerHTML = `
-                    <td class="p-2">
-                        <input type="text" value="${product.code}"
-                            onchange="updateProductCode(${index}, this.value)"
-                            class="w-full px-1.5 py-1 border border-slate-200 rounded text-xs font-mono focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                    </td>
-                    <td class="p-2 text-right">
-                        <input type="number" value="${product.qty}" min="1"
-                            onchange="updateProductQty(${index}, this.value)"
-                            class="w-full px-1.5 py-1 border border-slate-200 rounded text-xs text-right font-semibold focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                    </td>
-                    <td class="p-2 text-right">
-                        <input type="number" value="${product.coef}" min="0" step="0.01"
-                            onchange="updateProductCoef(${index}, this.value)"
-                            class="w-full px-1.5 py-1 border border-slate-200 rounded text-xs text-right text-slate-600 focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                    </td>
-                    <td class="p-2 text-right font-bold text-blue-700 bg-blue-50">
-                        ${product.kg.toFixed(2)}
-                    </td>
-                    <td class="p-2 text-center">
-                        <button type="button" onclick="removeProductRow(${index})"
-                            class="text-red-400 hover:text-red-600 transition-colors p-1">
-                            <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
-                        </button>
-                    </td>
-                `;
-                tbody.appendChild(row);
-            });
-
-            lucide.createIcons();
-            recalculateTotalKg();
-
-            // Show/hide products section
-            const hasProducts = currentProducts.length > 0;
-            document.getElementById('productsSection').classList.toggle('hidden', !hasProducts);
-
-            // Update product count badge
-            document.getElementById('productCount').textContent = currentProducts.length;
-
-            // Update Kg field state - readonly si hay productos
-            const kgField = document.getElementById('newKg');
-            const kgBadge = document.getElementById('kgBadge');
-            if (hasProducts) {
-                kgField.readOnly = true;
-                kgField.classList.add('bg-slate-100', 'cursor-not-allowed', 'text-slate-600');
-                kgBadge.classList.remove('hidden');
-            } else {
-                kgField.readOnly = false;
-                kgField.classList.remove('bg-slate-100', 'cursor-not-allowed', 'text-slate-600');
-                kgBadge.classList.add('hidden');
-            }
-        }
-
-        function addProductRow() {
-            currentProducts.push({
-                code: '',
-                qty: 1,
-                coef: 1.0,
-                kg: 1.0
-            });
-            renderProductsTable();
-        }
-
-        function removeProductRow(index) {
-            currentProducts.splice(index, 1);
-            renderProductsTable();
-        }
-
-        function updateProductCode(index, code) {
-            currentProducts[index].code = code.toUpperCase();
-            // Try to get coefficient from productMap
-            if (productMap[code]) {
-                currentProducts[index].coef = productMap[code];
-            }
-            updateProductKg(index);
-        }
-
-        function updateProductQty(index, qty) {
-            currentProducts[index].qty = parseFloat(qty) || 0;
-            updateProductKg(index);
-        }
-
-        function updateProductCoef(index, coef) {
-            currentProducts[index].coef = parseFloat(coef) || 1;
-            updateProductKg(index);
-        }
-
-        function updateProductKg(index) {
-            const product = currentProducts[index];
-            product.kg = product.qty * product.coef;
-            renderProductsTable();
-        }
-
-        function recalculateTotalKg() {
-            const total = currentProducts.reduce((sum, p) => sum + p.kg, 0);
-            document.getElementById('totalKgDisplay').textContent = `${total.toFixed(2)} kg`;
-            document.getElementById('newKg').value = Math.round(total);
-
-            // Auto-calculate duration
-            autoCalcDuration(total, 'newDuration');
-
-            // Check Sampi logic
-            showSampiNotification();
-        }
-
-        function autoCalcDuration(kg, targetId) {
-            const KG_PER_HOUR = 2000; // Default from demo
-            if (kg && kg > 0) {
-                const hoursNeeded = kg / KG_PER_HOUR;
-                const minutesNeeded = Math.ceil((hoursNeeded * 60) / 30) * 30;
-                const suggested = Math.max(minutesNeeded, 30);
-                document.getElementById(targetId).value = suggested;
-            }
-        }
-
-        function populateEditTimeOptions(b) {
-            const datalist = document.getElementById('editTimeOptions');
-            if (!datalist) return;
-            const slots = getAvailableSlots(b.resourceId, b.duration, null, b.id);
-            datalist.innerHTML = slots.map(slot => `<option value="${slot}"></option>`).join('');
-
-            const startInput = document.getElementById('editRealStartTime');
-            if (startInput && startInput.value && !slots.includes(startInput.value)) {
-                startInput.value = '';
-                document.getElementById('editRealEndTimeDisplay').value = '';
-                document.getElementById('editRealEndTime').value = '';
-            }
-        }
-
-        function handleRealStartChange(value) {
-            const startInput = document.getElementById('editRealStartTime');
-            if (!editingBooking || !startInput) {
-                calculateEndTime();
-                return;
-            }
-
-            const duration = editingBooking.duration || parseInt(document.getElementById('editDuration').value) || 30;
-            const slots = getAvailableSlots(editingBooking.resourceId, duration, null, editingBooking.id);
-
-            if (value && !slots.includes(value)) {
-                alert('Ese horario real se superpone con otra carga. Selecciona un horario libre.');
-                startInput.value = '';
-                document.getElementById('editRealEndTimeDisplay').value = '';
-                document.getElementById('editRealEndTime').value = '';
-                return;
-            }
-
-            calculateEndTime();
-        }
-
-        // Calculate end time automatically based on start time + duration
-        function calculateEndTime() {
-            const startTime = document.getElementById('editRealStartTime').value;
-            const duration = parseInt(document.getElementById('editDuration').value);
-
-            if (!startTime || !duration) {
-                document.getElementById('editRealEndTimeDisplay').value = '';
-                document.getElementById('editRealEndTime').value = '';
-                return;
-            }
-
-            // Parse start time
-            const [hours, minutes] = startTime.split(':').map(Number);
-            const startDate = new Date();
-            startDate.setHours(hours, minutes, 0, 0);
-
-            // Add duration
-            const endDate = new Date(startDate.getTime() + duration * 60000);
-            const endHours = String(endDate.getHours()).padStart(2, '0');
-            const endMinutes = String(endDate.getMinutes()).padStart(2, '0');
-            const endTimeStr = `${endHours}:${endMinutes}`;
-
-            document.getElementById('editRealEndTimeDisplay').value = endTimeStr;
-            document.getElementById('editRealEndTime').value = endTimeStr;
-        }
-
-        // === LÓGICA SAMPI ===
-        // Detecta si hay productos que deben ir al Sampi
-        // Códigos: 1011, 1015, 1016 > 648kg total → asignar al Sampi
-        function checkSampiLogic() {
-            const SAMPI_CODES = ['1011', '1015', '1016'];
-            const SAMPI_THRESHOLD = 648; // kg
-
-            let sampiKg = 0;
-            const sampiProducts = [];
-
-            currentProducts.forEach(product => {
-                if (SAMPI_CODES.includes(product.code)) {
-                    sampiKg += product.kg;
-                    sampiProducts.push(product);
-                }
-            });
-
-            // Si excede el umbral, mostrar alerta
-            if (sampiKg > SAMPI_THRESHOLD) {
-                return {
-                    needsSampi: true,
-                    sampiKg: sampiKg,
-                    sampiProducts: sampiProducts,
-                    regularKg: currentProducts.reduce((sum, p) => sum + p.kg, 0) - sampiKg
-                };
-            }
-
-            return { needsSampi: false };
-        }
-
-        // Mostrar notificación Sampi si es necesario
-        function showSampiNotification() {
-            const sampiCheck = checkSampiLogic();
-
-            if (sampiCheck.needsSampi) {
-                const msg = `⚙️ ATENCIÓN: Detectados ${sampiCheck.sampiKg.toFixed(0)}kg de productos Sampi (1011, 1015, 1016).\n\n` +
-                            `Se recomienda asignar estos productos al Sampi:\n` +
-                            `- Sampi: ${sampiCheck.sampiKg.toFixed(0)}kg\n` +
-                            `- Puerta: ${sampiCheck.regularKg.toFixed(0)}kg`;
-
-                console.log(msg);
-                showSampiAlert({
-                    sampiKg: sampiCheck.sampiKg,
-                    regularKg: sampiCheck.regularKg,
-                    message: msg
-                });
-            }
-        }
-
-        // Mostrar alerta visual Sampi (llamada desde webhook o check manual)
-        function showSampiAlert(sampiInfo) {
-            // Remover alerta anterior si existe
-            const existingAlert = document.getElementById('sampiAlert');
-            if (existingAlert) existingAlert.remove();
-
-            // Crear alerta visual profesional
-            const alertDiv = document.createElement('div');
-            alertDiv.id = 'sampiAlert';
-            alertDiv.className = 'relative overflow-hidden bg-gradient-to-r from-orange-50 via-amber-50 to-orange-50 border-2 border-orange-400 rounded-lg p-4 mb-3 shadow-lg';
-            alertDiv.innerHTML = `
-                <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-orange-400 via-amber-400 to-orange-400 animate-pulse"></div>
-                <div class="flex items-start gap-3">
-                    <div class="flex-shrink-0 w-10 h-10 bg-orange-500 rounded-full flex items-center justify-center text-white text-xl shadow-md">
-                        ⚙️
-                    </div>
-                    <div class="flex-1">
-                        <h4 class="font-bold text-orange-900 text-sm mb-2 flex items-center gap-2">
-                            ⚠️ ATENCIÓN: Carga requiere Sampi
-                            <span class="text-[10px] bg-orange-200 text-orange-800 px-2 py-0.5 rounded-full font-normal">Importante</span>
-                        </h4>
-                        <p class="text-xs text-orange-800 mb-3 leading-relaxed">
-                            Se detectaron <strong class="text-orange-900 font-bold">${sampiInfo.sampiKg.toFixed(0)}kg</strong> de productos Sampi (códigos 1011, 1015, 1016) que superan el umbral de 648kg.
-                        </p>
-                        <div class="grid grid-cols-2 gap-2 text-xs mb-3">
-                            <div class="bg-white bg-opacity-50 p-2 rounded border border-orange-200">
-                                <div class="text-orange-600 font-semibold mb-1">⚙️ Sampi</div>
-                                <div class="text-orange-900 font-bold text-base">${sampiInfo.sampiKg.toFixed(0)} kg</div>
-                            </div>
-                            <div class="bg-white bg-opacity-50 p-2 rounded border border-orange-200">
-                                <div class="text-orange-600 font-semibold mb-1">🚪 Puerta</div>
-                                <div class="text-orange-900 font-bold text-base">${sampiInfo.regularKg.toFixed(0)} kg</div>
-                            </div>
-                        </div>
-                        <div class="bg-green-100 border border-green-300 rounded p-2">
-                            <p class="text-[10px] text-green-800 font-semibold flex items-center gap-1">
-                                ✨ Al confirmar se crearán automáticamente 2 cargas:
-                            </p>
-                            <p class="text-[10px] text-green-700 mt-1 ml-3">
-                                • Puerta (${sampiInfo.regularKg.toFixed(0)}kg) + Sampi (${sampiInfo.sampiKg.toFixed(0)}kg)
-                            </p>
-                        </div>
-                    </div>
-                    <button onclick="document.getElementById('sampiAlert').remove()"
-                        class="flex-shrink-0 text-orange-400 hover:text-orange-600 transition-colors font-bold text-lg">✕</button>
-                </div>
-            `;
-
-            // Insertar después de la tabla de productos
-            const productsSection = document.getElementById('productsSection');
-            productsSection.parentNode.insertBefore(alertDiv, productsSection.nextSibling);
-        }
-
-        // ========== BULK UPLOAD FUNCTIONS ==========
-        // bulkOrders ya está declarado arriba (línea 474)
-
-        function openBulkUploadModal() {
-            document.getElementById('bulkStep1').classList.remove('hidden');
-            document.getElementById('bulkStep2').classList.add('hidden');
-            document.getElementById('bulkDate').value = currentDate.toISOString().split('T')[0];
-            document.getElementById('bulkUploadModal').classList.remove('hidden');
-            document.getElementById('bulkUploadModal').classList.add('flex');
-            bulkOrders = [];
-            lucide.createIcons();
-        }
-
-        async function handleBulkExcelUpload(e) {
-            const file = e.target.files[0];
-            if (!file) return;
-
-            const spinner = document.getElementById('bulkUploadingSpinner');
-            const content = document.getElementById('bulkDropContent');
-            spinner.classList.remove('hidden');
-            content.classList.add('hidden');
-
-            try {
-                const formData = new FormData();
-                formData.append('file', file);
-
-                const res = await fetch('/api/bookings/bulk-upload.php', {
-                    method: 'POST',
-                    headers: { 'Authorization': `Bearer ${token}` },
-                    body: formData
-                });
-
-                const data = await res.json();
-
-                if (!res.ok) {
-                    throw new Error(data.error || 'Error al procesar Excel');
-                }
-
-                if (!data.orders || data.orders.length === 0) {
-                    throw new Error('No se encontraron pedidos en el archivo');
-                }
-
-                // Store orders and show step 2
-                bulkOrders = data.orders.map((order, index) => ({
-                    ...order,
-                    index,
-                    selected: true,
-                    resourceId: 'p1', // Default to Puerta 1
-                    startTimeHour: 8, // Default 08:00
-                    startTimeMinute: 0,
-                    duration: order.suggestedDuration || 30,
-                    isDuplicate: false,
-                    duplicateInfo: null
-                }));
-
-                // Check for duplicates
-                await checkBulkDuplicates();
-
-                document.getElementById('bulkOrderCount').textContent = bulkOrders.length;
-                renderBulkOrdersTable();
-
-                document.getElementById('bulkStep1').classList.add('hidden');
-                document.getElementById('bulkStep2').classList.remove('hidden');
-                lucide.createIcons();
-
-            } catch (err) {
-                console.error(err);
-                alert('❌ ' + err.message);
-            } finally {
-                spinner.classList.add('hidden');
-                content.classList.remove('hidden');
-                e.target.value = '';
-            }
-        }
-
-        function backToBulkUpload() {
-            document.getElementById('bulkStep2').classList.add('hidden');
-            document.getElementById('bulkStep1').classList.remove('hidden');
-            bulkOrders = [];
-        }
-
-        async function checkBulkDuplicates() {
-            // Extract order numbers from bulk orders
-            const orderNumbers = bulkOrders
-                .filter(o => o.orderNumber && o.orderNumber !== 'N/A')
-                .map(o => o.orderNumber);
-
-            if (orderNumbers.length === 0) {
-                return; // No order numbers to check
-            }
-
-            try {
-                const date = document.getElementById('bulkDate').value || currentDate.toISOString().split('T')[0];
-                const res = await fetch('/api/bookings/check-duplicates.php', {
-                    method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token}`
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
                     },
-                    body: JSON.stringify({
-                        orderNumbers: orderNumbers,
-                        date: date
-                    })
+                    body: JSON.stringify({ id: id, resourceId: newResourceId })
                 });
 
-                if (!res.ok) {
-                    console.error('Error checking duplicates');
-                    return;
+                if (!response.ok) {
+                    throw new Error('Falló la actualización');
+                    fetchBookings(); // Revertir si falla
                 }
-
-                const data = await res.json();
-
-                // Mark duplicates in bulkOrders
-                bulkOrders.forEach(order => {
-                    if (order.orderNumber && data.duplicates[order.orderNumber]) {
-                        order.isDuplicate = true;
-                        order.duplicateInfo = data.duplicates[order.orderNumber];
-                        order.selected = false; // Deselect duplicates automatically
-                    }
-                });
-
-                // Log duplicate check results
-                const duplicateCount = bulkOrders.filter(o => o.isDuplicate).length;
-                if (duplicateCount > 0) {
-                    console.log(`⚠️ ${duplicateCount} pedidos duplicados detectados en la semana ${data.weekRange.start} - ${data.weekRange.end}`);
-                }
-
-            } catch (err) {
-                console.error('Error checking duplicates:', err);
-                // Continue without duplicate checking
+            } catch (error) {
+                console.error(error);
+                fetchBookings(); // Revertir
+                Swal.fire('Error', 'No se pudo mover la tarjeta', 'error');
             }
         }
 
-        function renderBulkOrdersTable() {
-            const tbody = document.getElementById('bulkOrdersTableBody');
-            tbody.innerHTML = '';
-
-            const duplicateCount = bulkOrders.filter(o => o.isDuplicate).length;
-            if (duplicateCount > 0) {
-                document.getElementById('bulkValidationErrors').classList.remove('hidden');
-                const errorsList = document.getElementById('bulkValidationErrorsList');
-                errorsList.innerHTML = `<li class="text-orange-800"><strong>${duplicateCount} pedido(s) duplicado(s) detectado(s) en la semana</strong> - Han sido deseleccionados automáticamente. Puedes seleccionarlos manualmente si deseas crearlos de todos modos.</li>`;
-            } else {
-                document.getElementById('bulkValidationErrors').classList.add('hidden');
-            }
-
-            bulkOrders.forEach((order, idx) => {
-                const row = document.createElement('tr');
-
-                // Apply different styling for duplicates
-                let rowClass = `${order.selected ? 'bg-white' : 'bg-slate-50 opacity-60'} hover:bg-blue-50 transition-colors`;
-                if (order.isDuplicate) {
-                    rowClass = `${order.selected ? 'bg-orange-50 border-l-4 border-orange-400' : 'bg-orange-100 opacity-50 border-l-4 border-orange-300'}`;
-                }
-                row.className = rowClass;
-
-                const clientDisplay = `${order.clientCode ? `<span class="inline-block px-1.5 py-0.5 bg-slate-200 rounded text-xs font-mono mr-1">${order.clientCode}</span>` : ''}${order.client || 'Sin nombre'}`;
-
-                // Add duplicate warning to description
-                let descDisplay = order.description ? `<span class="text-xs text-slate-600">${order.description}</span>` : '';
-                if (order.isDuplicate && order.duplicateInfo && order.duplicateInfo.length > 0) {
-                    const dupInfo = order.duplicateInfo[0];
-                    descDisplay += `<div class="text-xs font-bold text-orange-700 mt-1 flex items-center gap-1">
-                        <i data-lucide="alert-triangle" class="w-3 h-3"></i>
-                        Ya existe: ${dupInfo.date} a las ${dupInfo.time} (${dupInfo.resourceId})
-                    </div>`;
-                }
-
-                row.innerHTML = `
-                    <td class="p-3">
-                        <input type="checkbox" ${order.selected ? 'checked' : ''}
-                            onchange="toggleOrderSelection(${idx}, this.checked)"
-                            class="w-4 h-4">
-                    </td>
-                    <td class="p-3 font-semibold">${clientDisplay}</td>
-                    <td class="p-3">
-                        <span class="font-mono text-sm bg-blue-100 text-blue-800 px-2 py-0.5 rounded">${order.orderNumber || 'N/A'}</span>
-                    </td>
-                    <td class="p-3 text-right">
-                        <span class="font-bold text-blue-700">${order.kg} kg</span>
-                    </td>
-                    <td class="p-3 text-xs text-slate-600">${descDisplay}</td>
-                    <td class="p-3">
-                        <select onchange="updateOrderField(${idx}, 'resourceId', this.value)"
-                            class="w-full p-1.5 border border-slate-300 rounded text-xs">
-                            <option value="p1" ${order.resourceId === 'p1' ? 'selected' : ''}>Puerta 1</option>
-                            <option value="p2" ${order.resourceId === 'p2' ? 'selected' : ''}>Puerta 2</option>
-                            <option value="p3" ${order.resourceId === 'p3' ? 'selected' : ''}>Puerta 3</option>
-                            <option value="p4" ${order.resourceId === 'p4' ? 'selected' : ''}>Puerta 4</option>
-                            <option value="sampi" ${order.resourceId === 'sampi' ? 'selected' : ''}>Sampi</option>
-                        </select>
-                    </td>
-                    <td class="p-3">
-                        <input type="time" value="${String(order.startTimeHour).padStart(2,'0')}:${String(order.startTimeMinute).padStart(2,'0')}"
-                            onchange="updateOrderTime(${idx}, this.value)"
-                            class="w-full p-1.5 border border-slate-300 rounded text-xs font-mono">
-                    </td>
-                    <td class="p-3">
-                        <select onchange="updateOrderField(${idx}, 'duration', parseInt(this.value))"
-                            class="w-full p-1.5 border border-slate-300 rounded text-xs">
-                            <option value="30" ${order.duration === 30 ? 'selected' : ''}>30m</option>
-                            <option value="60" ${order.duration === 60 ? 'selected' : ''}>1h</option>
-                            <option value="90" ${order.duration === 90 ? 'selected' : ''}>1h 30m</option>
-                            <option value="120" ${order.duration === 120 ? 'selected' : ''}>2h</option>
-                            <option value="150" ${order.duration === 150 ? 'selected' : ''}>2h 30m</option>
-                            <option value="180" ${order.duration === 180 ? 'selected' : ''}>3h</option>
-                            <option value="240" ${order.duration === 240 ? 'selected' : ''}>4h</option>
-                            <option value="300" ${order.duration === 300 ? 'selected' : ''}>5h</option>
-                        </select>
-                    </td>
-                    <td class="p-3 text-center">
-                        <button onclick="copyOrderConfig(${idx})"
-                            title="Copiar configuración"
-                            class="text-blue-500 hover:text-blue-700 transition">
-                            <i data-lucide="copy" class="w-4 h-4"></i>
-                        </button>
-                    </td>
-                `;
-                tbody.appendChild(row);
-            });
-
-            lucide.createIcons();
-            updateSelectedCount();
+        window.openModal = function() {
+            document.getElementById('bookingForm').reset();
+            document.getElementById('bookingId').value = '';
+            document.getElementById('deleteBtn').classList.add('hidden');
+            document.getElementById('modalTitle').textContent = 'Nuevo Pedido';
+            document.getElementById('resourceSelect').value = 'PENDIENTE'; // Default
+            document.getElementById('bookingModal').classList.remove('hidden');
         }
 
-        function toggleOrderSelection(idx, selected) {
-            bulkOrders[idx].selected = selected;
-            renderBulkOrdersTable();
+        window.closeModal = function() {
+            document.getElementById('bookingModal').classList.add('hidden');
         }
 
-        function toggleAllOrders(checked) {
-            bulkOrders.forEach(order => order.selected = checked);
-            renderBulkOrdersTable();
+        window.editBooking = function(id) {
+            const booking = bookings.find(b => b.id == id);
+            if (!booking) return;
+
+            document.getElementById('bookingId').value = booking.id;
+            document.getElementById('clientName').value = booking.client;
+            document.getElementById('clientCode').value = booking.clientCode || '';
+            document.getElementById('orderNumber').value = booking.orderNumber || '';
+            document.getElementById('description').value = booking.description || '';
+            document.getElementById('kg').value = booking.kg;
+            document.getElementById('duration').value = booking.duration;
+            document.getElementById('resourceSelect').value = booking.resourceId;
+            
+            // Hora
+            const hh = booking.startTimeHour.toString().padStart(2,'0');
+            const mm = booking.startTimeMinute.toString().padStart(2,'0');
+            document.getElementById('startTime').value = `${hh}:${mm}`;
+
+            // Color
+            selectColor(booking.color || 'blue');
+
+            document.getElementById('deleteBtn').classList.remove('hidden');
+            document.getElementById('modalTitle').textContent = 'Editar Pedido';
+            document.getElementById('bookingModal').classList.remove('hidden');
         }
 
-        function updateOrderField(idx, field, value) {
-            bulkOrders[idx][field] = value;
-            renderBulkOrdersTable();
-        }
-
-        function updateOrderTime(idx, timeValue) {
-            const [hour, minute] = timeValue.split(':').map(Number);
-            bulkOrders[idx].startTimeHour = hour;
-            bulkOrders[idx].startTimeMinute = minute;
-        }
-
-        let copiedConfig = null;
-        function copyOrderConfig(idx) {
-            copiedConfig = {
-                resourceId: bulkOrders[idx].resourceId,
-                startTimeHour: bulkOrders[idx].startTimeHour,
-                startTimeMinute: bulkOrders[idx].startTimeMinute,
-                duration: bulkOrders[idx].duration
+        window.saveBooking = async function() {
+            const id = document.getElementById('bookingId').value;
+            const timeParts = document.getElementById('startTime').value.split(':');
+            
+            const payload = {
+                client: document.getElementById('clientName').value,
+                clientCode: document.getElementById('clientCode').value,
+                orderNumber: document.getElementById('orderNumber').value,
+                description: document.getElementById('description').value,
+                kg: document.getElementById('kg').value,
+                duration: document.getElementById('duration').value,
+                resourceId: document.getElementById('resourceSelect').value,
+                date: currentDate,
+                startTimeHour: parseInt(timeParts[0]),
+                startTimeMinute: parseInt(timeParts[1]),
+                color: document.getElementById('selectedColor').value
             };
-            alert('✅ Configuración copiada. Haz click en "Pegar" en otro pedido para aplicarla.');
-        }
 
-        function applyDateToAll() {
-            const date = document.getElementById('bulkDate').value;
-            if (date) {
-                alert(`Fecha ${date} lista para aplicar a todos los pedidos`);
-            }
-        }
-
-        function updateSelectedCount() {
-            const count = bulkOrders.filter(o => o.selected).length;
-            document.getElementById('selectedOrdersCount').textContent = count;
-        }
-
-        async function confirmBulkCreate() {
-            const selectedOrders = bulkOrders.filter(o => o.selected);
-
-            if (selectedOrders.length === 0) {
-                alert('⚠️ Debes seleccionar al menos un pedido');
-                return;
-            }
-
-            const date = document.getElementById('bulkDate').value;
-            if (!date) {
-                alert('⚠️ Debes seleccionar una fecha');
-                return;
-            }
-
-            // Prepare bookings for API
-            const bookings = selectedOrders.map(order => ({
-                client: order.client,
-                clientCode: order.clientCode,
-                orderNumber: order.orderNumber,
-                description: order.description,
-                kg: order.kg,
-                duration: order.duration,
-                color: 'blue',
-                resourceId: order.resourceId,
-                startTimeHour: order.startTimeHour,
-                startTimeMinute: order.startTimeMinute,
-                items: order.items || []
-            }));
-
-            // Show loading
-            const btn = event.target;
-            btn.disabled = true;
-            btn.innerHTML = '<span class="animate-pulse">Creando pedidos...</span>';
+            const method = id ? 'PUT' : 'POST';
+            if (id) payload.id = id;
 
             try {
-                const res = await fetch('/api/bookings/bulk-create.php', {
-                    method: 'POST',
+                const response = await fetch(`${API_URL}/manage.php`, {
+                    method: method,
                     headers: {
                         'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token}`
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
                     },
-                    body: JSON.stringify({ bookings, date })
+                    body: JSON.stringify(payload)
                 });
 
-                const data = await res.json();
+                const resData = await response.json();
+                if (!response.ok) throw new Error(resData.error || 'Error al guardar');
 
-                if (!res.ok) {
-                    throw new Error(data.error || 'Error al crear pedidos');
-                }
+                closeModal();
+                fetchBookings();
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Guardado',
+                    toast: true,
+                    position: 'top-end',
+                    showConfirmButton: false,
+                    timer: 3000
+                });
 
-                // Show results
-                const summary = data.summary;
-                let message = `✅ Carga masiva completada:\n\n`;
-                message += `📦 ${summary.created} pedidos creados\n`;
-
-                if (summary.errors > 0) {
-                    message += `❌ ${summary.errors} errores\n`;
-                }
-                if (summary.warnings > 0) {
-                    message += `⚠️ ${summary.warnings} advertencias\n`;
-                }
-
-                // Show errors if any
-                if (data.errors.length > 0) {
-                    message += `\n🔍 Errores:\n`;
-                    data.errors.slice(0, 5).forEach(err => {
-                        const order = err.booking;
-                        message += `- ${order.client || 'Sin nombre'} (${order.orderNumber || 'N/A'}): ${err.error}\n`;
-                    });
-                    if (data.errors.length > 5) {
-                        message += `... y ${data.errors.length - 5} más\n`;
-                    }
-                }
-
-                alert(message);
-
-                // Reload bookings and close modal
-                await loadBookings();
-                closeModal('bulkUploadModal');
-
-            } catch (err) {
-                console.error(err);
-                alert('❌ Error: ' + err.message);
-            } finally {
-                btn.disabled = false;
-                btn.innerHTML = '<span class="flex items-center justify-center gap-2"><i data-lucide="check-circle" class="w-5 h-5"></i>Crear <span id="selectedOrdersCount">' + selectedOrders.length + '</span> Pedidos Seleccionados</span>';
-                lucide.createIcons();
+            } catch (error) {
+                Swal.fire('Error', error.message, 'error');
             }
+        }
+
+        window.deleteBooking = async function() {
+            const id = document.getElementById('bookingId').value;
+            if (!id) return;
+
+            const result = await Swal.fire({
+                title: '¿Eliminar pedido?',
+                text: "No podrás revertir esto",
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#d33',
+                confirmButtonText: 'Sí, eliminar'
+            });
+
+            if (result.isConfirmed) {
+                try {
+                    const response = await fetch(`${API_URL}/manage.php`, {
+                        method: 'DELETE',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${localStorage.getItem('token')}`
+                        },
+                        body: JSON.stringify({ id: id })
+                    });
+
+                    if (!response.ok) throw new Error('Error al eliminar');
+
+                    closeModal();
+                    fetchBookings();
+                    Swal.fire('Eliminado', 'El pedido ha sido eliminado.', 'success');
+
+                } catch (error) {
+                    Swal.fire('Error', error.message, 'error');
+                }
+            }
+        }
+
+        // Helpers
+        function changeDay(delta) {
+            const date = new Date(currentDate);
+            date.setDate(date.getDate() + delta);
+            currentDate = date.toISOString().split('T')[0];
+            document.getElementById('currentDate').value = currentDate;
+            fetchBookings();
+        }
+
+        window.selectColor = function(color) {
+            document.getElementById('selectedColor').value = color;
+            // Visual feedback
+            document.querySelectorAll('.color-opt').forEach(btn => {
+                btn.classList.remove('ring-2', 'ring-offset-2');
+                if (btn.dataset.color === color) {
+                    btn.classList.add('ring-2', 'ring-offset-2', 'ring-gray-400');
+                }
+            });
+        }
+
+        window.logout = function() {
+            localStorage.removeItem('token');
+            redirectToLogin();
         }
     </script>
 </body>
-
 </html>
