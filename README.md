@@ -85,14 +85,7 @@ cd pizarra-planchada
 
 2. **Configurar la base de datos**
 
-Edita el archivo `api/db.php` con tus credenciales:
-
-```php
-$host = 'localhost';
-$dbname = 'tu_base_de_datos';
-$username = 'tu_usuario';
-$password = 'tu_contraseña';
-```
+Edita el archivo `api/db.php` con tus credenciales o define las variables de entorno `DB_HOST`, `DB_NAME`, `DB_USER` y `DB_PASS` (también puedes crear `api/config.php` para sobrescribirlas). El sistema intentará usar las variables primero y luego los valores por defecto.
 
 3. **Ejecutar script de instalación**
 
@@ -123,7 +116,7 @@ private $secret_key = 'TU_CLAVE_SECRETA_AQUI';
 ### Acceso al Sistema
 
 1. Abre tu navegador y navega a `http://tu-dominio.com`
-2. Usa las credenciales creadas durante la instalación
+2. Usa las credenciales creadas durante la instalación (si no existen usuarios, el sistema auto-creará `admin / admin123` con rol ADMIN)
 3. Accede al dashboard principal
 
 ### Gestión de Productos

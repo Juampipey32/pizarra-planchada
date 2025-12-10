@@ -21,10 +21,10 @@ if (!$id) {
     exit;
 }
 
-// Only VENDEDOR can modify/delete
-if ($user['role'] !== 'VENDEDOR') {
+// Only ADMIN can modify/delete
+if ($user['role'] !== 'ADMIN') {
     http_response_code(403);
-    echo json_encode(['error' => 'Solo VENDEDOR puede modificar productos']);
+    echo json_encode(['error' => 'Solo ADMIN puede modificar productos']);
     exit;
 }
 

@@ -3,6 +3,7 @@
 require_once '../cors.php';
 require_once '../db.php';
 require_once '../jwt_helper.php';
+require_once __DIR__ . '/helpers.php';
 
 $SECRET_KEY = getenv('JWT_SECRET') ?: 'secret_key_change_me';
 $WEBHOOK_SHEETS = getenv('WEBHOOK_SHEETS');
@@ -16,31 +17,10 @@ if (!$user) {
     exit;
 }
 
-if ($user['role'] === 'VISUALIZADOR') {
+if (!in_array($user['role'], ['ADMIN', 'PLANCHADA'])) {
     http_response_code(403);
-    echo json_encode(['error' => 'Read only access']);
+    echo json_encode(['error' => 'Solo administradores pueden editar']);
     exit;
-}
-
-// Ensure columns exist (idempotente)
-function ensureBookingColumns($pdo) {
-    try {
-        $cols = [];
-        foreach ($pdo->query("DESCRIBE Bookings") as $row) {
-            $cols[] = $row['Field'];
-        }
-        if (!in_array('clientCode', $cols)) {
-            $pdo->exec("ALTER TABLE Bookings ADD COLUMN clientCode VARCHAR(50) NULL");
-        }
-        if (!in_array('orderNumber', $cols)) {
-            $pdo->exec("ALTER TABLE Bookings ADD COLUMN orderNumber VARCHAR(50) NULL");
-        }
-        if (in_array('kg', $cols)) {
-            $pdo->exec("ALTER TABLE Bookings MODIFY kg DECIMAL(10,3) DEFAULT 0");
-        }
-    } catch (PDOException $e) {
-        error_log("ensureBookingColumns manage error: " . $e->getMessage());
-    }
 }
 
 ensureBookingColumns($pdo);
@@ -107,9 +87,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
         }
     }
     $fields[] = "updatedAt = NOW()";
-    
+
     if (empty($fields)) {
         echo json_encode($booking);
+        exit;
+    }
+
+    $candidateDate = $input['date'] ?? $booking['date'];
+    $candidateResource = $input['resourceId'] ?? $booking['resourceId'];
+    $candidateStartHour = isset($input['startTimeHour']) ? (int)$input['startTimeHour'] : (int)$booking['startTimeHour'];
+    $candidateStartMinute = isset($input['startTimeMinute']) ? (int)$input['startTimeMinute'] : (int)$booking['startTimeMinute'];
+    $candidateDuration = isset($input['duration']) ? (int)$input['duration'] : (int)$booking['duration'];
+
+    $conflictId = findOverlap($pdo, $candidateDate, $candidateResource, $candidateStartHour, $candidateStartMinute, $candidateDuration, $id);
+    if ($conflictId) {
+        http_response_code(409);
+        echo json_encode(['error' => 'Conflicto de horario con otra carga', 'conflictId' => $conflictId]);
         exit;
     }
 

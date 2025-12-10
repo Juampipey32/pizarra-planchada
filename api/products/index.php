@@ -21,10 +21,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     exit;
 }
 
-// From here on, only VENDEDOR can write
-if ($user['role'] !== 'VENDEDOR') {
+// From here on, only ADMIN can write
+if ($user['role'] !== 'ADMIN') {
     http_response_code(403);
-    echo json_encode(['error' => 'Solo VENDEDOR puede modificar productos']);
+    echo json_encode(['error' => 'Solo ADMIN puede modificar productos']);
     exit;
 }
 
