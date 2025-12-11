@@ -120,7 +120,7 @@
     <div class="flex-1 flex flex-col h-full relative transition-all duration-300 ml-0" id="mainContent">
 
         <!-- Header -->
-        <header class="bg-white shadow-sm z-10 shrink-0 h-16 flex items-center justify-between px-4">
+        <header class="bg-white shadow-sm z-30 shrink-0 h-16 flex items-center justify-between px-4">
             <div class="flex items-center gap-4">
                 <button onclick="toggleDrawer()" class="text-slate-500 hover:text-blue-600 focus:outline-none">
                     <i class="fa-solid fa-bars text-2xl"></i>
@@ -477,7 +477,8 @@
         // --- RENDER BOARD (TIME GRID) ---
         function initBoardLayout() {
             const container = document.getElementById('boardContainer');
-            container.className = "flex-1 overflow-auto bg-slate-200/50 p-4"; // Changed to normal scroll
+            // Ensure container takes full height and handles overflow
+            container.className = "flex-1 h-full overflow-auto bg-slate-200/50 p-4";
 
             // Generate Time Slots (04:00 to 20:00)
             const timeSlots = [];
