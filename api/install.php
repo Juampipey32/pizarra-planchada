@@ -12,7 +12,6 @@ try {
     echo "<p>Tabla 'Users' verificada/creada.</p>";
 
     // 2. Create Bookings Table
-    $pdo->exec("CREATE TABLE IF NOT EXISTS Bookings (
         id INT AUTO_INCREMENT PRIMARY KEY,
         client VARCHAR(255) NOT NULL,
         clientCode VARCHAR(50),
@@ -27,7 +26,12 @@ try {
         startTimeMinute INT NOT NULL,
         realStartTime VARCHAR(10),
         realEndTime VARCHAR(10),
-        status ENUM('PLANNED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED') DEFAULT 'PLANNED',
+        status ENUM('PENDING', 'PLANNED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED') DEFAULT 'PENDING',
+        priority ENUM('Normal', 'Urgente', 'Lista', 'Espera') DEFAULT 'Normal',
+        observations TEXT,
+        items JSON,
+        sampi_time INT DEFAULT 0,
+        sampi_on TINYINT(1) DEFAULT 0,
         createdBy INT,
         createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,

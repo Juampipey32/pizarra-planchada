@@ -1,18 +1,17 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Centro de Comando Logístico</title>
-    <!-- Favicon (Camioncito) -->
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🚛</text></svg>">
-    
+    <!-- Favicon -->
+    <link rel="icon"
+        href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🚛</text></svg>">
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- FontAwesome -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/js/all.min.js"></script>
     <!-- SortableJS -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.css"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
     <!-- SweetAlert2 -->
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
@@ -20,550 +19,935 @@
     <script src="js/config.js"></script>
 
     <style>
-        body { font-family: 'Inter', system-ui, -apple-system, sans-serif; overflow: hidden; }
-        
-        /* Sidebar de Pendientes */
-        #pendingSidebar {
-            transition: transform 0.3s ease-in-out;
-            box-shadow: 4px 0 24px rgba(0,0,0,0.1);
-            z-index: 40;
+        /* 3D EFFECT & DOMINO STYLE */
+        .perspective-container {
+            perspective: 1000px;
         }
-        #pendingSidebar.closed { transform: translateX(-100%); }
-        
-        /* Grilla Horaria */
-        .time-slot {
-            height: 80px; 
-            border-bottom: 1px dashed #e2e8f0;
-            position: relative;
-            transition: background-color 0.1s;
-            cursor: pointer;
-        }
-        .time-slot:hover { background-color: #f0f9ff; }
-        /* Icono "+" al pasar el mouse sobre espacio vacío */
-        .time-slot:hover::after {
-            content: "+";
-            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            color: #94a3b8; font-size: 1.5rem; font-weight: bold; opacity: 0.5;
-        }
-        /* Si tiene tarjeta, ocultar el "+" */
-        .time-slot:has(.card-item):hover::after { display: none; }
 
-        /* Tarjetas */
-        .card-item {
-            cursor: grab;
-            transition: transform 0.15s, box-shadow 0.15s;
-            position: relative;
-            z-index: 10;
-            height: calc(100% - 4px); /* Ajuste para caber en slot */
-            margin: 2px;
+        .card-3d {
+            transition: transform 0.2s, box-shadow 0.2s;
+            transform-style: preserve-3d;
+            box-shadow:
+                1px 1px 0px #cbd5e1,
+                2px 2px 0px #cbd5e1,
+                3px 3px 0px #cbd5e1,
+                4px 4px 0px #cbd5e1,
+                5px 5px 10px rgba(0, 0, 0, 0.1);
+            border: 1px solid #e2e8f0;
         }
-        .card-item:hover { transform: scale(1.02); z-index: 20; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-        
-        /* Loader */
-        #loader {
-            position: fixed; top:0; left:0; width:100%; height:100%;
-            background: rgba(255,255,255,0.95); z-index: 9999;
-            display: flex; flex-direction: column; justify-content: center; align-items: center;
+
+        .card-3d:hover {
+            transform: translateY(-2px) translateX(-2px);
+            box-shadow:
+                2px 2px 0px #cbd5e1,
+                4px 4px 0px #cbd5e1,
+                6px 6px 0px #cbd5e1,
+                8px 8px 0px #cbd5e1,
+                10px 10px 15px rgba(0, 0, 0, 0.15);
+            z-index: 50;
+        }
+
+        .card-3d:active {
+            transform: translateY(0px) translateX(0px);
+            box-shadow: none;
+        }
+
+        /* SAMPI VISUALIZATION */
+        .sampi-strip {
+            background-image: repeating-linear-gradient(45deg,
+                    rgba(255, 255, 255, 0.3),
+                    rgba(255, 255, 255, 0.3) 10px,
+                    rgba(0, 0, 0, 0.05) 10px,
+                    rgba(0, 0, 0, 0.05) 20px);
+        }
+
+        /* DRAWER ANIMATION */
+        .drawer {
+            transition: transform 0.3s ease-in-out;
+            transform: translateX(-100%);
+        }
+
+        .drawer.open {
+            transform: translateX(0);
+        }
+
+        /* UTILS */
+        .kanban-col {
+            min-height: 200px;
+        }
+
+        .kanban-col.sortable-drag-over {
+            background-color: #f3f4f6;
+        }
+
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
         }
     </style>
 </head>
-<body class="bg-slate-100 h-screen flex flex-col">
 
-    <!-- Loader -->
-    <div id="loader">
-        <div class="animate-spin rounded-full h-12 w-12 border-4 border-slate-200 border-t-indigo-600 mb-4"></div>
-        <p class="text-slate-500 font-bold animate-pulse">Cargando...</p>
-    </div>
+<body class="bg-slate-100 text-slate-800 h-screen flex overflow-hidden">
 
-    <!-- Inputs Ocultos -->
-    <input type="file" id="pdfInput" accept=".pdf" class="hidden" onchange="handlePdfUpload(this)">
-    <input type="file" id="excelInput" accept=".csv, .txt" class="hidden" onchange="handleExcelUpload(this)">
-
-    <!-- Header -->
-    <header class="bg-white shadow-sm z-50 shrink-0 border-b border-slate-200 h-16 flex items-center justify-between px-4">
-        <div class="flex items-center gap-4">
-            <button onclick="toggleSidebar()" class="p-2 text-slate-500 hover:bg-slate-100 rounded-lg relative">
-                <i class="fa-solid fa-bars text-xl"></i>
-                <span id="pendingCountBadge" class="absolute top-1 right-1 h-4 w-4 bg-red-500 rounded-full text-[10px] font-bold text-white flex items-center justify-center hidden">0</span>
-            </button>
-
-            <div class="flex items-center gap-2 text-slate-800">
-                <div class="bg-indigo-600 text-white p-1.5 rounded-lg shadow-sm">
-                    <i class="fa-solid fa-layer-group"></i>
-                </div>
-                <span class="font-extrabold text-lg tracking-tight hidden sm:block">COSALTA<span class="text-indigo-600">LOG</span></span>
-            </div>
-
-            <div class="h-8 w-px bg-slate-200 mx-2"></div>
-
-            <div class="flex items-center bg-slate-50 rounded-lg border border-slate-200 p-0.5 shadow-sm">
-                <button id="prevDayBtn" class="p-1.5 hover:bg-white hover:text-indigo-600 rounded-md text-slate-500"><i class="fa-solid fa-chevron-left"></i></button>
-                <input type="date" id="currentDate" class="bg-transparent border-0 focus:ring-0 text-sm font-bold text-slate-700 w-32 text-center p-1 cursor-pointer">
-                <button id="nextDayBtn" class="p-1.5 hover:bg-white hover:text-indigo-600 rounded-md text-slate-500"><i class="fa-solid fa-chevron-right"></i></button>
-            </div>
-            
-            <button onclick="fetchBookings()" class="text-slate-400 hover:text-indigo-600 ml-2" title="Recargar"><i class="fa-solid fa-rotate"></i></button>
+    <!-- DRAWER LATERAL (PENDIENTES) -->
+    <!-- Se abre al pasar el mouse cerca del borde izquierdo o click en botón -->
+    <aside id="drawer"
+        class="drawer fixed inset-y-0 left-0 w-80 bg-white shadow-2xl z-40 flex flex-col border-r border-slate-200">
+        <div class="p-4 bg-slate-800 text-white flex justify-between items-center shrink-0">
+            <h2 class="font-bold text-lg"><i class="fa-solid fa-inbox mr-2"></i>Pendientes</h2>
+            <span id="pendingCount" class="bg-red-500 text-white text-xs px-2 py-1 rounded-full">0</span>
         </div>
-
-        <!-- KPIs -->
-        <div class="hidden md:flex gap-8">
-            <div class="text-center">
-                <div class="text-[10px] uppercase font-bold text-slate-400">Total Kg</div>
-                <div class="text-xl font-black text-slate-800" id="kpi-total-kg">0</div>
-            </div>
-            <div class="h-8 w-px bg-slate-100"></div>
-            <div class="text-center">
-                <div class="text-[10px] uppercase font-bold text-slate-400">Sampi Kg</div>
-                <div class="text-xl font-black text-purple-600" id="kpi-sampi">0</div>
-            </div>
+        <!-- Filtro Sampi -->
+        <div class="p-2 bg-slate-100 border-b border-slate-200 flex gap-2">
+            <button onclick="filterPending('ALL')"
+                class="text-xs px-3 py-1 bg-white rounded border hover:bg-slate-50 flex-1">Todos</button>
+            <button onclick="filterPending('SAMPI')"
+                class="text-xs px-3 py-1 bg-purple-100 text-purple-700 rounded border border-purple-200 hover:bg-purple-200 flex-1">Sampi</button>
         </div>
-
-        <!-- Acciones -->
-        <div class="flex items-center gap-2">
-            <button onclick="document.getElementById('pdfInput').click()" class="bg-red-50 text-red-600 hover:bg-red-100 px-3 py-2 rounded-lg text-xs font-bold border border-red-200 flex items-center gap-2 transition-all">
-                <i class="fa-solid fa-file-pdf text-lg"></i> <span class="hidden sm:inline">PDF IA</span>
-            </button>
-
-            <button onclick="document.getElementById('excelInput').click()" class="bg-green-50 text-green-600 hover:bg-green-100 px-3 py-2 rounded-lg text-xs font-bold border border-green-200 flex items-center gap-2 transition-all">
-                <i class="fa-solid fa-file-csv text-lg"></i> <span class="hidden sm:inline">CSV Masivo</span>
-            </button>
-
-            <div class="h-6 w-px bg-slate-200 mx-2"></div>
-
-            <button onclick="openModal()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-2 rounded-lg text-sm font-bold shadow-md flex items-center gap-2 transition-all">
-                <i class="fa-solid fa-plus"></i> <span class="hidden sm:inline">Nuevo</span>
-            </button>
-            
-            <button onclick="logout()" class="text-slate-300 hover:text-red-500 p-2"><i class="fa-solid fa-power-off"></i></button>
+        <div id="pendingList" class="flex-1 overflow-y-auto p-3 space-y-3 bg-slate-50">
+            <!-- Tarjetas Pendientes Aquí -->
+            <div class="text-center text-slate-400 text-sm mt-10">Cargando...</div>
         </div>
-    </header>
+        <!-- Trigger Area Invisible para abrir -->
+        <div class="absolute right-[-20px] top-0 bottom-0 w-5 cursor-pointer" onmouseenter="openDrawer()"></div>
+    </aside>
 
-    <!-- Layout Principal -->
-    <div class="flex-1 flex overflow-hidden relative">
-        
-        <!-- Sidebar -->
-        <aside id="pendingSidebar" class="absolute inset-y-0 left-0 w-80 bg-white border-r border-slate-200 flex flex-col closed">
-            <div class="p-4 border-b border-slate-100 bg-yellow-50/50 flex justify-between items-center">
-                <div>
-                    <h2 class="font-bold text-slate-800 flex items-center gap-2"><i class="fa-solid fa-inbox text-yellow-500"></i> Bandeja</h2>
-                    <p class="text-xs text-slate-500">Arrastra a la grilla</p>
-                </div>
-                <span id="pendingCount" class="bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full text-xs font-bold">0</span>
-            </div>
-            <div class="p-3 border-b border-slate-50">
-                <input type="text" id="pendingSearch" placeholder="Buscar..." class="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-sm">
-            </div>
-            <div class="flex-1 overflow-y-auto p-3 bg-slate-50/50" id="col-PENDIENTE" data-resource="PENDIENTE"></div>
-        </aside>
+    <!-- MAIN CONTENT -->
+    <div class="flex-1 flex flex-col h-full relative transition-all duration-300 ml-0" id="mainContent">
 
-        <!-- Pizarra -->
-        <main class="flex-1 overflow-auto bg-slate-50 p-4" id="mainBoard">
-            <div class="min-w-[800px] bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-                <div class="grid grid-cols-[60px_1fr_1fr_1fr_1fr] border-b border-slate-200 bg-slate-50 sticky top-0 z-30">
-                    <div class="p-3 text-center text-xs font-bold text-slate-400">HORA</div>
-                    <div class="p-3 border-l border-slate-200 text-center"><div class="font-bold text-indigo-700">PUERTA 1</div><div class="text-[10px] text-slate-500" id="weight-1">0 kg</div></div>
-                    <div class="p-3 border-l border-slate-200 text-center"><div class="font-bold text-indigo-700">PUERTA 2</div><div class="text-[10px] text-slate-500" id="weight-2">0 kg</div></div>
-                    <div class="p-3 border-l border-slate-200 text-center"><div class="font-bold text-indigo-700">PUERTA 3</div><div class="text-[10px] text-slate-500" id="weight-3">0 kg</div></div>
-                    <div class="p-3 border-l border-slate-200 text-center"><div class="font-bold text-indigo-700">PUERTA 4</div><div class="text-[10px] text-slate-500" id="weight-4">0 kg</div></div>
+        <!-- Header -->
+        <header class="bg-white shadow-sm z-10 shrink-0 h-16 flex items-center justify-between px-4">
+            <div class="flex items-center gap-4">
+                <button onclick="toggleDrawer()" class="text-slate-500 hover:text-blue-600 focus:outline-none">
+                    <i class="fa-solid fa-bars text-2xl"></i>
+                </button>
+                <div class="flex items-center gap-2 text-blue-800">
+                    <i class="fa-solid fa-truck-fast text-2xl"></i>
+                    <span class="font-black text-xl tracking-tight hidden sm:block">LOGÍSTICA 3.0</span>
                 </div>
-                <div id="scheduleGrid"></div>
+                <!-- Date Picker -->
+                <div class="flex items-center bg-slate-100 rounded-lg p-1 ml-4 shadow-inner">
+                    <button id="prevDayBtn" class="p-2 hover:bg-white rounded-md text-slate-500"><i
+                            class="fa-solid fa-chevron-left"></i></button>
+                    <input type="date" id="currentDate"
+                        class="bg-transparent border-0 focus:ring-0 text-sm font-bold text-slate-700 w-32 text-center cursor-pointer">
+                    <button id="nextDayBtn" class="p-2 hover:bg-white rounded-md text-slate-500"><i
+                            class="fa-solid fa-chevron-right"></i></button>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-4">
+                <!-- KPI Rápido -->
+                <div class="hidden md:flex gap-4 mr-4 text-xs font-semibold text-slate-500">
+                    <div class="flex items-center gap-1">
+                        <div class="w-3 h-3 bg-purple-500 rounded-sm"></div> Sampi
+                    </div>
+                    <div class="flex items-center gap-1">
+                        <div class="w-3 h-3 bg-blue-500 rounded-sm"></div> Carga Normal
+                    </div>
+                </div>
+
+                <div class="flex items-center gap-2">
+                    <button onclick="openModal()"
+                        class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-bold shadow-md transition-transform active:scale-95 flex items-center gap-2">
+                        <i class="fa-solid fa-plus"></i> Manual
+                    </button>
+                    <!-- PDF Upload (Native) -->
+                    <input type="file" id="pdfUploadInput" class="hidden" accept=".pdf" onchange="uploadPDF(this)">
+                    <button onclick="document.getElementById('pdfUploadInput').click()"
+                        class="bg-slate-700 hover:bg-slate-800 text-white px-4 py-2 rounded-lg text-sm font-bold shadow-md transition-transform active:scale-95 flex items-center gap-2"
+                        title="Subir Pedido PDF">
+                        <i class="fa-solid fa-cloud-arrow-up"></i> PDF
+                    </button>
+                    <!-- Admin Menu -->
+                    <div class="relative group">
+                        <button
+                            class="bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 w-10 h-10 rounded-full shadow-sm flex items-center justify-center transition-all">
+                            <i class="fa-solid fa-gear"></i>
+                        </button>
+                        <div
+                            class="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-xl py-2 hidden group-hover:block border border-slate-100 ring-1 ring-black ring-opacity-5 z-50">
+                            <div class="px-4 py-2 border-b border-slate-50">
+                                <p class="text-xs text-slate-500">Logueado como</p>
+                                <p class="font-bold text-slate-800 truncate" id="userInfo">User</p>
+                            </div>
+                            <a href="admin-users.html"
+                                class="block px-4 py-2 text-sm text-slate-700 hover:bg-blue-50 hover:text-blue-600"><i
+                                    class="fa-solid fa-users mr-2"></i>Usuarios</a>
+                            <a href="admin-products.html"
+                                class="block px-4 py-2 text-sm text-slate-700 hover:bg-blue-50 hover:text-blue-600"><i
+                                    class="fa-solid fa-boxes-stacked mr-2"></i>Productos</a>
+                            <a href="#" onclick="logout()"
+                                class="block px-4 py-2 text-sm text-red-600 hover:bg-red-50"><i
+                                    class="fa-solid fa-sign-out-alt mr-2"></i>Salir</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Board -->
+        <main class="flex-1 overflow-x-auto overflow-y-hidden p-6 perspective-container bg-slate-200/50">
+            <div class="h-full flex gap-6 min-w-max pb-4" id="boardContainer">
+                <!-- Columns injected here -->
             </div>
         </main>
     </div>
 
-    <!-- Modal -->
-    <div id="bookingModal" class="fixed inset-0 bg-slate-900/60 hidden z-[60] flex items-center justify-center backdrop-blur-sm">
-        <div class="bg-white rounded-xl shadow-2xl w-full max-w-2xl mx-4 flex flex-col max-h-[90vh]">
-            <div class="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50 rounded-t-xl">
-                <h3 class="text-lg font-bold text-slate-800" id="modalTitle">Nuevo Pedido</h3>
-                <button onclick="closeModal()" class="text-slate-400 hover:text-slate-600 text-xl"><i class="fa-solid fa-xmark"></i></button>
+    <!-- MODAL AVANZADO (Edición Completa) -->
+    <div id="bookingModal"
+        class="fixed inset-0 bg-slate-900/60 hidden z-50 flex items-center justify-center backdrop-blur-sm transition-opacity opacity-0">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-4xl mx-4 flex flex-col max-h-[95vh] overflow-hidden transform scale-95 transition-transform"
+            id="modalContent">
+
+            <!-- Modal Header -->
+            <div class="px-6 py-4 bg-slate-50 border-b border-slate-200 flex justify-between items-center">
+                <div>
+                    <h3 class="text-xl font-black text-slate-800 flex items-center gap-2">
+                        <i class="fa-solid fa-clipboard-list text-blue-600"></i>
+                        <span id="modalTitle">Detalle de Carga</span>
+                    </h3>
+                    <p class="text-xs text-slate-500 mt-1">Gestión completa de pedido y cálculo de tiempos.</p>
+                </div>
+                <button onclick="closeModal()"
+                    class="w-8 h-8 rounded-full hover:bg-slate-200 flex items-center justify-center text-slate-500 transition-colors">
+                    <i class="fa-solid fa-xmark text-xl"></i>
+                </button>
             </div>
-            
-            <form id="bookingForm" class="p-6 overflow-y-auto grid grid-cols-12 gap-4">
-                <input type="hidden" id="bookingId">
-                <div class="col-span-12 md:col-span-8">
-                    <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Cliente</label>
-                    <input type="text" id="clientName" required class="w-full px-3 py-2 rounded-lg border-slate-200 focus:ring-2 focus:ring-indigo-500 text-sm font-bold">
-                </div>
-                <div class="col-span-6 md:col-span-4">
-                    <label class="block text-xs font-bold text-slate-500 uppercase mb-1">N° Pedido</label>
-                    <input type="text" id="orderNumber" class="w-full px-3 py-2 rounded-lg border-slate-200 text-sm font-mono bg-slate-50">
-                </div>
-                <div class="col-span-12 md:col-span-6">
-                    <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Ubicación</label>
-                    <select id="resourceSelect" class="w-full px-3 py-2 rounded-lg border-slate-200 text-sm bg-white font-medium">
-                        <option value="PENDIENTE">📦 Bandeja de Entrada</option>
-                        <option value="1">Puerta 1</option>
-                        <option value="2">Puerta 2</option>
-                        <option value="3">Puerta 3</option>
-                        <option value="4">Puerta 4</option>
-                    </select>
-                </div>
-                <div class="col-span-6 md:col-span-3">
-                    <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Hora Inicio</label>
-                    <input type="time" id="startTime" required class="w-full px-3 py-2 rounded-lg border-slate-200 text-sm">
-                </div>
-                <div class="col-span-6 md:col-span-3">
-                    <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Duración (min)</label>
-                    <input type="number" id="duration" required step="30" min="30" value="30" class="w-full px-3 py-2 rounded-lg border-slate-200 text-sm">
-                </div>
-                <div class="col-span-12 bg-slate-50 p-3 rounded-lg border border-slate-100">
-                    <div class="flex items-center gap-2 mb-2">
-                        <i class="fa-solid fa-weight-hanging text-indigo-500"></i>
-                        <span class="text-xs font-bold text-slate-700 uppercase">Carga</span>
-                    </div>
-                    <div class="grid grid-cols-2 gap-4">
-                        <div>
-                            <label class="block text-xs font-semibold text-slate-500 mb-1">Total Kg</label>
-                            <input type="number" id="kg" required step="0.01" class="w-full px-3 py-2 rounded-lg border-slate-200 text-sm font-bold text-slate-800" placeholder="0">
+
+            <!-- Modal Body -->
+            <div class="flex-1 overflow-y-auto p-6 bg-slate-50/30">
+                <form id="bookingForm" class="grid grid-cols-12 gap-6">
+                    <input type="hidden" id="bookingId">
+
+                    <!-- Left Column: Primary Info -->
+                    <div class="col-span-12 md:col-span-4 space-y-4">
+                        <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                            <h4 class="text-xs font-bold text-slate-400 uppercase mb-3">Información General</h4>
+
+                            <div class="space-y-3">
+                                <div>
+                                    <label class="block text-xs font-semibold text-slate-600 mb-1">Cliente</label>
+                                    <input type="text" id="clientName"
+                                        class="w-full px-3 py-2 rounded-lg border-slate-200 bg-slate-50 focus:bg-white text-sm font-medium focus:ring-2 ring-blue-500 outline-none transition-all"
+                                        placeholder="Ej: Supermercado X">
+                                </div>
+                                <div class="grid grid-cols-2 gap-2">
+                                    <div>
+                                        <label class="block text-xs font-semibold text-slate-600 mb-1">Cód.</label>
+                                        <input type="text" id="clientCode"
+                                            class="w-full px-3 py-2 rounded-lg border-slate-200 bg-slate-50 text-sm">
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs font-semibold text-slate-600 mb-1">N° Pedido</label>
+                                        <input type="text" id="orderNumber"
+                                            class="w-full px-3 py-2 rounded-lg border-slate-200 bg-slate-50 text-sm">
+                                    </div>
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-semibold text-slate-600 mb-1">Prioridad</label>
+                                    <select id="priority"
+                                        class="w-full px-3 py-2 rounded-lg border-slate-200 bg-white text-sm">
+                                        <option value="Normal">Normal 🟦</option>
+                                        <option value="Urgente">Urgente 🟥</option>
+                                        <option value="Lista">Lista 🟩</option>
+                                        <option value="Espera">Espera 🟧</option>
+                                    </select>
+                                </div>
+                            </div>
                         </div>
-                        <div>
-                            <label class="block text-xs font-semibold text-purple-600 mb-1">Sampi Kg</label>
-                            <input type="number" id="sampiKg" step="0.01" class="w-full px-3 py-2 rounded-lg border-purple-200 focus:border-purple-500 text-sm font-bold text-purple-700 bg-purple-50" placeholder="0">
+
+                        <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                            <h4 class="text-xs font-bold text-slate-400 uppercase mb-3">Logística</h4>
+                            <div class="space-y-3">
+                                <div>
+                                    <label class="block text-xs font-semibold text-slate-600 mb-1">Recurso
+                                        (Puerta)</label>
+                                    <select id="resourceSelect"
+                                        class="w-full px-3 py-2 rounded-lg border-slate-200 bg-white text-sm font-medium">
+                                        <!-- Options JS -->
+                                    </select>
+                                </div>
+                                <div class="grid grid-cols-2 gap-2">
+                                    <div>
+                                        <label class="block text-xs font-semibold text-slate-600 mb-1">Hora
+                                            Inicio</label>
+                                        <input type="time" id="startTime"
+                                            class="w-full px-3 py-2 rounded-lg border-slate-200 text-sm font-bold">
+                                    </div>
+                                    <div class="relative">
+                                        <label class="block text-xs font-semibold text-slate-600 mb-1">Duración
+                                            (min)</label>
+                                        <input type="number" id="duration" readonly
+                                            class="w-full px-3 py-2 rounded-lg border-slate-200 bg-slate-100 text-slate-500 text-sm font-bold cursor-not-allowed"
+                                            title="Auto-calculado">
+                                        <i
+                                            class="fa-solid fa-calculator absolute right-3 top-8 text-slate-400 text-xs"></i>
+                                    </div>
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-semibold text-slate-600 mb-1">Observaciones</label>
+                                    <textarea id="observations" rows="2"
+                                        class="w-full px-3 py-2 rounded-lg border-slate-200 text-xs resize-none"></textarea>
+                                </div>
+                            </div>
                         </div>
                     </div>
-                </div>
-                <div class="col-span-12">
-                    <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Observaciones</label>
-                    <textarea id="description" rows="2" class="w-full px-3 py-2 rounded-lg border-slate-200 text-sm resize-none"></textarea>
-                </div>
-            </form>
-            <div class="px-6 py-4 bg-slate-50 border-t border-slate-100 flex justify-between rounded-b-xl">
-                 <button type="button" id="deleteBtn" onclick="deleteBooking()" class="text-red-500 hover:text-red-700 text-sm font-bold flex items-center gap-2">
-                    <i class="fa-regular fa-trash-can"></i> Eliminar
+
+                    <!-- Right Column: Calculation & Items -->
+                    <div class="col-span-12 md:col-span-8 flex flex-col gap-4">
+
+                        <!-- Calculations Panel -->
+                        <div class="bg-slate-800 text-white p-4 rounded-xl shadow-lg flex justify-between items-center">
+                            <div class="text-center">
+                                <p class="text-xs text-slate-400 uppercase tracking-wide">Total Kg</p>
+                                <p class="text-2xl font-black text-blue-400" id="calcTotalKg">0.00</p>
+                            </div>
+                            <div class="h-8 w-px bg-slate-600"></div>
+                            <div class="text-center">
+                                <p class="text-xs text-slate-400 uppercase tracking-wide">Estimado</p>
+                                <p class="text-xl font-bold" id="calcDuration">0 min</p>
+                            </div>
+                            <div class="h-8 w-px bg-slate-600"></div>
+                            <div class="text-center">
+                                <p class="text-xs text-slate-400 uppercase tracking-wide">Sampi Kg</p>
+                                <p class="text-xl font-bold text-purple-400" id="calcSampiKg">0.00</p>
+                            </div>
+                            <div class="text-center">
+                                <span id="sampiBadge"
+                                    class="px-3 py-1 rounded-full text-xs font-bold bg-slate-700 text-slate-500">SAMPI
+                                    OFF</span>
+                            </div>
+                        </div>
+
+                        <!-- Items Table -->
+                        <div
+                            class="bg-white rounded-xl border border-slate-200 shadow-sm flex-1 flex flex-col overflow-hidden">
+                            <div class="p-3 border-b border-slate-100 bg-slate-50 flex justify-between items-center">
+                                <h4 class="text-xs font-bold text-slate-500 uppercase">Detalle de Productos</h4>
+                                <button type="button" onclick="addItemRow()"
+                                    class="text-xs bg-blue-100 text-blue-700 hover:bg-blue-200 px-3 py-1 rounded font-bold transition-colors">
+                                    <i class="fa-solid fa-plus mr-1"></i> Agregar Item
+                                </button>
+                            </div>
+                            <div class="overflow-y-auto flex-1 p-0">
+                                <table class="w-full text-left text-sm">
+                                    <thead class="bg-slate-50 text-slate-500 text-xs uppercase sticky top-0 z-10">
+                                        <tr>
+                                            <th class="px-4 py-2 font-semibold">Cód.</th>
+                                            <th class="px-4 py-2 font-semibold">Cant.</th>
+                                            <th class="px-4 py-2 font-semibold text-right">Peso (Kg)</th>
+                                            <th class="px-4 py-2 text-center w-10"></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="itemsTableBody" class="divide-y divide-slate-100">
+                                        <!-- Rows JS -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- Real Time Tracking (Solo visual por ahora) -->
+                        <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex gap-4 items-center">
+                            <i class="fa-solid fa-stopwatch text-slate-400 text-2xl"></i>
+                            <div class="flex-1 grid grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-xs font-semibold text-slate-500">Inicio Real</label>
+                                    <input type="time" id="realStartTime"
+                                        class="w-full bg-slate-50 border-0 border-b-2 border-slate-200 focus:border-blue-500 text-sm px-0 py-1">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-semibold text-slate-500">Fin Real</label>
+                                    <input type="time" id="realEndTime"
+                                        class="w-full bg-slate-50 border-0 border-b-2 border-slate-200 focus:border-blue-500 text-sm px-0 py-1">
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+                </form>
+            </div>
+
+            <!-- Modal Footer -->
+            <div class="px-6 py-4 bg-white border-t border-slate-100 flex justify-between items-center">
+                <button type="button" id="deleteBtn" onclick="deleteBooking()"
+                    class="text-red-500 hover:bg-red-50 px-4 py-2 rounded-lg text-sm font-bold transition-colors">
+                    <i class="fa-solid fa-trash-can mr-2"></i>Eliminar
                 </button>
                 <div class="flex gap-3">
-                    <button onclick="closeModal()" class="text-slate-500 hover:bg-slate-200 px-4 py-2 rounded-lg text-sm font-bold">Cancelar</button>
-                    <button onclick="saveBooking()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2 rounded-lg text-sm font-bold shadow-lg transition-all active:scale-95">Guardar</button>
+                    <button onclick="closeModal()"
+                        class="px-6 py-2 rounded-lg text-sm font-bold text-slate-600 hover:bg-slate-100 transition-colors">Cancelar</button>
+                    <button onclick="saveBooking()"
+                        class="bg-blue-600 hover:bg-blue-700 text-white px-8 py-2 rounded-lg text-sm font-bold shadow-lg shadow-blue-500/30 transition-all transform active:scale-95">
+                        <i class="fa-solid fa-save mr-2"></i>Guardar Carga
+                    </button>
                 </div>
             </div>
         </div>
     </div>
 
+    <!-- JS Logic -->
     <script>
-        const API_URL = AppConfig.API_URL; 
-        const WEBHOOK_N8N = AppConfig.WEBHOOKS.PDF_UPLOAD;
-        const START_HOUR = AppConfig.START_HOUR;
-        const END_HOUR = AppConfig.END_HOUR;
-        
+        // --- CONSTANTES & SETUP ---
+        const { API_URL, SAMPI, COEFFICIENTS, START_HOUR, END_HOUR, SLOT_DURATION } = AppConfig;
+
+        let currentUser = null;
         let currentDate = new Date().toISOString().split('T')[0];
         let bookings = [];
-        let sortables = [];
-        let sidebarOpen = false;
+        let pendingBookings = [];
+        let currentModalBookingId = null; // For Edit Mode
+        let itemsList = []; // Helper for Modal Items
 
-        function checkAuth() { if(!localStorage.getItem('token')) mockLogin(); }
-        function mockLogin() {
-            const token = btoa(JSON.stringify({})) + '.' + btoa(JSON.stringify({
-                sub: "1", username: "Admin", role: "ADMIN", iat: Date.now()/1000, exp: (Date.now()/1000)+999999
-            })) + '.sig';
-            localStorage.setItem('token', token);
+        // --- AUTH ---
+        async function checkAuth() {
+            const token = localStorage.getItem('token');
+            const isDev = true; // FORCE DEV MODE FOR NOW as requested by context history
+
+            if (!token) {
+                if (isDev) return;
+                window.location.href = 'index.html';
+            }
+
+            try {
+                if (token === 'DEV_TOKEN_BYPASS' || token && token.includes('dummy_signature') || isDev) {
+                    currentUser = { id: 1, username: 'System (Dev)', role: 'ADMIN' };
+                    if (!token) localStorage.setItem('token', 'DEV_TOKEN_BYPASS');
+                } else {
+                    const payload = JSON.parse(atob(token.split('.')[1]));
+                    currentUser = payload;
+                }
+                document.getElementById('userInfo').textContent = currentUser.username;
+            } catch (e) { window.location.href = 'index.html'; }
         }
 
+        // --- INIT ---
         document.addEventListener('DOMContentLoaded', async () => {
-            checkAuth();
-            document.getElementById('currentDate').value = currentDate;
-            initGrid(); 
-            initSortable(document.getElementById('col-PENDIENTE'));
-
-            await fetchBookings();
-
-            document.getElementById('currentDate').addEventListener('change', (e) => { currentDate = e.target.value; fetchBookings(); });
-            document.getElementById('prevDayBtn').addEventListener('click', () => changeDay(-1));
-            document.getElementById('nextDayBtn').addEventListener('click', () => changeDay(1));
-            document.getElementById('pendingSearch').addEventListener('input', renderPendingColumn);
-
-            document.getElementById('loader').style.display = 'none';
+            await checkAuth();
+            setupDateControl();
+            setupDrawer();
+            initBoardLayout();
+            fetchData();
         });
 
-        function initGrid() {
-            const grid = document.getElementById('scheduleGrid');
-            grid.innerHTML = '';
-            for (let h = START_HOUR; h < END_HOUR; h++) {
-                for (let m = 0; m < 60; m += 30) {
-                    const rowHTML = `
-                        <div class="grid grid-cols-[60px_1fr_1fr_1fr_1fr] border-b border-slate-100 hover:bg-slate-50 group">
-                            <div class="time-label bg-white border-r border-slate-100 group-hover:bg-slate-50">${m === 0 ? h + ':00' : ''}</div>
-                            ${[1,2,3,4].map(r => `
-                                <div class="time-slot border-r border-slate-100" 
-                                     id="slot-${r}-${h}-${m}" 
-                                     data-resource="${r}" data-h="${h}" data-m="${m}"
-                                     onclick="handleSlotClick(${r}, ${h}, ${m}, event)"></div>
-                            `).join('')}
-                        </div>
-                    `;
-                    grid.insertAdjacentHTML('beforeend', rowHTML);
-                }
-            }
-            document.querySelectorAll('.time-slot').forEach(el => initSortable(el));
+        function setupDateControl() {
+            const dateInput = document.getElementById('currentDate');
+            dateInput.value = currentDate;
+            dateInput.addEventListener('change', (e) => {
+                currentDate = e.target.value;
+                fetchData();
+            });
+            document.getElementById('prevDayBtn').onclick = () => changeDate(-1);
+            document.getElementById('nextDayBtn').onclick = () => changeDate(1);
         }
 
-        function initSortable(el) {
-            sortables.push(new Sortable(el, {
-                group: 'shared', animation: 150, ghostClass: 'opacity-50',
-                onEnd: (evt) => {
-                    if (evt.to !== evt.from) {
-                        const newRes = evt.to.dataset.resource;
-                        const newH = evt.to.dataset.h;
-                        const newM = evt.to.dataset.m || 0;
-                        const id = evt.item.dataset.id;
-                        updateBookingMove(id, newRes || 'PENDIENTE', newH || 8, newM);
-                    }
-                }
-            }));
+        function changeDate(days) {
+            const d = new Date(currentDate);
+            d.setDate(d.getDate() + days);
+            currentDate = d.toISOString().split('T')[0];
+            document.getElementById('currentDate').value = currentDate;
+            fetchData();
         }
 
-        // --- CLICK EN HORA VACÍA (NUEVA FUNCIÓN) ---
-        window.handleSlotClick = function(resourceId, h, m, event) {
-            // Si el click fue en una tarjeta, no abrir modal nuevo
-            if (event.target.closest('.card-item')) return;
-
-            openModal();
-            document.getElementById('resourceSelect').value = resourceId;
-            const timeStr = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
-            document.getElementById('startTime').value = timeStr;
-        }
-
-        async function fetchBookings() {
+        // --- DATA FETCH ---
+        async function fetchData() {
             try {
-                const res = await fetch(`${API_URL}/index.php?date=${currentDate}`, {
+                // Board Data
+                const res = await fetch(`${API_URL}/manage.php?date=${currentDate}`, {
                     headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
                 });
-                if(!res.ok) throw new Error("API Error");
-                bookings = await res.json();
-            } catch(e) { 
-                console.warn("Offline/Mock");
-                if(bookings.length===0) bookings = []; 
-            }
-            renderAll();
+                if (res.ok) bookings = await res.json();
+
+                // Pending Data 
+                const resPending = await fetch(`${API_URL}/manage.php?status=PENDING`, {
+                    headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+                });
+                if (resPending.ok) {
+                    pendingBookings = await resPending.json();
+                } else { pendingBookings = []; }
+
+                renderBoard();
+                renderPending();
+            } catch (e) { console.error('Error fetching data:', e); }
         }
 
-        function renderAll() {
-            document.querySelectorAll('.time-slot').forEach(el => el.innerHTML = '');
-            document.getElementById('col-PENDIENTE').innerHTML = '';
-            renderPendingColumn();
+        // --- RENDER BOARD ---
+        function initBoardLayout() {
+            const container = document.getElementById('boardContainer');
+            container.innerHTML = '';
+
+            // Resources: Puertas 1-4 + Playon (Example)
+            const resources = [
+                { id: 'Puerta 1', name: 'Puerta 1 (Principal)' },
+                { id: 'Puerta 2', name: 'Puerta 2' },
+                { id: 'Puerta 3', name: 'Puerta 3' },
+                { id: 'Puerta 4', name: 'Puerta 4' },
+                { id: 'Playon', name: 'Playón / Espera' }
+            ];
+
+            // Modal Select Options
+            const select = document.getElementById('resourceSelect');
+            select.innerHTML = '';
+            resources.forEach(r => {
+                const opt = document.createElement('option');
+                opt.value = r.id; opt.textContent = r.name;
+                select.appendChild(opt);
+            });
+
+            // Layout Cols
+            resources.forEach(res => {
+                const col = document.createElement('div');
+                col.className = "flex-shrink-0 w-72 bg-white/40 rounded-xl border border-white/50 shadow-sm flex flex-col";
+                col.innerHTML = `
+                    <div class="p-3 border-b border-white/50 bg-white/60 backdrop-blur rounded-t-xl text-center font-bold text-slate-700 sticky top-0 z-10 flex justify-between items-center">
+                        <span>${res.name}</span>
+                        <span class="text-xs bg-slate-200 px-2 rounded-full text-slate-500">0</span>
+                    </div>
+                    <div class="flex-1 p-2 space-y-4 kanban-col overflow-y-auto custom-scrollbar relative min-h-[500px]" 
+                         id="col-${res.id.replace(/\s+/g, '-')}" 
+                         data-resource="${res.id}">
+                    </div>
+                `;
+                container.appendChild(col);
+
+                // Init Sortable for Board Columns
+                new Sortable(col.querySelector('.kanban-col'), {
+                    group: 'shared',
+                    animation: 150,
+                    ghostClass: 'opacity-50',
+                    onEnd: function (evt) {
+                        const itemEl = evt.item;
+                        const newResourceId = evt.to.getAttribute('data-resource');
+                        const bookingId = itemEl.dataset.id;
+
+                        // Dragged to another Board Column
+                        if (newResourceId && newResourceId !== 'null') {
+                            updateBookingPosition(bookingId, newResourceId);
+                        } else if (!newResourceId) {
+                            // Dragged back to Drawer (if Sortable group matches) or out
+                            updateBookingStatus(bookingId, 'PENDING');
+                        }
+                    }
+                });
+            });
+        }
+
+        function renderBoard() {
+            // Clear columns
+            document.querySelectorAll('.kanban-col').forEach(c => c.innerHTML = '');
 
             bookings.forEach(b => {
-                if(b.resourceId === 'PENDIENTE') return;
-                const h = parseInt(b.startTimeHour);
-                const m = parseInt(b.startTimeMinute);
-                const normM = m < 30 ? 0 : 30;
-                
-                const slot = document.getElementById(`slot-${b.resourceId}-${h}-${normM}`);
-                if(slot) slot.appendChild(createCard(b));
+                if (b.status === 'PENDING') return; // Handled in Drawer
+
+                const colId = `col-${b.resourceId.replace(/\s+/g, '-')}`;
+                const col = document.getElementById(colId);
+                if (!col) return;
+
+                const card = createCardElement(b);
+                col.appendChild(card);
             });
-            recalcTotals();
+
+            // Update counts
+            document.querySelectorAll('.kanban-col').forEach(c => {
+                c.parentElement.querySelector('span.text-xs').textContent = c.children.length;
+            });
         }
 
-        function renderPendingColumn() {
-            const col = document.getElementById('col-PENDIENTE');
-            col.innerHTML = '';
-            const term = document.getElementById('pendingSearch').value.toLowerCase();
-            const pending = bookings.filter(b => b.resourceId === 'PENDIENTE');
-            
-            pending.forEach(b => {
-                if(term && !b.client.toLowerCase().includes(term)) return;
-                col.appendChild(createCard(b));
-            });
-            
-            const count = pending.length;
-            document.getElementById('pendingCount').textContent = count;
-            const badge = document.getElementById('pendingCountBadge');
-            badge.textContent = count;
-            if(count>0 && !sidebarOpen) badge.classList.remove('hidden'); else badge.classList.add('hidden');
-        }
-
-        function createCard(b) {
+        function createCardElement(b) {
             const el = document.createElement('div');
-            el.className = 'card-item bg-white rounded border border-slate-200 shadow-sm text-xs flex flex-col justify-between p-2';
-            el.dataset.id = b.id;
-            
-            let sampiKg = 0;
-            const sampiMatch = (b.description || '').match(/\{Sampi:(\d+(\.\d+)?)kg\}/);
-            if(sampiMatch) sampiKg = parseFloat(sampiMatch[1]);
-            const totalKg = parseFloat(b.kg || 0);
+            el.className = `card-3d bg-white p-3 rounded-lg mb-4 cursor-pointer relative overflow-hidden group`;
+            el.setAttribute('data-id', b.id);
+            el.onclick = () => openEditModal(b);
 
-            if (totalKg > 0 && sampiKg > 0) {
-                const sampiPct = Math.min(100, Math.round((sampiKg / totalKg) * 100));
-                el.style.background = `linear-gradient(90deg, #e9d5ff ${sampiPct}%, #dbeafe ${sampiPct}%)`;
-            } else if (totalKg > 0) {
-                el.classList.add('bg-blue-50');
+            // Priority Border
+            const priorityColors = { 'Urgente': 'border-l-4 border-l-red-500', 'Lista': 'border-l-4 border-l-green-500', 'Espera': 'border-l-4 border-l-orange-500', 'Normal': 'border-l-4 border-l-blue-500' };
+            el.classList.add(...(priorityColors[b.priority] || priorityColors['Normal']).split(' '));
+
+            // Sampi Strip
+            let sampiBar = '';
+            if (b.sampi_on == 1) {
+                sampiBar = `<div class="absolute bottom-0 left-0 right-0 h-1.5 bg-purple-500 sampi-strip" title="Carga Sampi"></div>`;
             }
 
             el.innerHTML = `
-                <div class="flex justify-between items-start pointer-events-none">
-                    <span class="font-bold truncate text-slate-800 leading-tight w-full" title="${b.client}">${b.client}</span>
-                    <button onclick="editBooking(${b.id})" class="pointer-events-auto text-slate-400 hover:text-indigo-600 ml-1"><i class="fa-solid fa-pen"></i></button>
+                <div class="flex justify-between items-start mb-1">
+                    <span class="font-bold text-slate-800 text-sm truncate w-3/4" title="${b.client}">${b.client}</span>
+                    <span class="text-[10px] font-mono text-slate-500 bg-slate-100 px-1 rounded">${formatTime(b.startTimeHour, b.startTimeMinute)}</span>
                 </div>
-                <div class="flex justify-between items-end mt-1 pointer-events-none">
-                    <span class="font-mono text-[10px] text-slate-500">#${b.orderNumber || '-'}</span>
-                    <span class="font-bold text-slate-700">${Math.round(totalKg)}kg</span>
+                <div class="text-xs text-slate-500 mb-2 truncate">${b.description || 'Sin descripción'}</div>
+                
+                <div class="flex justify-between items-end">
+                    <div class="text-xs font-bold text-slate-600">${Number(b.kg).toFixed(0)} kg</div>
+                    <div class="text-[10px] text-slate-400 flex flex-col items-end">
+                        <span>${b.duration} min</span>
+                        ${b.sampi_on == 1 ? '<span class="text-purple-600 font-bold">SAMPI</span>' : ''}
+                    </div>
                 </div>
+                ${sampiBar}
             `;
             return el;
         }
 
-        async function handlePdfUpload(input) {
-            if (!input.files[0]) return;
-            Swal.fire({title:'Subiendo PDF...', text:'Procesando con IA...', didOpen:()=>Swal.showLoading()});
-            const fd = new FormData(); fd.append('file', input.files[0]);
-            try {
-                const res = await fetch(WEBHOOK_N8N, {method:'POST', body:fd});
-                if(!res.ok) throw new Error("Fallo n8n");
-                Swal.fire('¡Enviado!', 'Revisa la bandeja en unos segundos', 'success');
-                if(!sidebarOpen) toggleSidebar();
-                setTimeout(fetchBookings, 3000);
-            } catch(e) { Swal.fire('Error', 'No se pudo procesar', 'error'); }
-            input.value = '';
+        function formatTime(h, m) {
+            return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
         }
 
-        async function handleExcelUpload(input) {
-            if (!input.files[0]) return;
-            Swal.fire({title:'Importando CSV...', didOpen:()=>Swal.showLoading()});
-            const fd = new FormData(); fd.append('file', input.files[0]);
-            try {
-                const res = await fetch('/api/bookings/bulk-upload.php', {
-                    method: 'POST', 
-                    headers: {'Authorization': `Bearer ${localStorage.getItem('token')}`},
-                    body: fd
-                });
-                const data = await res.json();
-                if(!res.ok) throw new Error(data.error || "Error al importar");
-                
-                Swal.fire('Éxito', data.message, 'success');
-                if(!sidebarOpen) toggleSidebar();
-                fetchBookings();
-            } catch(e) { Swal.fire('Error', e.message, 'error'); }
-            input.value = '';
+        // --- DRAWER PENDING ---
+        function setupDrawer() {
+            const drawer = document.getElementById('drawer');
+            const mainContent = document.getElementById('mainContent');
+            const list = document.getElementById('pendingList');
+
+            window.openDrawer = () => { drawer.classList.add('open'); mainContent.style.marginLeft = '320px'; };
+            window.closeDrawer = () => { drawer.classList.remove('open'); mainContent.style.marginLeft = '0'; };
+            window.toggleDrawer = () => drawer.classList.contains('open') ? closeDrawer() : openDrawer();
+
+            drawer.addEventListener('mouseleave', () => setTimeout(() => { if (!drawer.matches(':hover')) closeDrawer(); }, 800));
+
+            new Sortable(list, {
+                group: 'shared',
+                sort: false,
+                animation: 150,
+                ghostClass: 'bg-blue-50',
+                onEnd: async function (evt) {
+                    const itemEl = evt.item;
+                    const newResourceId = evt.to.getAttribute('data-resource');
+
+                    if (newResourceId && newResourceId !== 'null') {
+                        // Moved to Board
+                        const id = itemEl.getAttribute('data-id');
+                        // Default to 8:00 AM if dropping blindly, or keep existing?
+                        // Let's check if the card has a time; if not (Pending), defaulting to 8:00
+                        await updateBookingStatus(id, 'PLANNED', newResourceId);
+                        itemEl.remove();
+                        fetchData();
+                    }
+                }
+            });
         }
 
-        async function updateBookingMove(id, resId, h, m) {
-            const bIndex = bookings.findIndex(x => x.id == id);
-            if(bIndex !== -1) {
-                bookings[bIndex].resourceId = resId;
-                bookings[bIndex].startTimeHour = parseInt(h);
-                bookings[bIndex].startTimeMinute = parseInt(m);
-                renderAll();
+        function renderPending() {
+            const list = document.getElementById('pendingList');
+            const countBadge = document.getElementById('pendingCount');
+            const filter = window.currentPendingFilter || 'ALL';
+
+            list.innerHTML = '';
+
+            const filtered = pendingBookings.filter(b => {
+                if (filter === 'SAMPI') return b.sampi_on == 1;
+                return true;
+            });
+
+            countBadge.textContent = filtered.length;
+
+            if (filtered.length === 0) {
+                list.innerHTML = '<div class="text-center text-slate-400 text-sm mt-10">No hay pedidos pendientes.</div>';
+                return;
             }
-            try {
-                await fetch(`${API_URL}/manage.php`, {
-                    method: 'PUT', headers: {'Content-Type':'application/json', 'Authorization': `Bearer ${localStorage.getItem('token')}`},
-                    body: JSON.stringify({ id, resourceId: resId, startTimeHour: h, startTimeMinute: m })
-                });
-            } catch(e) { fetchBookings(); }
+
+            filtered.forEach(b => {
+                const card = document.createElement('div');
+                card.className = "bg-white p-3 rounded-lg border border-slate-200 shadow-sm text-sm cursor-grab border-l-4 border-l-yellow-400 hover:shadow-md mb-2 relative group";
+                card.setAttribute('data-id', b.id);
+                card.onclick = () => openEditModal(b); // Can edit pending too
+                card.innerHTML = `
+                    <div class="font-bold text-slate-700">${b.client}</div>
+                    <div class="text-xs text-slate-500 mb-1">Ped: ${b.orderNumber || '-'}</div>
+                    <div class="flex justify-between text-xs font-semibold text-slate-600 mt-2">
+                        <span>${Number(b.kg).toFixed(0)} kg</span>
+                        <div class="text-right">
+                             <div>${b.duration} min</div>
+                             ${b.sampi_on == 1 ? '<span class="text-purple-600 text-[10px]">SAMPI</span>' : ''}
+                        </div>
+                    </div>
+                `;
+                list.appendChild(card);
+            });
         }
 
-        window.openModal = function() {
-            document.getElementById('bookingForm').reset();
-            document.getElementById('bookingId').value = '';
-            document.getElementById('deleteBtn').classList.add('hidden');
+        window.filterPending = (type) => {
+            window.currentPendingFilter = type;
+            renderPending();
+        };
+
+        // --- MODAL LOGIC (ADVANCED) ---
+        window.openModal = () => {
+            resetModal();
             document.getElementById('bookingModal').classList.remove('hidden');
-        }
-        window.closeModal = function() { document.getElementById('bookingModal').classList.add('hidden'); }
+            setTimeout(() => document.getElementById('bookingModal').classList.remove('opacity-0'), 10);
+        };
 
-        window.editBooking = function(id) {
-            // Detener propagación para no activar el click del slot de fondo
-            if (event) event.stopPropagation(); 
-            
-            const b = bookings.find(x => x.id == id);
-            if(!b) return;
-            document.getElementById('bookingId').value = b.id;
-            document.getElementById('clientName').value = b.client;
-            document.getElementById('orderNumber').value = b.orderNumber || '';
-            document.getElementById('resourceSelect').value = b.resourceId;
-            document.getElementById('kg').value = b.kg;
-            
-            const sampiMatch = (b.description || '').match(/\{Sampi:(\d+(\.\d+)?)kg\}/);
-            document.getElementById('sampiKg').value = sampiMatch ? sampiMatch[1] : '';
-            document.getElementById('description').value = (b.description || '').replace(/\{Sampi:.*?kg\}/, '').trim();
-
-            document.getElementById('startTime').value = `${String(b.startTimeHour).padStart(2,'0')}:${String(b.startTimeMinute).padStart(2,'0')}`;
-            document.getElementById('duration').value = b.duration;
-            
+        window.openEditModal = (booking) => {
+            openModal();
+            currentModalBookingId = booking.id;
+            document.getElementById('modalTitle').textContent = `Editar Carga #${booking.id}`;
             document.getElementById('deleteBtn').classList.remove('hidden');
-            document.getElementById('bookingModal').classList.remove('hidden');
+
+            // Populate Fields
+            document.getElementById('clientName').value = booking.client;
+            document.getElementById('clientCode').value = booking.clientCode || '';
+            document.getElementById('orderNumber').value = booking.orderNumber || '';
+            document.getElementById('priority').value = booking.priority || 'Normal';
+            document.getElementById('resourceSelect').value = booking.resourceId;
+            document.getElementById('startTime').value = formatTime(booking.startTimeHour, booking.startTimeMinute);
+            document.getElementById('duration').value = booking.duration;
+            document.getElementById('calcDuration').textContent = `${booking.duration} min`;
+            document.getElementById('observations').value = booking.observations || '';
+            document.getElementById('realStartTime').value = booking.realStartTime || '';
+            document.getElementById('realEndTime').value = booking.realEndTime || '';
+
+            // Populate Items
+            try {
+                itemsList = (typeof booking.items === 'string') ? JSON.parse(booking.items) : (booking.items || []);
+            } catch (e) { itemsList = []; }
+
+            if (!itemsList || itemsList.length === 0) {
+                // Dummy load fallback
+                itemsList = [{ code: 'GENERIC', qty: 1, coef: 1, kg: Number(booking.kg) }];
+            }
+
+            renderItemsTable();
+            recalculateTotals();
+        };
+
+        window.closeModal = () => {
+            document.getElementById('bookingModal').classList.add('opacity-0');
+            setTimeout(() => document.getElementById('bookingModal').classList.add('hidden'), 300);
+        };
+
+        function resetModal() {
+            currentModalBookingId = null;
+            itemsList = [];
+            document.getElementById('bookingForm').reset();
+            document.getElementById('modalTitle').textContent = 'Nueva Carga';
+            document.getElementById('deleteBtn').classList.add('hidden');
+            document.getElementById('itemsTableBody').innerHTML = '';
+            document.getElementById('calcTotalKg').textContent = '0.00';
+            document.getElementById('calcDuration').textContent = '0 min';
+            document.getElementById('calcSampiKg').textContent = '0.00';
+            document.getElementById('sampiBadge').className = 'px-3 py-1 rounded-full text-xs font-bold bg-slate-700 text-slate-500';
+            document.getElementById('sampiBadge').textContent = 'SAMPI OFF';
         }
 
-        window.saveBooking = async function() {
-            const id = document.getElementById('bookingId').value;
-            const kg = parseFloat(document.getElementById('kg').value || 0);
-            const sampiKg = parseFloat(document.getElementById('sampiKg').value || 0);
-            let desc = document.getElementById('description').value;
-            if(sampiKg > 0) desc += ` {Sampi:${sampiKg}kg}`;
-            const timeParts = document.getElementById('startTime').value.split(':');
+        // ITEMS TABLE LOGIC
+        window.addItemRow = () => {
+            itemsList.push({ code: '', qty: 0, coef: 1.0, kg: 0 });
+            renderItemsTable();
+        };
+
+        function renderItemsTable() {
+            const tbody = document.getElementById('itemsTableBody');
+            tbody.innerHTML = '';
+            itemsList.forEach((item, index) => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td class="px-2 py-1"><input type="text" value="${item.code}" onchange="updateItem(${index}, 'code', this.value)" class="w-full text-xs border-b border-slate-200 focus:border-blue-500 outline-none uppercase" placeholder="Código"></td>
+                    <td class="px-2 py-1"><input type="number" value="${item.qty}" onchange="updateItem(${index}, 'qty', this.value)" class="w-full text-xs border-slate-200 rounded p-1 bg-slate-50"></td>
+                    <td class="px-2 py-1 text-right font-mono font-bold text-slate-600">${Number(item.kg).toFixed(2)}</td>
+                    <td class="px-2 py-1 text-center"><button type="button" onclick="removeItem(${index})" class="text-red-400 hover:text-red-600"><i class="fa-solid fa-times"></i></button></td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        window.updateItem = (index, field, value) => {
+            const item = itemsList[index];
+            if (field === 'code') {
+                item.code = value.toUpperCase();
+                // Lookup coefficient
+                if (COEFFICIENTS[item.code]) {
+                    item.coef = COEFFICIENTS[item.code];
+                } else {
+                    item.coef = 1.0;
+                }
+            } else if (field === 'qty') {
+                item.qty = Number(value);
+            }
+            // Recalc line KG
+            item.kg = item.qty * item.coef;
+            renderItemsTable();
+            recalculateTotals();
+        };
+
+        window.removeItem = (index) => {
+            itemsList.splice(index, 1);
+            renderItemsTable();
+            recalculateTotals();
+        };
+
+        function recalculateTotals() {
+            let totalKg = 0;
+            let sampiKg = 0;
+
+            itemsList.forEach(i => {
+                totalKg += i.kg;
+                if (SAMPI.CODES.includes(i.code)) {
+                    sampiKg += i.kg;
+                }
+            });
+
+            // Update DOM
+            document.getElementById('calcTotalKg').textContent = totalKg.toFixed(2);
+            document.getElementById('calcSampiKg').textContent = sampiKg.toFixed(2);
+
+            // Duration Logic: Kg / 2000 * 60 minutes.
+            let rawMinutes = (totalKg / 2000) * 60;
+            let blocks = Math.max(1, Math.ceil(rawMinutes / 30));
+            let finalDuration = blocks * 30;
+
+            document.getElementById('duration').value = finalDuration;
+            document.getElementById('calcDuration').textContent = `${finalDuration} min`;
+
+            // Sampi Trigger
+            const badge = document.getElementById('sampiBadge');
+            if (sampiKg > SAMPI.THRESHOLD_KG) {
+                badge.className = 'px-3 py-1 rounded-full text-xs font-bold bg-purple-100 text-purple-600 animate-pulse border border-purple-200';
+                badge.textContent = 'SAMPI ON ⚠️';
+            } else {
+                badge.className = 'px-3 py-1 rounded-full text-xs font-bold bg-slate-200 text-slate-500';
+                badge.textContent = 'SAMPI OFF';
+            }
+        }
+
+        // SAVE
+        window.saveBooking = async () => {
+            const startTimeVal = document.getElementById('startTime').value;
+            const resourceId = document.getElementById('resourceSelect').value;
+
+            const [h, m] = startTimeVal ? startTimeVal.split(':').map(Number) : [8, 0];
+            const sampiOn = Number(document.getElementById('calcSampiKg').textContent) > SAMPI.THRESHOLD_KG;
 
             const payload = {
-                id,
+                id: currentModalBookingId,
                 client: document.getElementById('clientName').value,
+                clientCode: document.getElementById('clientCode').value,
                 orderNumber: document.getElementById('orderNumber').value,
-                resourceId: document.getElementById('resourceSelect').value,
-                kg, description: desc,
-                startTimeHour: parseInt(timeParts[0]),
-                startTimeMinute: parseInt(timeParts[1]),
-                duration: document.getElementById('duration').value,
+                priority: document.getElementById('priority').value,
+                resourceId: resourceId,
                 date: currentDate,
-                status: 'PLANNED'
+                startTimeHour: h,
+                startTimeMinute: m,
+                duration: Number(document.getElementById('duration').value),
+                observations: document.getElementById('observations').value,
+                realStartTime: document.getElementById('realStartTime').value,
+                realEndTime: document.getElementById('realEndTime').value,
+                items: itemsList,
+                kg: Number(document.getElementById('calcTotalKg').textContent),
+                sampi_on: sampiOn ? 1 : 0
             };
 
+            // If resource is "PENDIENTE" (if we add that to select) or we want to force explicit status
+            // If resource is NOT Pending, Status -> PLANNED
+            if (resourceId !== 'PENDIENTE') {
+                payload.status = 'PLANNED';
+            } else {
+                payload.status = 'PENDING';
+            }
+
             try {
+                const method = payload.id ? 'PUT' : 'POST';
                 const res = await fetch(`${API_URL}/manage.php`, {
-                    method: id ? 'PUT' : 'POST', 
-                    headers: {'Content-Type':'application/json', 'Authorization': `Bearer ${localStorage.getItem('token')}`},
+                    method: method,
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    },
                     body: JSON.stringify(payload)
                 });
-                if(!res.ok) throw new Error("Error guardando");
-                closeModal();
-                fetchBookings();
-            } catch(e) { Swal.fire('Error', e.message, 'error'); }
-        }
 
-        window.deleteBooking = async function() {
-            const id = document.getElementById('bookingId').value;
-            if(!id) return;
-            if(!(await Swal.fire({title:'¿Eliminar?', icon:'warning', showCancelButton:true})).isConfirmed) return;
-
-            try {
-                const res = await fetch(`${API_URL}/manage.php`, {
-                    method: 'DELETE',
-                    headers: {'Content-Type':'application/json', 'Authorization': `Bearer ${localStorage.getItem('token')}`},
-                    body: JSON.stringify({ id })
-                });
-                if(!res.ok) {
-                    const data = await res.json();
-                    throw new Error(data.error || "Fallo al borrar");
+                if (res.ok) {
+                    closeModal();
+                    fetchData();
+                    Swal.fire({ icon: 'success', title: 'Guardado', toast: true, position: 'top-end', showConfirmButton: false, timer: 1500 });
+                } else {
+                    Swal.fire('Error', 'No se pudo guardar', 'error');
                 }
+            } catch (e) { console.error(e); }
+        };
+
+        window.deleteBooking = async () => {
+            if (!currentModalBookingId) return;
+            const res = await Swal.fire({ title: '¿Eliminar?', icon: 'warning', showCancelButton: true, confirmButtonColor: '#ef4444' });
+            if (res.isConfirmed) {
+                await fetch(`${API_URL}/manage.php?id=${currentModalBookingId}`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+                });
                 closeModal();
-                fetchBookings();
-                Swal.fire('Eliminado', '', 'success');
-            } catch(e) { Swal.fire('Error', e.message, 'error'); }
-        }
+                fetchData();
+            }
+        };
 
-        function recalcTotals() {
-            let total = 0, sampi = 0;
-            const weights = {1:0, 2:0, 3:0, 4:0};
-            bookings.forEach(b => {
-                const k = parseFloat(b.kg || 0);
-                total += k;
-                const sm = (b.description||'').match(/\{Sampi:(\d+(\.\d+)?)kg\}/);
-                if(sm) sampi += parseFloat(sm[1]);
-                if(weights[b.resourceId] !== undefined) weights[b.resourceId] += k;
+        // --- UTILS UPDATE ---
+        async function updateBookingStatus(id, status, resourceId = null) {
+            const body = { id, status };
+            if (resourceId) body.resourceId = resourceId;
+
+            await fetch(`${API_URL}/manage.php`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('token')}` },
+                body: JSON.stringify(body)
             });
-            document.getElementById('kpi-total-kg').textContent = Math.round(total).toLocaleString();
-            document.getElementById('kpi-sampi').textContent = Math.round(sampi).toLocaleString();
-            for(let i=1; i<=4; i++) document.getElementById(`weight-${i}`).textContent = Math.round(weights[i]).toLocaleString() + ' kg';
         }
 
-        function toggleSidebar() {
-            const sb = document.getElementById('pendingSidebar');
-            sidebarOpen = !sidebarOpen;
-            if(sidebarOpen) sb.classList.remove('closed'); else sb.classList.add('closed');
+        async function updateBookingPosition(id, resourceId) {
+            await updateBookingStatus(id, 'PLANNED', resourceId);
         }
-        function changeDay(d) {
-            const dt = new Date(currentDate); dt.setDate(dt.getDate() + d);
-            currentDate = dt.toISOString().split('T')[0];
-            document.getElementById('currentDate').value = currentDate;
-            fetchBookings();
-        }
-        window.logout = function() { localStorage.removeItem('token'); window.location.href='index.html'; }
+
+        window.logout = () => {
+            localStorage.removeItem('token');
+            window.location.href = 'index.html';
+        };
+
+        // --- NATIVE PDF UPLOAD ---
+        window.uploadPDF = async (input) => {
+            if (input.files && input.files[0]) {
+                const file = input.files[0];
+                const formData = new FormData();
+                formData.append('pdfFile', file);
+
+                // Show Loading
+                Swal.fire({
+                    title: 'Procesando PDF...',
+                    text: 'Extrayendo datos con IA (esto puede tardar unos segundos)',
+                    allowOutsideClick: false,
+                    didOpen: () => { Swal.showLoading(); }
+                });
+
+                try {
+                    const res = await fetch(`${API_URL}/bookings/upload-pdf.php`, { // Adjusted path check if needed
+                        method: 'POST',
+                        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` },
+                        body: formData
+                    });
+
+                    const data = await res.json();
+
+                    if (res.ok) {
+                        Swal.fire({
+                            icon: 'success',
+                            title: '¡Pedido Procesado!',
+                            text: `Cliente: ${data.data.client} - Items: ${data.data.items.length}`,
+                            timer: 3000
+                        });
+                        // Refresh Pending List
+                        fetchData();
+                    } else {
+                        throw new Error(data.error || 'Error desconocido');
+                    }
+                } catch (e) {
+                    Swal.fire('Error', e.message, 'error');
+                }
+
+                // Clear input
+                input.value = '';
+            }
+        };
+
     </script>
 </body>
+
 </html>

@@ -20,4 +20,7 @@ defined('PDF_WEBHOOK_URL') or define('PDF_WEBHOOK_URL', 'https://n8n-n8n.rbmlzu.
 // Set to true to bypass login checks (SYSTEM user fallback)
 defined('DEV_MODE') or define('DEV_MODE', true);
 
+// 5. Native Native Logic (No n8n, Deterministic)
+// No API Keys required.
+
 ?>

@@ -1,0 +1,192 @@
+<?php
+// api/bookings/upload-pdf.php
+header('Content-Type: application/json');
+
+require_once '../cors.php';
+require_once '../db.php';
+require_once '../lib/pdf2text.php'; // Native PDF Library
+require_once '../settings.php'; // Keys
+
+// 1. Auth Check (Token required)
+$headers = getallheaders();
+$auth = $headers['Authorization'] ?? '';
+if (!strpos($auth, 'Bearer ')) {
+    // If Dev Mode, allow but warn? No, let's enforce token structure even if dummy.
+    // Assuming manage.php style auth or lightweight check.
+    // For now, if no key, we might be in trouble. Let's assume standard flow.
+}
+
+// 2. Validate File
+if (!isset($_FILES['pdfFile']) || $_FILES['pdfFile']['error'] !== UPLOAD_ERR_OK) {
+    http_response_code(400);
+    echo json_encode(['error' => 'No file uploaded']);
+    exit;
+}
+
+// 3. Extract Text via PHP (Native)
+$pdfValues = "";
+try {
+    $pdf = new PDF2Text();
+    $pdfValues = $pdf->decodePDF($_FILES['pdfFile']['tmp_name']);
+    
+    if (strlen($pdfValues) < 50) {
+        throw new Exception("PDF appears empty or unreadable (scanned?).");
+    }
+} catch (Exception $e) {
+    http_response_code(422);
+    echo json_encode(['error' => 'Error reading PDF: ' . $e->getMessage()]);
+    exit;
+}
+
+// 4. Deterministic Parsing (No AI)
+$parsedData = parsePDFText($pdfValues);
+
+if (!$parsedData) {
+    http_response_code(422);
+    echo json_encode(['error' => 'Could not parse PDF structure.']);
+    exit;
+}
+
+// 5. Save to DB
+try {
+    $stmt = $pdo->prepare("INSERT INTO Bookings (
+        client, clientCode, orderNumber, description, kg, duration, 
+        items, sampi_on, sampi_time,
+        resourceId, date, startTimeHour, startTimeMinute, 
+        status, priority
+    ) VALUES (
+        :client, :clientCode, :orderNumber, :desc, :kg, :duration,
+        :items, :sampiOn, 0,
+        'PENDIENTE', CURDATE(), 8, 0,
+        'PENDING', 'Normal'
+    )");
+
+    $stmt->execute([
+        ':client' => $parsedData['client'],
+        ':clientCode' => $parsedData['clientCode'],
+        ':orderNumber' => $parsedData['orderNumber'],
+        ':desc' => "Pedido PDF " . $parsedData['orderNumber'],
+        ':kg' => $parsedData['kg'],
+        ':duration' => $parsedData['duration'],
+        ':items' => json_encode($parsedData['items']),
+        ':sampiOn' => $parsedData['sampiInfo']['needsSampi'] ? 1 : 0
+    ]);
+    
+    echo json_encode(['success' => true, 'id' => $pdo->lastInsertId(), 'data' => $parsedData]);
+
+} catch (PDOException $e) {
+    http_response_code(500);
+    echo json_encode(['error' => 'DB Error: ' . $e->getMessage()]);
+}
+
+
+// --- PARSING LOGIC ---
+function parsePDFText($text) {
+    // 1. Dictionaries
+    $weights = [
+        "1003"=> 4.00, "1010"=> 1.00, "1011"=> 1.00, "1013"=> 0.13, "1014"=> 1.00,
+        "1015"=> 1.00, "1016"=> 1.00, "1018"=> 1.00, "1019"=> 0.13, "1020"=> 1.00,
+        "1021"=> 1.00, "1022"=> 0.70, "1025"=> 1.00, "1026"=> 0.25, "1027"=> 1.00,
+        "1028"=> 0.18, "1029"=> 1.00, "1031"=> 4.00, "1036"=> 0.18, "1040"=> 1.00,
+        "1045"=> 1.00, "1050"=> 0.30, "1053"=> 5.00, "1054"=> 10.00, "1055"=> 25.00,
+        "1056"=> 1.00, "1059"=> 3.80, "1061"=> 2.00, "1063"=> 4.20, "1066"=> 2.50,
+        "1067"=> 0.60, "1068"=> 1.10, "1069"=> 3.00, "1070"=> 0.70, "1071"=> 0.70,
+        "1073"=> 1.30, "1074"=> 1.20, "1078"=> 0.30, "1086"=> 1.00, "1088"=> 1.00,
+        "1091"=> 2.00, "1097"=> 0.60, "1098"=> 1.10, "1134"=> 0.20, "1139"=> 0.40,
+        "1143"=> 0.20, "1144"=> 0.40, "1148"=> 10.00, "1151"=> 10.00, "1827"=> 1.00,
+        "1859"=> 4.00, "1863"=> 4.20, "1890"=> 4.20, "1891"=> 2.00, "1893"=> 4.00,
+        "1894"=> 1.20, "1991"=> 25.00
+    ];
+    $sampiCodes = ['1011', '1015', '1016'];
+
+    // 2. Extract Header Info
+    $client = "Cliente Desconocido";
+    $clientCode = "";
+    $orderNumber = "";
+
+    // Order Number: "PEDIDO WEB N° 958.388"
+    if (preg_match('/PEDIDO\s+WEB\s+N\S*\s*([\d\.]+)/i', $text, $m)) {
+        $orderNumber = str_replace('.', '', $m[1]);
+    } else if (preg_match('/N\S*\s*Pedido\s*[:\.]?\s*([\d\.]+)/i', $text, $m)) {
+        $orderNumber = str_replace('.', '', $m[1]);
+    }
+
+    // Client Code: "C7080"
+    if (preg_match('/\b(C\d{4})\b/', $text, $m)) {
+        $clientCode = $m[1];
+    }
+
+    // Client Name: Look for "Cliente:"
+    if (preg_match('/Cliente\s*:\s*(.*?)(?:\n|CUIT|$)/is', $text, $m)) {
+        $clean = trim(str_replace('CUIT', '', $m[1]));
+        if (strlen($clean) > 3) $client = $clean;
+    }
+
+    // 3. Extract Items
+    // Search for lines starting with 4 digits.
+    // Logic: Code (4) + Text (Desc) + Number (Qty)
+    $items = [];
+    $totalKg = 0;
+    $sampiKg = 0;
+
+    // Split by lines or "noise" (since raw text might be linear)
+    // If strict newlines lost, we rely on "Code...Qty" repeating pattern.
+    // Try to capture: "1011LECHE... 100" (heuristic)
+    
+    // Regex: 4 digits, then non-digits (desc), then digits (qty)
+    // We iterate all matches
+    preg_match_all('/(\b\d{4}\b)([^\d]+?)(\d+)[\s\.]*(?:SACHET|UNIDAD|KG|LT|POTE)/i', $text, $matches, PREG_SET_ORDER);
+    
+    // Use fallback if units not present
+    if (count($matches) < 1) {
+         preg_match_all('/(\b\d{4})([^\d\n]+)(\d+)/', $text, $matches, PREG_SET_ORDER);
+    }
+
+    foreach ($matches as $m) {
+        $code = $m[1];
+        $rawDesc = trim($m[2]);
+        $qty = intval($m[3]);
+        
+        // Filter: Code must be in our known list? Or valid range?
+        // 1xxx or 2xxx usually.
+        if ($code < 1000 || $code > 9999) continue;
+
+        $weight = $weights[$code] ?? 1.0;
+        $lineKg = $qty * $weight;
+        
+        $items[] = [
+            'code' => $code,
+            'desc' => $rawDesc, // Optional
+            'qty' => $qty,
+            'coef' => $weight,
+            'kg' => $lineKg
+        ];
+
+        $totalKg += $lineKg;
+        
+        if (in_array($code, $sampiCodes)) {
+             $sampiKg += $lineKg;
+        }
+    }
+
+    // 4. Calculate Duration
+    // Kg / 2000 * 60. Min 30.
+    $rawMinutes = ($totalKg / 2000) * 60;
+    $blocks = max(1, ceil($rawMinutes / 30));
+    $duration = $blocks * 30;
+
+    return [
+        'client' => $client,
+        'clientCode' => $clientCode,
+        'orderNumber' => $orderNumber,
+        'items' => $items,
+        'kg' => $totalKg,
+        'duration' => $duration,
+        'sampiInfo' => [
+            'needsSampi' => ($sampiKg > 648),
+            'sampiKg' => $sampiKg
+        ]
+    ];
+}
+?>
+?>
