@@ -502,11 +502,11 @@
             // Build Grid HTML
             // Header Row
             let html = `
-                <div class="min-w-max">
-                    <div class="flex sticky top-0 z-20 shadow-md">
-                        <div class="w-20 bg-slate-300 border-r border-slate-400 p-2 font-bold text-center text-xs">Hora</div>
+                <div class="inline-block min-w-full">
+                    <div class="flex sticky top-0 z-20 shadow-xl bg-slate-300 rounded-t-lg">
+                        <div class="w-16 bg-slate-400 border-r border-slate-500 p-2 font-bold text-center text-xs flex items-center justify-center flex-none">Hora</div>
                         ${resources.map(r => `
-                            <div class="w-64 bg-slate-800 text-white p-2 border-r border-slate-700 font-bold text-center text-sm flex-shrink-0">
+                            <div class="w-64 bg-slate-800 text-white p-2 border-r border-slate-700 font-bold text-center text-sm flex-none shadow-sm">
                                 ${r.name}
                             </div>
                         `).join('')}
@@ -519,11 +519,15 @@
             // Rows
             timeSlots.forEach(slot => {
                 const timeLabel = slot.label;
+                const isHalfHour = slot.m === 30;
+
                 // Row Container
-                html += `<div class="flex border-b border-slate-300 bg-slate-50 hover:bg-slate-100 transition-colors group/row">`;
+                html += `<div class="flex border-b border-slate-300 ${isHalfHour ? 'bg-slate-100/50' : 'bg-white'} hover:bg-slate-200 transition-colors group/row">`;
 
                 // Time Cell
-                html += `<div class="w-20 bg-slate-200 border-r border-slate-300 p-2 text-xs font-bold text-slate-500 text-center sticky left-0 z-10 flex items-center justify-center group-hover/row:bg-slate-300 group-hover/row:text-slate-800 transition-colors">${timeLabel}</div>`;
+                html += `<div class="w-16 bg-slate-200 border-r border-slate-300 p-1 text-[10px] font-bold text-slate-500 text-center sticky left-0 z-10 flex items-center justify-center group-hover/row:bg-slate-300 group-hover/row:text-slate-800 transition-colors flex-none shadow-md">
+                    ${timeLabel}
+                </div>`;
 
                 // Resource Cells (Drop Zones)
                 resources.forEach(res => {
@@ -533,7 +537,7 @@
 
                     html += `
                         <div id="${cellId}" 
-                             class="w-64 border-r border-slate-300 min-h-[80px] p-1 relative grid-cell-dropzone transition-colors"
+                             class="w-64 border-r border-slate-300 min-h-[100px] p-2 relative grid-cell-dropzone transition-colors flex-none"
                              data-resource="${res.id}" 
                              data-h="${slot.h}" 
                              data-m="${slot.m}">
