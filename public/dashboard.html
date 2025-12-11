@@ -474,60 +474,101 @@
             } catch (e) { console.error('Error fetching data:', e); }
         }
 
-        // --- RENDER BOARD ---
+        // --- RENDER BOARD (TIME GRID) ---
         function initBoardLayout() {
             const container = document.getElementById('boardContainer');
-            container.innerHTML = '';
+            container.className = "flex-1 overflow-auto bg-slate-200/50 p-4"; // Changed to normal scroll
 
-            // Resources: Puertas 1-4 + Playon (Example)
+            // Generate Time Slots (04:00 to 20:00)
+            const timeSlots = [];
+            let currentH = 4; // 4 AM
+            let currentM = 0;
+            const endH = 20; // 8 PM
+
+            while (currentH < endH || (currentH === endH && currentM === 0)) {
+                timeSlots.push({ h: currentH, m: currentM, label: formatTime(currentH, currentM) });
+                currentM += 30;
+                if (currentM >= 60) { currentH++; currentM = 0; }
+            }
+
             const resources = [
-                { id: 'Puerta 1', name: 'Puerta 1 (Principal)' },
+                { id: 'Puerta 1', name: 'Puerta 1' },
                 { id: 'Puerta 2', name: 'Puerta 2' },
                 { id: 'Puerta 3', name: 'Puerta 3' },
                 { id: 'Puerta 4', name: 'Puerta 4' },
-                { id: 'Playon', name: 'Playón / Espera' }
+                { id: 'Playon', name: 'Playón' }
             ];
 
-            // Modal Select Options
-            const select = document.getElementById('resourceSelect');
-            select.innerHTML = '';
-            resources.forEach(r => {
-                const opt = document.createElement('option');
-                opt.value = r.id; opt.textContent = r.name;
-                select.appendChild(opt);
+            // Build Grid HTML
+            // Header Row
+            let html = `
+                <div class="min-w-max">
+                    <div class="flex sticky top-0 z-20 shadow-md">
+                        <div class="w-20 bg-slate-300 border-r border-slate-400 p-2 font-bold text-center text-xs">Hora</div>
+                        ${resources.map(r => `
+                            <div class="w-64 bg-slate-800 text-white p-2 border-r border-slate-700 font-bold text-center text-sm flex-shrink-0">
+                                ${r.name}
+                            </div>
+                        `).join('')}
+                    </div>
+            `;
+
+            // Time Function: isSampiTime? 
+            // We'll calculate it later.
+
+            // Rows
+            timeSlots.forEach(slot => {
+                const timeLabel = slot.label;
+                // Row Container
+                html += `<div class="flex border-b border-slate-300 bg-slate-50 hover:bg-slate-100 transition-colors group/row">`;
+
+                // Time Cell
+                html += `<div class="w-20 bg-slate-200 border-r border-slate-300 p-2 text-xs font-bold text-slate-500 text-center sticky left-0 z-10 flex items-center justify-center group-hover/row:bg-slate-300 group-hover/row:text-slate-800 transition-colors">${timeLabel}</div>`;
+
+                // Resource Cells (Drop Zones)
+                resources.forEach(res => {
+                    // ID for the cell: "cell-RESOURCE-TIME" (e.g., "cell-Puerta-1-08:00")
+                    // Note: ID must be friendly.
+                    const cellId = `cell-${res.id.replace(/\s+/g, '-')}-${String(slot.h).padStart(2, '0')}-${String(slot.m).padStart(2, '0')}`;
+
+                    html += `
+                        <div id="${cellId}" 
+                             class="w-64 border-r border-slate-300 min-h-[80px] p-1 relative grid-cell-dropzone transition-colors"
+                             data-resource="${res.id}" 
+                             data-h="${slot.h}" 
+                             data-m="${slot.m}">
+                             <!-- Cards injected here -->
+                        </div>
+                    `;
+                });
+
+                html += `</div>`; // End Row
             });
 
-            // Layout Cols
-            resources.forEach(res => {
-                const col = document.createElement('div');
-                col.className = "flex-shrink-0 w-72 bg-white/40 rounded-xl border border-white/50 shadow-sm flex flex-col";
-                col.innerHTML = `
-                    <div class="p-3 border-b border-white/50 bg-white/60 backdrop-blur rounded-t-xl text-center font-bold text-slate-700 sticky top-0 z-10 flex justify-between items-center">
-                        <span>${res.name}</span>
-                        <span class="text-xs bg-slate-200 px-2 rounded-full text-slate-500">0</span>
-                    </div>
-                    <div class="flex-1 p-2 space-y-4 kanban-col overflow-y-auto custom-scrollbar relative min-h-[500px]" 
-                         id="col-${res.id.replace(/\s+/g, '-')}" 
-                         data-resource="${res.id}">
-                    </div>
-                `;
-                container.appendChild(col);
+            html += `</div>`; // End Main Wrapper
+            container.innerHTML = html;
 
-                // Init Sortable for Board Columns
-                new Sortable(col.querySelector('.kanban-col'), {
+            // Init Sortable on ALL cells
+            document.querySelectorAll('.grid-cell-dropzone').forEach(cell => {
+                new Sortable(cell, {
                     group: 'shared',
+                    sort: true,
                     animation: 150,
                     ghostClass: 'opacity-50',
                     onEnd: function (evt) {
                         const itemEl = evt.item;
-                        const newResourceId = evt.to.getAttribute('data-resource');
+                        const newCell = evt.to;
+                        const newRes = newCell.getAttribute('data-resource');
+                        const newH = newCell.getAttribute('data-h');
+                        const newM = newCell.getAttribute('data-m');
                         const bookingId = itemEl.dataset.id;
 
-                        // Dragged to another Board Column
-                        if (newResourceId && newResourceId !== 'null') {
-                            updateBookingPosition(bookingId, newResourceId);
-                        } else if (!newResourceId) {
-                            // Dragged back to Drawer (if Sortable group matches) or out
+                        if (newRes) {
+                            // Update booking Time AND Resource
+                            updateBookingSlot(bookingId, newRes, parseInt(newH), parseInt(newM));
+                        } else {
+                            // Dragged out? Back to pending?
+                            // If dropped in Drawer
                             updateBookingStatus(bookingId, 'PENDING');
                         }
                     }
@@ -536,54 +577,77 @@
         }
 
         function renderBoard() {
-            // Clear columns
-            document.querySelectorAll('.kanban-col').forEach(c => c.innerHTML = '');
+            // Clear all cells first? No, innerHTML rewrite clears them.
+            // But if we want to preserve drag state, full re-render is safest for sync.
+            // Let's just re-run init usually or just clear cells? 
+            // Clearing 100+ cells is fast.
+            document.querySelectorAll('.grid-cell-dropzone').forEach(c => c.innerHTML = '');
 
             bookings.forEach(b => {
-                if (b.status === 'PENDING') return; // Handled in Drawer
+                if (b.status === 'PENDING') return;
 
-                const colId = `col-${b.resourceId.replace(/\s+/g, '-')}`;
-                const col = document.getElementById(colId);
-                if (!col) return;
+                // Find target cell
+                // Format: cell-Resource-HH-MM
+                // We need to map actual time to the slot. 
+                // If booking is 8:15, it goes to 8:00 slot? Or exact? 
+                // Specs say 30 min blocks. We map to nearest previous block.
 
-                const card = createCardElement(b);
-                col.appendChild(card);
-            });
+                // Normalize time to 00 or 30
+                let m = b.startTimeMinute >= 30 ? 30 : 0;
+                let h = b.startTimeHour;
 
-            // Update counts
-            document.querySelectorAll('.kanban-col').forEach(c => {
-                c.parentElement.querySelector('span.text-xs').textContent = c.children.length;
+                // Sanity check range
+                if (h < 4 || h > 20) return; // Hide out of range or put in special place?
+
+                const cellId = `cell-${b.resourceId.replace(/\s+/g, '-')}-${String(h).padStart(2, '0')}-${String(m).padStart(2, '0')}`;
+                const cell = document.getElementById(cellId);
+
+                if (cell) {
+                    const card = createCardElement(b);
+                    // Adjust visual height based on duration?
+                    // 1 slot = 30 min. If duration 60, height = 2 slots?
+                    // For now, just standard card. Advanced: Absolute positioning over multiple slots.
+                    // Making card height dynamic:
+                    const slots = Math.ceil(b.duration / 30);
+                    if (slots > 1) {
+                        card.style.height = `calc(${slots * 100}% + ${slots * 1}px)`; // Approximate
+                        card.style.zIndex = 10;
+                    }
+                    cell.appendChild(card);
+                }
             });
         }
 
         function createCardElement(b) {
             const el = document.createElement('div');
-            el.className = `card-3d bg-white p-3 rounded-lg mb-4 cursor-pointer relative overflow-hidden group`;
+            el.className = `card-3d bg-white p-2 rounded-lg shadow-sm border border-slate-100 cursor-pointer relative overflow-hidden group hover:shadow-md transition-all h-full`;
             el.setAttribute('data-id', b.id);
-            el.onclick = () => openEditModal(b);
+            el.onclick = (e) => { e.stopPropagation(); openEditModal(b); };
 
             // Priority Border
-            const priorityColors = { 'Urgente': 'border-l-4 border-l-red-500', 'Lista': 'border-l-4 border-l-green-500', 'Espera': 'border-l-4 border-l-orange-500', 'Normal': 'border-l-4 border-l-blue-500' };
-            el.classList.add(...(priorityColors[b.priority] || priorityColors['Normal']).split(' '));
+            const priorityColors = { 'Urgente': '!border-l-4 !border-l-red-500', 'Lista': '!border-l-4 !border-l-green-500', 'Espera': '!border-l-4 !border-l-orange-500', 'Normal': '!border-l-4 !border-l-blue-500' };
+            const priorityClass = priorityColors[b.priority] || priorityColors['Normal'];
+
+            // Apply priority class safely
+            priorityClass.split(' ').forEach(c => el.classList.add(c.replace('!', ''))); // remove ! for classList
 
             // Sampi Strip
             let sampiBar = '';
             if (b.sampi_on == 1) {
-                sampiBar = `<div class="absolute bottom-0 left-0 right-0 h-1.5 bg-purple-500 sampi-strip" title="Carga Sampi"></div>`;
+                el.classList.add('bg-purple-50');
+                sampiBar = `<div class="absolute top-0 right-0 p-1"><i class="fa-solid fa-bolt text-purple-500 animate-pulse" title="Sampi Activo"></i></div>`;
             }
 
             el.innerHTML = `
-                <div class="flex justify-between items-start mb-1">
-                    <span class="font-bold text-slate-800 text-sm truncate w-3/4" title="${b.client}">${b.client}</span>
-                    <span class="text-[10px] font-mono text-slate-500 bg-slate-100 px-1 rounded">${formatTime(b.startTimeHour, b.startTimeMinute)}</span>
+                <div class="flex justify-between items-start leading-tight mb-1">
+                    <span class="font-bold text-slate-800 text-xs truncate w-[85%]">${b.client}</span>
                 </div>
-                <div class="text-xs text-slate-500 mb-2 truncate">${b.description || 'Sin descripción'}</div>
+                <div class="text-[10px] text-slate-500 truncate leading-tight">${b.description || '-'}</div>
                 
-                <div class="flex justify-between items-end">
-                    <div class="text-xs font-bold text-slate-600">${Number(b.kg).toFixed(0)} kg</div>
-                    <div class="text-[10px] text-slate-400 flex flex-col items-end">
-                        <span>${b.duration} min</span>
-                        ${b.sampi_on == 1 ? '<span class="text-purple-600 font-bold">SAMPI</span>' : ''}
+                <div class="flex justify-between items-end mt-1">
+                    <div class="text-[10px] font-bold text-slate-600 bg-slate-100 px-1 rounded">${Number(b.kg).toFixed(0)} kg</div>
+                    <div class="text-[10px] text-slate-400">
+                        ${b.duration}m
                     </div>
                 </div>
                 ${sampiBar}
@@ -894,7 +958,26 @@
         }
 
         async function updateBookingPosition(id, resourceId) {
+            // Deprecated in favor of Slot
             await updateBookingStatus(id, 'PLANNED', resourceId);
+        }
+
+        async function updateBookingSlot(id, resourceId, h, m) {
+            const body = {
+                id,
+                status: 'PLANNED',
+                resourceId: resourceId,
+                startTimeHour: h,
+                startTimeMinute: m
+            };
+
+            await fetch(`${API_URL}/manage.php`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('token')}` },
+                body: JSON.stringify(body)
+            });
+            // Improve UX: Maybe local update before fetch? For now fetch is safe.
+            fetchData();
         }
 
         window.logout = () => {
