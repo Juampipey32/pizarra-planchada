@@ -618,7 +618,7 @@
             document.getElementById('userRoleDisplay').textContent = userRole;
             const adminLink = document.getElementById('adminLink');
             const bulkUploadBtn = document.getElementById('bulkUploadBtn');
-            // ADMIN y VENDEDOR tienen acceso completo
+            // ADMIN y VENTAS tienen acceso completo
             if (['ADMIN', 'VENTAS'].includes(userRole)) {
                 adminLink.classList.remove('hidden');
                 bulkUploadBtn.classList.remove('hidden');
@@ -748,7 +748,7 @@
             };
             const style = styles[b.color] || styles.blue;
 
-            // INVITADO Logic: Mask data
+            // PLANCHADA (read-only): Mask data
             const isGuest = isReadOnly;
             const displayClient = isGuest ? 'OCUPADO' : b.client;
             const displayClientCode = isGuest ? '' : (b.clientCode || '');

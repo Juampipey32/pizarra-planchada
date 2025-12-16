@@ -19,7 +19,7 @@ if (!$user) {
     exit;
 }
 
-if (in_array($user['role'], ['VISUALIZADOR', 'INVITADO'])) {
+if ($user['role'] === 'PLANCHADA') {
     http_response_code(403);
     echo json_encode(['error' => 'Read only access']);
     exit;

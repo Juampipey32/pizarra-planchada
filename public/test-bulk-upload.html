@@ -32,7 +32,7 @@
                 token ? `Token presente: ${token.substring(0, 20)}...` : 'No hay token. Inicia sesión primero.');
 
             // Test 2: Role
-            addResult('Rol de usuario', role === 'VENDEDOR' ? 'pass' : role ? 'info' : 'fail',
+            addResult('Rol de usuario', ['ADMIN', 'VENTAS'].includes(role) ? 'pass' : role ? 'info' : 'fail',
                 role ? `Rol actual: ${role}` : 'No hay rol configurado');
 
             if (!token) {

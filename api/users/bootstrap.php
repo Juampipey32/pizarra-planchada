@@ -3,7 +3,7 @@
 // Helpers to ensure Users table schema and a default admin exist, even if install.php wasn't run.
 
 function bootstrap_roles(): array {
-    return ['ADMIN', 'VENDEDOR', 'INVITADO', 'PLANCHADA', 'VISUALIZADOR'];
+    return ['ADMIN', 'VENTAS', 'PLANCHADA'];
 }
 
 /**
