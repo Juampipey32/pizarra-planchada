@@ -3,49 +3,63 @@
 require_once '../cors.php';
 require_once '../db.php';
 require_once '../jwt_helper.php';
-require_once '../users/bootstrap.php';
 
-// Load .env manually if needed, or use hardcoded secret for now (User should set env var in hosting)
-$SECRET_KEY = getenv('JWT_SECRET') ?: 'secret_key_change_me';
-$ROLES = bootstrap_roles();
+header('Content-Type: application/json');
 
-// Ensure schema and seed default admin to avoid lockouts if install.php was skipped
-ensure_users_schema($pdo, $ROLES);
-ensure_admin_exists($pdo);
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    http_response_code(405);
+    echo json_encode(['error' => 'Method not allowed']);
+    exit;
+}
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $input = json_decode(file_get_contents('php://input'), true);
-    $username = $input['username'] ?? '';
-    $password = $input['password'] ?? '';
+$input = json_decode(file_get_contents('php://input'), true);
+$username = $input['username'] ?? '';
+$password = $input['password'] ?? '';
 
-    if (!$username || !$password) {
-        http_response_code(400);
-        echo json_encode(['error' => 'Username and password required']);
-        exit;
-    }
+if (empty($username) || empty($password)) {
+    http_response_code(400);
+    echo json_encode(['error' => 'Usuario y contraseña requeridos']);
+    exit;
+}
 
-    $stmt = $pdo->prepare("SELECT * FROM Users WHERE username = :username");
+try {
+    // Buscar usuario (case insensitive para el username)
+    $stmt = $pdo->prepare("SELECT * FROM Users WHERE username = :username LIMIT 1");
     $stmt->execute([':username' => $username]);
-    $user = $stmt->fetch();
+    $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
-    if (!$user) {
-        http_response_code(401);
-        echo json_encode(['error' => 'Invalid credentials']);
-        exit;
-    }
-
-    // Verify password (bcrypt)
-    if (password_verify($password, $user['password'])) {
+    // Verificar password
+    // Nota: Si tus usuarios viejos no usan hash, esto se actualizará solo si implementas migración.
+    // Aquí asumimos que password_verify es lo correcto. Si usas texto plano temporalmente, cambia la condición.
+    if ($user && password_verify($password, $user['password'])) {
+        
+        // Generar Payload del Token
         $payload = [
-            'id' => $user['id'],
-            'role' => $user['role'],
-            'exp' => time() + (8 * 3600) // 8 hours
+            'sub' => $user['id'],
+            'username' => $user['username'],
+            'role' => $user['role'], // IMPORTANTE: ADMIN, LOGISTICA o PLANCHADA
+            'iat' => time(),
+            'exp' => time() + (60 * 60 * 24) // 24 horas
         ];
+
+        $SECRET_KEY = defined('JWT_SECRET') ? JWT_SECRET : (getenv('JWT_SECRET') ?: 'secret_key_change_me');
         $token = generate_jwt($payload, $SECRET_KEY);
-        echo json_encode(['token' => $token, 'role' => $user['role']]);
+
+        echo json_encode([
+            'success' => true,
+            'token' => $token,
+            'user' => [
+                'id' => $user['id'],
+                'username' => $user['username'],
+                'role' => $user['role'] // Devolvemos el rol explícito
+            ]
+        ]);
     } else {
         http_response_code(401);
-        echo json_encode(['error' => 'Invalid credentials']);
+        echo json_encode(['error' => 'Credenciales inválidas']);
     }
+} catch (PDOException $e) {
+    http_response_code(500);
+    echo json_encode(['error' => 'Error de base de datos']);
 }
 ?>
