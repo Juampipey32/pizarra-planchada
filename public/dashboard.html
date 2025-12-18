@@ -8,7 +8,7 @@
     <!-- Favicon -->
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <!-- Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="css/tailwind-dashboard.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/js/all.min.js"></script>
     <!-- SortableJS -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
@@ -107,6 +107,8 @@
             <button onclick="filterPending('SAMPI')"
                 class="text-xs px-3 py-1 bg-purple-100 text-purple-700 rounded border border-purple-200 hover:bg-purple-200 flex-1">Sampi</button>
         </div>
+        <div id="pendingAlerts"
+            class="px-3 py-2 text-xs text-yellow-800 bg-yellow-50 border-b border-yellow-200 hidden flex flex-col gap-1"></div>
         <div id="pendingList" class="flex-1 overflow-y-auto p-3 space-y-3 bg-slate-50">
             <!-- Tarjetas Pendientes Aquí -->
             <div class="text-center text-slate-400 text-sm mt-10">Cargando...</div>
@@ -403,6 +405,7 @@
         // --- CONSTANTES & SETUP ---
         const { API_URL, SAMPI, COEFFICIENTS, START_HOUR, END_HOUR, SLOT_DURATION } = AppConfig;
         const KG_PER_BLOCK = 1500;
+        const ORDER_GUARD = { maxPlaceholders: 50 };
 
         let currentUser = null;
         let currentDate = new Date().toISOString().split('T')[0];
@@ -410,6 +413,7 @@
         let pendingBookings = [];
         let currentModalBookingId = null; // For Edit Mode
         let itemsList = []; // Helper for Modal Items
+        let orderDiagnostics = { duplicates: [], missing: [] };
         const ignoredPendingIds = new Set();
 
         function calculateDurationFromKg(kg) {
@@ -444,6 +448,103 @@
                 sampiDuration: sampiKg > 0 ? calculateDurationFromKg(sampiKg) : 0,
                 regularDuration: regularKg > 0 ? calculateDurationFromKg(regularKg) : 0,
                 requiresSampi: sampiKg > SAMPI.THRESHOLD_KG
+            };
+        }
+
+        function extractNumericOrder(orderNumber) {
+            if (orderNumber === null || orderNumber === undefined) return null;
+            const match = String(orderNumber).match(/\d+/g);
+            if (!match) return null;
+            const numeric = parseInt(match.join(''), 10);
+            return Number.isNaN(numeric) ? null : numeric;
+        }
+
+        function createMissingCard(orderNumber) {
+            const numeric = extractNumericOrder(orderNumber);
+            return {
+                id: `missing-${orderNumber}`,
+                client: 'PEDIDO FALTANTE',
+                clientCode: null,
+                orderNumber: String(orderNumber),
+                orderNumeric: numeric,
+                description: 'Sin registro detectado (verificar CSV/ERP)',
+                priority: 'Urgente',
+                kg: 0,
+                duration: SLOT_DURATION,
+                status: 'MISSING',
+                items: [],
+                metrics: {
+                    totalKg: 0,
+                    sampiKg: 0,
+                    regularKg: 0,
+                    totalDuration: SLOT_DURATION,
+                    sampiDuration: 0,
+                    regularDuration: SLOT_DURATION,
+                    requiresSampi: false
+                },
+                flags: { missing: true }
+            };
+        }
+
+        function applyOrderGuards(pendingList, scheduledList) {
+            const counts = {};
+            const scheduledNumbers = new Set();
+            const numericUniverse = new Set();
+
+            pendingList.forEach(b => {
+                const num = extractNumericOrder(b.orderNumber);
+                b.orderNumeric = num;
+                b.flags = b.flags || {};
+                if (num !== null) {
+                    counts[num] = (counts[num] || 0) + 1;
+                    numericUniverse.add(num);
+                }
+            });
+
+            (scheduledList || []).forEach(b => {
+                const num = extractNumericOrder(b.orderNumber);
+                if (num !== null) {
+                    scheduledNumbers.add(num);
+                    numericUniverse.add(num);
+                }
+            });
+
+            const duplicates = new Set();
+            pendingList.forEach(b => {
+                if (b.orderNumeric !== null) {
+                    const isDuplicate = counts[b.orderNumeric] > 1;
+                    const alreadyScheduled = scheduledNumbers.has(b.orderNumeric);
+                    b.flags.duplicate = Boolean(isDuplicate);
+                    b.flags.alreadyScheduled = Boolean(alreadyScheduled);
+                    if (isDuplicate || alreadyScheduled) {
+                        duplicates.add(b.orderNumber || b.orderNumeric);
+                    }
+                }
+            });
+
+            const sortedNumbers = Array.from(numericUniverse).sort((a, b) => a - b);
+            const missingNumbers = [];
+            const placeholders = [];
+
+            for (let i = 0; i < sortedNumbers.length - 1; i++) {
+                const current = sortedNumbers[i];
+                const next = sortedNumbers[i + 1];
+                if (next - current <= 1) continue;
+                for (let candidate = current + 1; candidate < next; candidate++) {
+                    if (placeholders.length >= ORDER_GUARD.maxPlaceholders) break;
+                    missingNumbers.push(candidate);
+                    placeholders.push(createMissingCard(candidate));
+                }
+            }
+
+            const pendingWithGuards = pendingList.concat(placeholders);
+
+            return {
+                pending: pendingWithGuards,
+                diagnostics: {
+                    duplicates: Array.from(duplicates),
+                    missing: missingNumbers
+                }
             };
         }
 
@@ -522,11 +623,10 @@
                     })
                 ]);
 
+                let normalizedPending = [];
                 if (pendingRes.ok) {
-                    let data = await pendingRes.json();
-                    pendingBookings = normalizePendingPayload(data);
-                } else {
-                    pendingBookings = [];
+                    const data = await pendingRes.json();
+                    normalizedPending = normalizePendingPayload(data);
                 }
 
                 if (boardRes.ok) {
@@ -534,6 +634,10 @@
                 } else {
                     bookings = [];
                 }
+
+                const guardResult = applyOrderGuards(normalizedPending, bookings);
+                pendingBookings = guardResult.pending;
+                orderDiagnostics = guardResult.diagnostics;
 
                 renderBoard();
                 renderPending();
@@ -626,7 +730,8 @@
                     items: parsedItems,
                     metrics,
                     sampiKg: metrics.sampiKg,
-                    regularKg: metrics.regularKg
+                    regularKg: metrics.regularKg,
+                    flags: {}
                 };
             });
 
@@ -925,6 +1030,7 @@
         function renderPending() {
             const list = document.getElementById('pendingList');
             const countBadge = document.getElementById('pendingCount');
+            const alertsBox = document.getElementById('pendingAlerts');
             const filter = window.currentPendingFilter || 'ALL';
 
             list.innerHTML = '';
@@ -938,20 +1044,68 @@
 
             countBadge.textContent = filtered.length;
 
+            if (alertsBox) {
+                const messages = [];
+                if (orderDiagnostics?.duplicates?.length) {
+                    const dupSample = orderDiagnostics.duplicates.slice(0, 5).join(', ');
+                    const suffix = orderDiagnostics.duplicates.length > 5 ? '…' : '';
+                    messages.push(`⚠️ Duplicados: ${dupSample}${suffix}`);
+                }
+                if (orderDiagnostics?.missing?.length) {
+                    messages.push(`🚨 Pedidos faltantes detectados (${orderDiagnostics.missing.length})`);
+                }
+                if (messages.length) {
+                    alertsBox.innerHTML = messages.map(m => `<span>${m}</span>`).join('');
+                    alertsBox.classList.remove('hidden');
+                } else {
+                    alertsBox.classList.add('hidden');
+                    alertsBox.innerHTML = '';
+                }
+            }
+
             if (filtered.length === 0) {
                 list.innerHTML = '<div class="text-center text-slate-400 text-sm mt-10">No hay pedidos pendientes.</div>';
                 return;
             }
 
             filtered.forEach(b => {
+                const flags = b.flags || {};
+                const isMissing = Boolean(flags.missing);
+                const isDuplicate = Boolean(flags.duplicate || flags.alreadyScheduled);
+
                 const card = document.createElement('div');
-                card.className = "bg-white p-3 rounded-lg border border-slate-200 shadow-sm text-sm cursor-grab border-l-4 border-l-yellow-400 hover:shadow-md mb-2 relative group";
+                let cardClass = "p-3 rounded-lg border shadow-sm text-sm cursor-grab mb-2 relative group";
+                if (isMissing) {
+                    cardClass += " bg-red-50 border-red-200 border-l-4 border-l-red-500 text-red-700";
+                } else if (isDuplicate) {
+                    cardClass += " bg-orange-50 border-orange-200 border-l-4 border-l-orange-500";
+                } else {
+                    cardClass += " bg-white border-slate-200 border-l-4 border-l-yellow-400";
+                }
+                card.className = cardClass;
                 card.setAttribute('data-id', b.id);
-                card.onclick = () => openEditModal(b); // Can edit pending too
+                card.onclick = () => {
+                    if (isMissing) {
+                        Swal.fire('Pedido faltante', `Esperando ingreso del pedido ${b.orderNumber || ''}.`, 'warning');
+                        return;
+                    }
+                    if (isDuplicate) {
+                        Swal.fire('Pedido duplicado', `El pedido ${b.orderNumber || 'sin número'} ya existe registrado.`, 'info');
+                        return;
+                    }
+                    openEditModal(b);
+                };
                 const metrics = b.metrics || { sampiKg: 0 };
+                const badge = isMissing
+                    ? '<span class="text-[10px] font-bold text-red-600 bg-red-100 px-2 py-0.5 rounded-full">SIN PEDIDO</span>'
+                    : isDuplicate
+                        ? '<span class="text-[10px] font-bold text-orange-600 bg-orange-100 px-2 py-0.5 rounded-full">DUPLICADO</span>'
+                        : '';
+
                 card.innerHTML = `
                     <div class="font-bold text-slate-700">${b.client}</div>
-                    <div class="text-xs text-slate-500 mb-1">Ped: ${b.orderNumber || '-'}</div>
+                    <div class="text-xs text-slate-500 mb-1">Ped: ${b.orderNumber || '-'} </div>
+                    ${badge}
                     <div class="flex justify-between text-xs font-semibold text-slate-600 mt-2">
                         <span>${Number(b.kg).toFixed(0)} kg</span>
                         <div class="text-right">
@@ -961,11 +1115,20 @@
                     </div>
                 `;
                 list.appendChild(card);
-            });
+                        });
         }
 
         async function schedulePendingBooking(booking, resourceId, hour, minute) {
             if (!booking || !resourceId) return;
+
+            if (booking.flags?.missing) {
+                Swal.fire('Pedido faltante', 'No se puede planificar un pedido que aún no fue generado.', 'warning');
+                return;
+            }
+            if (booking.flags?.duplicate || booking.flags?.alreadyScheduled) {
+                Swal.fire('Pedido duplicado', 'Este número de pedido ya está registrado. Verifica en el tablero.', 'info');
+                return;
+            }
 
             const payloads = buildSchedulePayloads(booking, resourceId, hour, minute);
             if (payloads.length === 0) {
