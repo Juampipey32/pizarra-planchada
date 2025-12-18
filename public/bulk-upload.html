@@ -1,0 +1,233 @@
+</script>
+    <script>
+        // --- INIT ---
+        document.addEventListener('DOMContentLoaded', () => {
+            setupFileUpload();
+        });
+
+        function setupFileUpload() {
+            const fileInput = document.getElementById('csvFile');
+            fileInput.addEventListener('change', (e) => {
+                if (e.target.files.length > 0) {
+                    const file = e.target.files[0];
+                    const fileName = file.name.toLowerCase();
+
+                    if (fileName.endsWith('.csv')) {
+                        readCSVFile(file);
+                    } else if (fileName.endsWith('.xlsx') || fileName.endsWith('.xls')) {
+                        readExcelFile(file);
+                    } else {
+                        Swal.fire('Error', 'Por favor, selecciona un archivo CSV, XLSX o XLS válido', 'error');
+                    }
+                }
+            });
+        }
+
+        function readCSVFile(file) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const content = e.target.result;
+                parseCSV(content);
+            };
+            reader.readAsText(file);
+        }
+
+        function readExcelFile(file) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const data = new Uint8Array(e.target.result);
+                const workbook = XLSX.read(data, {type: 'array'});
+                const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+                const jsonData = XLSX.utils.sheet_to_json(worksheet);
+
+                parseExcel(jsonData);
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        function parseCSV(csvContent) {
+            const lines = csvContent.split('\n').filter(line => line.trim());
+            const headers = lines[0].split(',').map(h => h.trim());
+
+            const bookings = [];
+
+            for (let i = 1; i < lines.length; i++) {
+                const values = lines[i].split(',').map(v => v.trim());
+                const booking = {};
+
+                headers.forEach((header, index) => {
+                    booking[header.toLowerCase()] = values[index] || '';
+                });
+
+                bookings.push(booking);
+            }
+
+            showPreview(bookings);
+        }
+
+        function parseExcel(excelData) {
+            const bookings = excelData.map(row => {
+                const booking = {};
+                Object.keys(row).forEach(key => {
+                    booking[key.toLowerCase()] = row[key];
+                });
+                return booking;
+            });
+
+            showPreview(bookings);
+        }
+
+        function showPreview(bookings) {
+            const container = document.getElementById('previewContainer');
+            const noPreview = document.getElementById('noPreview');
+            const tableBody = document.getElementById('previewTableBody');
+
+            container.classList.remove('hidden');
+            noPreview.classList.add('hidden');
+
+            tableBody.innerHTML = '';
+
+            bookings.forEach((booking, index) => {
+                // Calculate Sampi and time
+                const items = parseItemsFromBooking(booking);
+                const result = calculateSampiAndTime(items);
+
+                const row = document.createElement('tr');
+                row.className = "hover:bg-slate-50";
+                row.innerHTML = `
+                    <td class="px-4 py-2 font-medium">${booking.client || 'Sin cliente'}</td>
+                    <td class="px-4 py-2">${booking.ordernumber || booking['n° pedido'] || 'Sin pedido'}</td>
+                    <td class="px-4 py-2">${result.totalKg.toFixed(2)} kg</td>
+                    <td class="px-4 py-2 ${result.isSampi ? 'text-purple-600 font-bold' : ''}">${result.sampiKg.toFixed(2)} kg</td>
+                    <td class="px-4 py-2">${result.duration} min</td>
+                    <td class="px-4 py-2">
+                        <span class="px-2 py-1 rounded-full text-xs font-bold ${result.isSampi ? 'bg-purple-100 text-purple-700' : 'bg-slate-100 text-slate-600'}">
+                            ${result.isSampi ? 'Sampi' : 'Normal'}
+                        </span>
+                    </td>
+                `;
+                tableBody.appendChild(row);
+            });
+        }
+
+        function parseItemsFromBooking(booking) {
+            // Try to parse items from different possible formats
+            const itemsField = booking.items || booking['items'] || booking['productos'] || '';
+
+            if (itemsField && itemsField.includes(';')) {
+                // Format: code;qty;coef
+                return itemsField.split(';').map(item => {
+                    const parts = item.split(',');
+                    return {
+                        code: parts[0] || '',
+                        qty: parseFloat(parts[1]) || 1,
+                        coef: parseFloat(parts[2]) || 1
+                    };
+                });
+            } else if (itemsField && itemsField.includes(',')) {
+                // Format: code,qty,coef
+                return itemsField.split(',').map(item => {
+                    const parts = item.split(',');
+                    return {
+                        code: parts[0] || '',
+                        qty: parseFloat(parts[1]) || 1,
+                        coef: parseFloat(parts[2]) || 1
+                    };
+                });
+            } else {
+                // Default: single item
+                return [{
+                    code: booking.code || booking['codigo'] || 'GENERIC',
+                    qty: parseFloat(booking.qty) || parseFloat(booking['cantidad']) || 1,
+                    coef: parseFloat(booking.coef) || parseFloat(booking['coeficiente']) || 1
+                }];
+            }
+        }
+
+        function calculateSampiAndTime(items) {
+            let totalKg = 0;
+            let sampiKg = 0;
+
+            items.forEach(item => {
+                const kg = item.kg || (item.qty * (item.coef || 1));
+                totalKg += kg;
+                if (SAMPI.CODES.includes(item.code)) {
+                    sampiKg += kg;
+                }
+            });
+
+            // Calculate duration based on total weight
+            let rawMinutes = (totalKg / 2000) * 60;
+            let blocks = Math.max(1, Math.ceil(rawMinutes / 30));
+            let duration = blocks * 30;
+
+            return {
+                totalKg: totalKg,
+                sampiKg: sampiKg,
+                duration: duration,
+                isSampi: sampiKg > SAMPI.THRESHOLD_KG
+            };
+        }
+
+        function uploadCSV() {
+            const fileInput = document.getElementById('csvFile');
+            if (fileInput.files.length === 0) {
+                Swal.fire('Error', 'Por favor, selecciona un archivo CSV', 'error');
+                return;
+            }
+
+            readCSVFile(fileInput.files[0]);
+        }
+
+        function downloadTemplate() {
+            const template = `cliente,ordernumber,items
+Cliente A,ORD-001,"1003,1,4.00;1010,1,1.00"
+Cliente B,ORD-002,"1011,50,1.00;1015,50,1.00"
+Cliente C,ORD-003,"1003,25,4.00;1011,10,1.00"`;
+
+            const blob = new Blob([template], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'plantilla_pedidos.csv';
+            a.click();
+            window.URL.revokeObjectURL(url);
+        }
+
+        function confirmUpload() {
+            Swal.fire({
+                title: 'Confirmar Carga',
+                text: '¿Estás seguro de cargar estos pedidos a la lista de pendientes?',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#10b981',
+                cancelButtonColor: '#ef4444',
+                confirmButtonText: 'Sí, cargar',
+                cancelButtonText: 'Cancelar'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    // Here you would implement the actual upload to the API
+                    Swal.fire('Cargado!', 'Los pedidos han sido cargados correctamente.', 'success');
+                    clearPreview();
+                }
+            });
+        }
+
+        function clearPreview() {
+            document.getElementById('previewContainer').classList.add('hidden');
+            document.getElementById('noPreview').classList.remove('hidden');
+            document.getElementById('csvFile').value = '';
+            document.getElementById('previewTableBody').innerHTML = '';
+        }
+
+        function goBack() {
+            window.location.href = 'dashboard.html';
+        }
+
+        function logout() {
+            localStorage.removeItem('token');
+            window.location.href = 'index.html';
+        }
+    </script>
+</body>
+</html>

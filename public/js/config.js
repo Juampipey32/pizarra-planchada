@@ -8,8 +8,9 @@ const AppConfig = {
     // Note: Ideally these should be proxied via backend to hide URLs, 
     // but for now we keep existing behavior with centralized constants.
     WEBHOOKS: {
-        PDF_UPLOAD: 'https://n8n-n8n.rbmlzu.easypanel.host/webhook/PEDIDOS-COSALTA',
-        SHEET_SYNC: 'https://n8n-n8n.rbmlzu.easypanel.host/webhook/GUARDAR-SHEET'
+        PDF_UPLOAD: 'https://juampi-agente-n8n.h1yobv.easypanel.host/webhook/PEDIDOS-COSALTA',
+        LOAD_MASSIVE: '/api/n8n-proxy.php?action=load',
+        READ_DATA: '/api/n8n-proxy.php?action=read'
     },
 
     // Configuración Sampi

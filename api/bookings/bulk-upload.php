@@ -3,78 +3,252 @@
 require_once '../cors.php';
 require_once '../db.php';
 require_once '../jwt_helper.php';
+require_once __DIR__ . '/helpers.php';
+require_once __DIR__ . '/../lib/autoload.php'; // PhpSpreadsheet autoloader
 
 header('Content-Type: application/json');
 
-// Auth (Permisivo para que funcione la demo)
+$SECRET_KEY = getenv('JWT_SECRET') ?: 'secret_key_change_me';
+
 $token = get_bearer_token();
-$user = verify_jwt($token, defined('JWT_SECRET') ? JWT_SECRET : 'secret_key_change_me');
-$userId = $user ? $user['id'] : 1; 
+$user = verify_jwt($token, $SECRET_KEY);
 
-if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    http_response_code(405); exit;
-}
-
-if (!isset($_FILES['file']) || $_FILES['file']['error'] !== UPLOAD_ERR_OK) {
-    http_response_code(400);
-    echo json_encode(['error' => 'No se recibió archivo']);
+if (!$user) {
+    http_response_code(401);
+    echo json_encode(['error' => 'Unauthorized']);
     exit;
 }
 
-$fileTmpPath = $_FILES['file']['tmp_name'];
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    http_response_code(405);
+    exit;
+}
+
+if (!isset($_FILES['csvFile']) || $_FILES['csvFile']['error'] !== UPLOAD_ERR_OK) {
+    http_response_code(400);
+    echo json_encode(['error' => 'No file uploaded or upload error']);
+    exit;
+}
+
+$file = $_FILES['csvFile'];
+$tempPath = $file['tmp_name'];
+$fileExtension = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
 
 try {
-    $handle = fopen($fileTmpPath, "r");
-    $createdCount = 0;
-    $row = 0;
-
-    $pdo->beginTransaction();
-
-    while (($data = fgetcsv($handle, 1000, ",")) !== FALSE) {
-        $row++;
-        // Asumimos que la fila 1 son cabeceras si el primer campo no es fecha/numero
-        if ($row === 1 && !is_numeric($data[0] ?? '')) continue; 
-
-        // FORMATO ESPERADO CSV:
-        // [0] Cliente, [1] Pedido, [2] Kilos, [3] Descripción
-        $client = trim($data[0] ?? '');
-        if (empty($client)) continue;
-
-        $order = trim($data[1] ?? '');
-        $kg = floatval(preg_replace('/[^0-9.]/', '', $data[2] ?? 0)); // Limpiar simbolos
-        $desc = trim($data[3] ?? '');
-
-        // Insertar en PENDIENTE
-        $stmt = $pdo->prepare("INSERT INTO Bookings (
-            client, orderNumber, description, kg, duration, 
-            resourceId, date, startTimeHour, startTimeMinute, status, createdBy, createdAt
-        ) VALUES (
-            :c, :o, :d, :k, 30, 
-            'PENDIENTE', CURDATE(), 8, 0, 'PLANNED', :u, NOW()
-        )");
-
-        $stmt->execute([
-            ':c' => $client,
-            ':o' => $order,
-            ':d' => $desc . " [Masivo]",
-            ':k' => $kg,
-            ':u' => $userId
-        ]);
-        
-        $createdCount++;
+    // Detect file type and parse accordingly
+    if ($fileExtension === 'csv') {
+        $bookings = parseCSVFile($tempPath);
+    } elseif (in_array($fileExtension, ['xlsx', 'xls'])) {
+        $bookings = parseExcelFile($tempPath);
+    } else {
+        throw new Exception('Unsupported file format. Please upload CSV or Excel file.');
     }
-    
-    fclose($handle);
-    $pdo->commit();
+
+    $results = processBulkUpload($bookings, $pdo, $user);
 
     echo json_encode([
         'success' => true,
-        'message' => "Procesados $createdCount pedidos correctamente."
+        'processed' => $results['processed'],
+        'errors' => $results['errors'],
+        'message' => "Procesados {$results['processed']} pedidos, {$results['errors']} errores"
     ]);
 
 } catch (Exception $e) {
-    if ($pdo->inTransaction()) $pdo->rollBack();
     http_response_code(500);
-    echo json_encode(['error' => 'Error procesando CSV: ' . $e->getMessage()]);
+    echo json_encode(['error' => $e->getMessage()]);
 }
-?>
+
+function parseCSVFile($filePath) {
+    $bookings = [];
+    $handle = fopen($filePath, 'r');
+
+    if (!$handle) {
+        throw new Exception('Could not open CSV file');
+    }
+
+    $headers = fgetcsv($handle, 1000, ',');
+    if (!$headers) {
+        throw new Exception('Invalid CSV format');
+    }
+
+    while (($row = fgetcsv($handle, 1000, ',')) !== false) {
+        if (count($row) < 2) continue; // Skip empty rows
+
+        $booking = [];
+        foreach ($headers as $index => $header) {
+            $booking[strtolower(trim($header))] = isset($row[$index]) ? trim($row[$index]) : '';
+        }
+
+        $bookings[] = $booking;
+    }
+
+    fclose($handle);
+    return $bookings;
+}
+
+function parseExcelFile($filePath) {
+    $bookings = [];
+
+    try {
+        $spreadsheet = \PhpOffice\PhpSpreadsheet\IOFactory::load($filePath);
+        $sheet = $spreadsheet->getActiveSheet();
+
+        // Get headers (first row)
+        $headers = [];
+        foreach ($sheet->getRowIterator(1) as $row) {
+            $cellIterator = $row->getCellIterator();
+            $cellIterator->setIterateOnlyExistingCells(false);
+
+            foreach ($cellIterator as $cell) {
+                $headers[] = strtolower(trim($cell->getValue()));
+            }
+            break;
+        }
+
+        // Read data (from second row)
+        foreach ($sheet->getRowIterator(2) as $row) {
+            $booking = [];
+            $cellIterator = $row->getCellIterator();
+            $cellIterator->setIterateOnlyExistingCells(false);
+
+            $colIndex = 0;
+            foreach ($cellIterator as $cell) {
+                if (isset($headers[$colIndex])) {
+                    $booking[$headers[$colIndex]] = trim($cell->getValue());
+                }
+                $colIndex++;
+            }
+
+            if (count($booking) > 1) {
+                $bookings[] = $booking;
+            }
+        }
+
+    } catch (Exception $e) {
+        throw new Exception('Error parsing Excel file: ' . $e->getMessage());
+    }
+
+    return $bookings;
+}
+
+function processBulkUpload($bookings, $pdo, $user) {
+    $processed = 0;
+    $errors = 0;
+    $results = [];
+
+    foreach ($bookings as $booking) {
+        try {
+            $items = parseItemsFromBooking($booking);
+            $calculation = calculateSampiAndTime($items);
+
+            // Prepare booking data
+            $bookingData = [
+                'client' => $booking['cliente'] ?? $booking['client'] ?? 'Sin cliente',
+                'orderNumber' => $booking['ordernumber'] ?? $booking['order_number'] ?? $booking['n° pedido'] ?? '',
+                'clientCode' => $booking['clientcode'] ?? $booking['client_code'] ?? '',
+                'description' => $booking['descripcion'] ?? $booking['description'] ?? '',
+                'kg' => $calculation['totalKg'],
+                'duration' => $calculation['duration'],
+                'sampi_on' => $calculation['isSampi'] ? 1 : 0,
+                'items' => json_encode($items),
+                'status' => 'PENDING',
+                'createdBy' => $user['id'],
+                'createdAt' => date('Y-m-d H:i:s'),
+                'updatedAt' => date('Y-m-d H:i:s')
+            ];
+
+            // Insert into database
+            $stmt = $pdo->prepare("
+                INSERT INTO Bookings
+                (client, orderNumber, clientCode, description, kg, duration, sampi_on, items, status, createdBy, createdAt, updatedAt)
+                VALUES
+                (:client, :orderNumber, :clientCode, :description, :kg, :duration, :sampi_on, :items, :status, :createdBy, :createdAt, :updatedAt)
+            ");
+
+            $stmt->execute($bookingData);
+            $processed++;
+
+        } catch (Exception $e) {
+            $errors++;
+            $results[] = [
+                'booking' => $booking,
+                'error' => $e->getMessage()
+            ];
+        }
+    }
+
+    return ['processed' => $processed, 'errors' => $errors, 'details' => $results];
+}
+
+function parseItemsFromBooking($booking) {
+    $itemsField = $booking['items'] ?? $booking['productos'] ?? '';
+
+    if (!$itemsField) {
+        return [];
+    }
+
+    $items = [];
+
+    if (strpos($itemsField, ';') !== false) {
+        // Format: code;qty;coef
+        $itemParts = explode(';', $itemsField);
+        foreach ($itemParts as $itemPart) {
+            $parts = explode(',', $itemPart);
+            if (count($parts) >= 2) {
+                $items[] = [
+                    'code' => trim($parts[0] ?? ''),
+                    'qty' => floatval(trim($parts[1] ?? '1')),
+                    'coef' => floatval(trim($parts[2] ?? '1'))
+                ];
+            }
+        }
+    } elseif (strpos($itemsField, ',') !== false) {
+        // Format: code,qty,coef
+        $itemParts = explode(',', $itemsField);
+        foreach ($itemParts as $itemPart) {
+            $parts = explode(';', $itemPart);
+            if (count($parts) >= 2) {
+                $items[] = [
+                    'code' => trim($parts[0] ?? ''),
+                    'qty' => floatval(trim($parts[1] ?? '1')),
+                    'coef' => floatval(trim($parts[2] ?? '1'))
+                ];
+            }
+        }
+    } else {
+        // Single item
+        $items[] = [
+            'code' => $booking['code'] ?? $booking['codigo'] ?? 'GENERIC',
+            'qty' => floatval($booking['qty'] ?? $booking['cantidad'] ?? 1),
+            'coef' => floatval($booking['coef'] ?? $booking['coeficiente'] ?? 1)
+        ];
+    }
+
+    return $items;
+}
+
+function calculateSampiAndTime($items) {
+    global $SAMPI_CODES, $SAMPI_THRESHOLD_KG, $WEIGHT_PER_HOUR, $SLOT_DURATION;
+
+    $totalKg = 0;
+    $sampiKg = 0;
+
+    foreach ($items as $item) {
+        $kg = $item['kg'] ?? ($item['qty'] * ($item['coef'] ?? 1));
+        $totalKg += $kg;
+        if (in_array($item['code'] ?? '', $SAMPI_CODES)) {
+            $sampiKg += $kg;
+        }
+    }
+
+    $rawMinutes = ($totalKg / $WEIGHT_PER_HOUR) * 60;
+    $blocks = max(1, ceil($rawMinutes / $SLOT_DURATION));
+    $duration = $blocks * $SLOT_DURATION;
+
+    return [
+        'totalKg' => $totalKg,
+        'sampiKg' => $sampiKg,
+        'duration' => $duration,
+        'isSampi' => $sampiKg > $SAMPI_THRESHOLD_KG
+    ];
+}

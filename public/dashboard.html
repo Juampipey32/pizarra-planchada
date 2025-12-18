@@ -6,8 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Centro de Comando Logístico</title>
     <!-- Favicon -->
-    <link rel="icon"
-        href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🚛</text></svg>">
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/js/all.min.js"></script>
@@ -162,6 +161,15 @@
                         class="bg-slate-700 hover:bg-slate-800 text-white px-4 py-2 rounded-lg text-sm font-bold shadow-md transition-transform active:scale-95 flex items-center gap-2"
                         title="Subir Pedido PDF">
                         <i class="fa-solid fa-cloud-arrow-up"></i> PDF
+                    </button>
+
+                    <!-- Bulk Upload -->
+                    <input type="file" id="bulkUploadInput" class="hidden" accept=".xlsx, .xls, .csv"
+                        onchange="uploadMassiveExcel(this)">
+                    <button onclick="document.getElementById('bulkUploadInput').click()"
+                        class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-bold shadow-md transition-transform active:scale-95 flex items-center gap-2"
+                        title="Carga Masiva de Pedidos">
+                        <i class="fa-solid fa-file-csv"></i> Masivo
                     </button>
                     <!-- Admin Menu -->
                     <div class="relative group">
@@ -455,23 +463,187 @@
         // --- DATA FETCH ---
         async function fetchData() {
             try {
-                // Board Data
-                const res = await fetch(`${API_URL}/manage.php?date=${currentDate}`, {
-                    headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-                });
-                if (res.ok) bookings = await res.json();
+                // Fetch from n8n READ Webhook
+                const res = await fetch(AppConfig.WEBHOOKS.READ_DATA);
 
-                // Pending Data 
-                const resPending = await fetch(`${API_URL}/manage.php?status=PENDING`, {
-                    headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-                });
-                if (resPending.ok) {
-                    pendingBookings = await resPending.json();
-                } else { pendingBookings = []; }
+                if (res.ok) {
+                    let data = await res.json();
 
-                renderBoard();
-                renderPending();
+                    // The webhook returns an array of objects.
+                    // We need to map them to the expected structure.
+
+                    // Check if we need to merge with some local/other state for "Board" items?
+                    // The user said "app feeds from massive excel... leaving a table... to be taken by front".
+                    // This implies n8n IS the backend.
+
+                    // Current simplified logic: All n8n items -> Pending
+                    // UNLESS we eventually add resource columns to n8n.
+
+                    // Validate array type - n8n might return single object or wrapped data
+                    if (!Array.isArray(data)) {
+                        console.warn('n8n response is not an array:', data);
+                        if (data.data && Array.isArray(data.data)) {
+                            data = data.data;
+                        } else if (data.items && Array.isArray(data.items)) {
+                            data = data.items;
+                        } else if (typeof data === 'object' && data !== null && (data.CODIGO_CLIENTE || data.N_PEDIDO || data.RAZON_SOCIAL)) {
+                            // Single object response - wrap in array
+                            console.log('Wrapping single object in array');
+                            data = [data];
+                        } else {
+                            console.error('Could not parse response format:', data);
+                            data = [];
+                        }
+                    }
+
+                    pendingBookings = data.map(item => {
+                        // Map fields
+                        // DATOS_FRONT.json shows: "N_PEDIDO", "RAZON_SOCIAL", "DETALLE_PEDIDO_KG", etc.
+
+                        // Parse DETALLE_PEDIDO_KG for total kg calculation if needed, 
+                        // although the prompt says "cargados y calculados en kg directamente".
+                        // If n8n already provides calculated data, we use it. 
+                        // DATOS_FRONT structure in implementation plan assumption was based on backup using "DETALLE_PEDIDO_KG".
+
+                        return {
+                            id: item.id || `n8n-${item.N_PEDIDO}`, // Use n8n ID or generate one
+                            client: item.RAZON_SOCIAL,
+                            orderNumber: item.N_PEDIDO,
+                            description: item.DETALLE_PEDIDO || '',
+                            rawDetail: item.DETALLE_PEDIDO_KG, // Keep raw if needed
+                            // The user said n8n leaves "pedidos cargados y calculados en kg".
+                            // We should check if there's a TOTAL_KG field. 
+                            // If not, we might need to parse `DETALLE_PEDIDO_KG` or rely on a field.
+                            // Let's assume we need to parse or it comes in a field. 
+                            // Looking at `carga_pedido_drive.json`, it calculates "TOTAL_KG" in the Code Node,
+                            // but the "Update row" node only maps "DETALLE_PEDIDO_KG".
+                            // Wait, the "Upsert" maps "DETALLE_PEDIDO_KG" to "calcular".
+                            // The "Code" node calculates "TOTAL_KG" and "DETALLE_PEDIDO_KG".
+                            // The "Update" node updates "DETALLE_PEDIDO_KG".
+                            // It seems TOTAL_KG might NOT be saved to the table unless "DETALLE_PEDIDO_KG" contains it or the schema has it.
+                            // The schema in `Upsert` has `DETALLE_PEDIDO_KG`.
+                            // I will parse `DETALLE_PEDIDO_KG` to be safe, or check if `item.TOTAL_KG` exists.
+
+                            kg: item.TOTAL_KG || parseKgFromDetail(item.DETALLE_PEDIDO_KG) || 0,
+                            duration: item.DURACION_SUGERIDA || 30, // Fallback
+                            priority: 'Normal', // Default
+                            status: 'PENDING',
+                            items: parseDetailToItems(item.DETALLE_PEDIDO, item.DETALLE_PEDIDO_KG),
+                            sampi_on: 0 // Default
+                        };
+                    });
+
+                    // Recalculate duration/sampi logic if not provided by n8n
+                    pendingBookings = pendingBookings.map(b => {
+                        // If we didn't get duration/kg from n8n directly, we might need to recalc.
+                        // But user said "calculados en kg". 
+                        // Let's assume the mapping above covers it.
+                        return b;
+                    });
+
+                    bookings = []; // Clear board for now as we don't have scheduled items in n8n yet.
+
+                    renderBoard();
+                    renderPending();
+                }
+
             } catch (e) { console.error('Error fetching data:', e); }
+        }
+
+        function parseKgFromDetail(detailStr) {
+            // Helper to extract total kg if n8n returns a string like "1003(400kg), 1011(20kg)"
+            if (!detailStr) return 0;
+            // Regex to find (number kg)
+            const regex = /\((\d+(?:\.\d+)?)kg\)/gi;
+            let total = 0;
+            let match;
+            while ((match = regex.exec(detailStr)) !== null) {
+                total += parseFloat(match[1]);
+            }
+            return total > 0 ? total : 0;
+        }
+
+        function parseDetailToItems(detailPedido, detailPedidoKg) {
+            // Parse DETALLE_PEDIDO "** 1011 (768). ** 1014 (120)." to items array
+            // Also uses DETALLE_PEDIDO_KG "1011(768kg), 1014(120kg)" for KG values
+            if (!detailPedido) return [];
+
+            const items = [];
+            // Regex: ** CODE (QTY).
+            const regex = /\*\*\s*(\d{4}[A-Z]?)\s*\((\d+(?:\.\d+)?)\)/gi;
+            let match;
+
+            // Build KG lookup from DETALLE_PEDIDO_KG
+            const kgLookup = {};
+            if (detailPedidoKg) {
+                const kgRegex = /(\d{4}[A-Z]?)\((\d+(?:\.\d+)?)kg\)/gi;
+                let kgMatch;
+                while ((kgMatch = kgRegex.exec(detailPedidoKg)) !== null) {
+                    kgLookup[kgMatch[1].toUpperCase()] = parseFloat(kgMatch[2]);
+                }
+            }
+
+            while ((match = regex.exec(detailPedido)) !== null) {
+                const code = match[1].toUpperCase();
+                const qty = parseFloat(match[2]);
+                const coef = COEFFICIENTS[code] || 1.0;
+                // Use KG from lookup if available, otherwise calculate
+                const kg = kgLookup[code] || (qty * coef);
+
+                items.push({
+                    code: code,
+                    qty: qty,
+                    coef: coef,
+                    kg: kg
+                });
+            }
+
+            return items;
+        }
+
+        async function uploadMassiveExcel(input) {
+            const file = input.files[0];
+            if (!file) return;
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            // Show loading
+            Swal.fire({
+                title: 'Procesando...',
+                text: 'Subiendo y procesando archivo en n8n',
+                allowOutsideClick: false,
+                didOpen: () => { Swal.showLoading(); }
+            });
+
+            try {
+                const res = await fetch(AppConfig.WEBHOOKS.LOAD_MASSIVE, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (res.ok) {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Carga Completada',
+                        text: 'Los pedidos han sido procesados correctamente.',
+                        timer: 2000
+                    });
+                    // Refresh data
+                    fetchData();
+                } else {
+                    throw new Error('Error en la carga');
+                }
+            } catch (e) {
+                console.error(e);
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: 'No se pudo procesar el archivo. Verifique la conexión o el formato.'
+                });
+            } finally {
+                input.value = ''; // Reset
+            }
         }
 
         // --- RENDER BOARD (TIME GRID) ---
@@ -706,7 +878,7 @@
             list.innerHTML = '';
 
             const filtered = pendingBookings.filter(b => {
-                if (filter === 'SAMPI') return b.sampi_on == 1;
+                if (filter === 'SAMPI') return b.sampiKg > SAMPI.THRESHOLD_KG;
                 return true;
             });
 
@@ -729,7 +901,7 @@
                         <span>${Number(b.kg).toFixed(0)} kg</span>
                         <div class="text-right">
                              <div>${b.duration} min</div>
-                             ${b.sampi_on == 1 ? '<span class="text-purple-600 text-[10px]">SAMPI</span>' : ''}
+                             ${b.sampiKg > SAMPI.THRESHOLD_KG ? '<span class="text-purple-600 text-[10px]">SAMPI</span>' : ''}
                         </div>
                     </div>
                 `;
@@ -768,9 +940,11 @@
             document.getElementById('realStartTime').value = booking.realStartTime || '';
             document.getElementById('realEndTime').value = booking.realEndTime || '';
 
-            // Populate Items
+            // Populate Items - use the calculated items if available
             try {
-                itemsList = (typeof booking.items === 'string') ? JSON.parse(booking.items) : (booking.items || []);
+                itemsList = booking.items && booking.items.length > 0 ?
+                    (typeof booking.items === 'string' ? JSON.parse(booking.items) : booking.items) :
+                    (booking.items || []);
             } catch (e) { itemsList = []; }
 
             if (!itemsList || itemsList.length === 0) {
@@ -917,12 +1091,13 @@
             }
 
             try {
-                const method = payload.id ? 'PUT' : 'POST';
+                const realMethod = payload.id ? 'PUT' : 'POST';
                 const res = await fetch(`${API_URL}/manage.php`, {
-                    method: method,
+                    method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                        'X-HTTP-Method-Override': realMethod
                     },
                     body: JSON.stringify(payload)
                 });
@@ -942,8 +1117,11 @@
             const res = await Swal.fire({ title: '¿Eliminar?', icon: 'warning', showCancelButton: true, confirmButtonColor: '#ef4444' });
             if (res.isConfirmed) {
                 await fetch(`${API_URL}/manage.php?id=${currentModalBookingId}`, {
-                    method: 'DELETE',
-                    headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                        'X-HTTP-Method-Override': 'DELETE'
+                    }
                 });
                 closeModal();
                 fetchData();
@@ -956,10 +1134,17 @@
             if (resourceId) body.resourceId = resourceId;
 
             await fetch(`${API_URL}/manage.php`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('token')}` },
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                    'X-HTTP-Method-Override': 'PUT'
+                },
                 body: JSON.stringify(body)
             });
+
+            // After updating, refetch data to ensure calculations are correct
+            fetchData();
         }
 
         async function updateBookingPosition(id, resourceId) {
@@ -977,8 +1162,12 @@
             };
 
             await fetch(`${API_URL}/manage.php`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('token')}` },
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                    'X-HTTP-Method-Override': 'PUT'
+                },
                 body: JSON.stringify(body)
             });
             // Improve UX: Maybe local update before fetch? For now fetch is safe.

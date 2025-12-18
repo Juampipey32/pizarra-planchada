@@ -6,6 +6,15 @@ require_once '../cors.php';
 require_once '../db.php';
 require_once '../jwt_helper.php';
 
+// Method Override para Hostinger (no permite PUT/DELETE)
+$requestMethod = $_SERVER['REQUEST_METHOD'];
+if ($requestMethod === 'POST') {
+    $override = $_SERVER['HTTP_X_HTTP_METHOD_OVERRIDE'] ?? $_GET['_method'] ?? null;
+    if ($override && in_array(strtoupper($override), ['PUT', 'DELETE'])) {
+        $requestMethod = strtoupper($override);
+    }
+}
+
 $SECRET_KEY = defined('JWT_SECRET') ? JWT_SECRET : (getenv('JWT_SECRET') ?: 'secret_key_change_me');
 $WEBHOOK_SHEETS = defined('SHEET_WEBHOOK_URL') ? SHEET_WEBHOOK_URL : (getenv('WEBHOOK_SHEETS') ?: '');
 
@@ -32,7 +41,7 @@ $id = $_GET['id'] ?? null;
 $date = $_GET['date'] ?? null;
 
 // READ
-if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+if ($requestMethod === 'GET') {
     if ($id) {
         $stmt = $pdo->prepare("SELECT * FROM Bookings WHERE id = :id");
         $stmt->execute([':id' => $id]);
@@ -75,7 +84,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
 // WRITE (ADMIN/VENTAS)
 if (!in_array($user['role'], ['ADMIN', 'VENTAS', 'LOGISTICA'])) { // Added LOGISTICA
     http_response_code(403);
-    echo json_encode(['error' => 'Access denied']);
+    echo json_encode([
+        'error' => 'Access denied', 
+        'reason' => 'Role not allowed',
+        'current_role' => $user['role'],
+        'required_roles' => ['ADMIN', 'VENTAS', 'LOGISTICA']
+    ]);
     exit;
 }
 
@@ -105,12 +119,12 @@ function syncToSheets($booking, $action, $username, $webhookUrl) {
 }
 
 // CREATE / UPDATE
-if ($_SERVER['REQUEST_METHOD'] === 'POST' || $_SERVER['REQUEST_METHOD'] === 'PUT') {
+if ($requestMethod === 'POST' || $requestMethod === 'PUT') {
     $input = json_decode(file_get_contents('php://input'), true);
     $fields = [];
     $params = [];
     
-    if ($_SERVER['REQUEST_METHOD'] === 'PUT' && !$id) {
+    if ($requestMethod === 'PUT' && !$id) {
          $id = $input['id'] ?? null;
          if (!$id) { http_response_code(400); echo json_encode(['error'=>'ID needed']); exit; }
          $params[':id'] = $id;
@@ -146,7 +160,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' || $_SERVER['REQUEST_METHOD'] === 'PUT
 
     $fields[] = "updatedAt = NOW()";
     
-    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if ($requestMethod === 'POST') {
         $fields[] = "createdBy = :createdBy";
         $params[':createdBy'] = $user['id'];
         
@@ -166,7 +180,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' || $_SERVER['REQUEST_METHOD'] === 'PUT
         $stmt->execute([':id' => $lastId]);
         $finalBooking = $stmt->fetch();
         
-        syncToSheets($finalBooking, $_SERVER['REQUEST_METHOD'] === 'POST' ? 'CREATED' : 'UPDATED', $currentUser['username'], $WEBHOOK_SHEETS);
+        syncToSheets($finalBooking, $requestMethod === 'POST' ? 'CREATED' : 'UPDATED', $currentUser['username'], $WEBHOOK_SHEETS);
         
         echo json_encode($finalBooking);
 
@@ -177,7 +191,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' || $_SERVER['REQUEST_METHOD'] === 'PUT
 }
 
 // DELETE
-if ($_SERVER['REQUEST_METHOD'] === 'DELETE') {
+if ($requestMethod === 'DELETE') {
     if (!$id) { http_response_code(400); exit; }
     try {
         // Fetch for webhook before delete

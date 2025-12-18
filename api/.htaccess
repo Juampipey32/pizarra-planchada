@@ -1,0 +1,22 @@
+# api/.htaccess
+# Permitir todos los métodos HTTP
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    
+    # Permitir OPTIONS para preflight CORS
+    RewriteCond %{REQUEST_METHOD} OPTIONS
+    RewriteRule ^(.*)$ $1 [R=200,L]
+</IfModule>
+
+# Permitir métodos PUT y DELETE
+<IfModule mod_headers.c>
+    Header always set Access-Control-Allow-Origin "*"
+    Header always set Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS"
+    Header always set Access-Control-Allow-Headers "Content-Type, Authorization"
+</IfModule>
+
+# Asegurarse de que PHP maneje todos los métodos
+<IfModule mod_php.c>
+    php_flag display_errors off
+</IfModule>

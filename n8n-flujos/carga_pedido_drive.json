@@ -1,0 +1,316 @@
+{
+  "name": "carga_pedido_drive",
+  "nodes": [
+    {
+      "parameters": {
+        "operation": "xlsx",
+        "options": {
+          "range": "A9:AA300"
+        }
+      },
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1.1,
+      "position": [
+        272,
+        -16
+      ],
+      "id": "extract-node",
+      "name": "Extract from File"
+    },
+    {
+      "parameters": {
+        "operation": "upsert",
+        "dataTableId": {
+          "__rl": true,
+          "value": "gGBdfQ196FjGTZop",
+          "mode": "list",
+          "cachedResultName": "PROD PICKING"
+        },
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "N_PEDIDO",
+              "keyValue": "={{ $json['N° Pedido'] }}"
+            }
+          ]
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "CODIGO_CLIENTE": "={{ $json['Código Tango Cliente'] }}",
+            "RAZON_SOCIAL": "={{ $json.Cliente }}",
+            "N_PEDIDO": "={{ $json['N° Pedido'] }}",
+            "FECHA_PEDIDO": "={{ $json.Fecha }}",
+            "DETALLE_PEDIDO": "={{ $json['Detalle de lo solicitado'] }}",
+            "DETALLE_PEDIDO_KG": "calcular"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "CODIGO_CLIENTE",
+              "displayName": "CODIGO_CLIENTE",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "RAZON_SOCIAL",
+              "displayName": "RAZON_SOCIAL",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "N_PEDIDO",
+              "displayName": "N_PEDIDO",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "FECHA_PEDIDO",
+              "displayName": "FECHA_PEDIDO",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "DETALLE_PEDIDO",
+              "displayName": "DETALLE_PEDIDO",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "DETALLE_PEDIDO_KG",
+              "displayName": "DETALLE_PEDIDO_KG",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1,
+      "position": [
+        480,
+        -16
+      ],
+      "id": "upsert-node",
+      "name": "Upsert row(s)"
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "value": "gGBdfQ196FjGTZop",
+          "mode": "list",
+          "cachedResultName": "PROD PICKING"
+        },
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "DETALLE_PEDIDO_KG",
+              "keyValue": "calcular"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1,
+      "position": [
+        688,
+        -16
+      ],
+      "id": "get-rows-node",
+      "name": "Get row(s)"
+    },
+    {
+      "parameters": {
+        "jsCode": "// ============================================\n// CODE NODE: Calcular KG (Dinámico desde API)\n// ============================================\n\nconst items = $input.all();\nlet coefficients = {};\n\nconst manualCoefficients = {\n    \"1003\": 4,\n    \"1011\": 1,\n    \"1013D\": 0.125,\n    \"1013F\": 0.125,\n    \"1013V\": 0.125,\n    \"1014\": 1,\n    \"1015\": 1,\n    \"1016\": 1,\n    \"1017\": 0.18,\n    \"1018D\": 1,\n    \"1018F\": 1,\n    \"1018M\": 1,\n    \"1018N\": 0.18,\n    \"1018V\": 1,\n    \"1019F\": 0.125,\n    \"1019V\": 0.125,\n    \"1020\": 1,\n    \"1021\": 1,\n    \"1022\": 0.4,\n    \"1025D\": 1,\n    \"1025F\": 1,\n    \"1025V\": 1,\n    \"1026F\": 0.25,\n    \"1026V\": 0.25,\n    \"1027B\": 1,\n    \"1027D\": 1,\n    \"1027F\": 1,\n    \"1027V\": 1,\n    \"1028F\": 0.18,\n    \"1028V\": 0.18,\n    \"1031\": 4,\n    \"1036\": 0.18,\n    \"1040\": 1,\n    \"1045\": 1,\n    \"1050\": 0.3,\n    \"1053\": 5,\n    \"1054\": 10,\n    \"1055\": 25,\n    \"1056\": 1,\n    \"1059\": 3.8,\n    \"1061\": 2,\n    \"1063\": 4,\n    \"1066\": 3.5,\n    \"1067\": 0.5,\n    \"1068\": 1,\n    \"1069\": 3.5,\n    \"1070\": 0.9,\n    \"1071\": 0.9,\n    \"1073\": 1.8,\n    \"1074\": 1.2,\n    \"1078\": 0.4,\n    \"1091\": 2,\n    \"1097\": 0.5,\n    \"1098\": 1,\n    \"1134\": 0.2,\n    \"1139\": 0.4,\n    \"1143\": 0.2,\n    \"1144\": 0.4,\n    \"1827D\": 1,\n    \"1827F\": 1,\n    \"1827T\": 1,\n    \"1859\": 3.8,\n    \"1863\": 4,\n    \"1991\": 25,\n};\n\ncoefficients = manualCoefficients;\n\n// ========== EL RESTO DEL CÓDIGO ==========\nconst results = [];\nconst KG_PER_HOUR = 2000;\n\nfor (const item of items) {\n  const nPedido = item.json.N_PEDIDO;\n  const detalle = item.json.DETALLE_PEDIDO || '';\n\n  if (!detalle || detalle.trim() === '') {\n    results.push({\n      json: {\n        N_PEDIDO: nPedido,\n        DETALLE_PEDIDO_KG: '❌ ERROR: Sin detalle',\n        TOTAL_KG: 0,\n        DURACION_SUGERIDA: 30,\n        TIENE_ERRORES: true\n      }\n    });\n    continue;\n  }\n\n  const regex = /(\\d{4}[A-Z]?)\\s*\\((\\d+(?:\\.\\d+)?)\\)/gi;\n  let match;\n  const productosConKg = [];\n  let totalKg = 0;\n  let hasErrors = false;\n  let errorCodes = [];\n\n  while ((match = regex.exec(detalle)) !== null) {\n    const codigo = match[1].toUpperCase();\n    const cantidad = parseFloat(match[2]);\n    const coef = coefficients[codigo];\n\n    if (!coef) {\n      productosConKg.push(`${codigo}(⚠️ERROR)`);\n      errorCodes.push(codigo);\n      hasErrors = true;\n      continue;\n    }\n\n    const kg = cantidad * coef;\n    totalKg += kg;\n    const kgRedondeado = Math.round(kg * 100) / 100;\n    productosConKg.push(`${codigo}(${kgRedondeado}kg)`);\n  }\n\n  let detalleKg;\n  if (productosConKg.length === 0) {\n    detalleKg = '❌ ERROR: Formato inválido';\n    totalKg = 0;\n    hasErrors = true;\n  } else if (hasErrors) {\n    detalleKg = productosConKg.join(', ') + ` ⚠️ Sin coef: ${errorCodes.join(', ')}`;\n  } else {\n    detalleKg = productosConKg.join(', ');\n  }\n\n  const duracionSugerida = Math.max(\n    30,\n    Math.ceil((totalKg / KG_PER_HOUR * 60) / 30) * 30\n  );\n\n  results.push({\n      json: {\n        N_PEDIDO: nPedido,\n        DETALLE_PEDIDO_KG: detalleKg,\n        TOTAL_KG: Math.round(totalKg * 100) / 100,\n        DURACION_SUGERIDA: duracionSugerida,\n        TIENE_ERRORES: hasErrors\n      }\n  });\n}\n\nreturn results;\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        896,
+        -16
+      ],
+      "id": "code-node",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "dataTableId": {
+          "__rl": true,
+          "value": "gGBdfQ196FjGTZop",
+          "mode": "list",
+          "cachedResultName": "PROD PICKING"
+        },
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "N_PEDIDO",
+              "keyValue": "={{ $json.N_PEDIDO }}"
+            }
+          ]
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "DETALLE_PEDIDO_KG": "={{ $json.DETALLE_PEDIDO_KG }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "DETALLE_PEDIDO_KG",
+              "displayName": "DETALLE_PEDIDO_KG",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1,
+      "position": [
+        1072,
+        -16
+      ],
+      "id": "update-node",
+      "name": "Update row(s)"
+    },
+    {
+      "parameters": {
+        "path": "carga_masiva",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        80,
+        -16
+      ],
+      "id": "webhook-node",
+      "name": "Webhook"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        1248,
+        -16
+      ],
+      "id": "respond-node",
+      "name": "Respond to Webhook"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Extract from File": {
+      "main": [
+        [
+          {
+            "node": "Upsert row(s)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upsert row(s)": {
+      "main": [
+        [
+          {
+            "node": "Get row(s)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get row(s)": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Update row(s)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Extract from File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update row(s)": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": []
+}
