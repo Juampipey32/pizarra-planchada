@@ -12,6 +12,7 @@ api/config.php
 *.swp
 *.swo
 *~
+.claude/
 
 # OS
 .DS_Store
