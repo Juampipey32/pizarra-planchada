@@ -160,10 +160,11 @@ function autoSplitSampi($booking, $items) {
 }
 
 function calculateDuration($kg) {
-    $KG_PER_HOUR = 2000;
-    $hoursNeeded = $kg / $KG_PER_HOUR;
-    $minutesNeeded = ceil(($hoursNeeded * 60) / 30) * 30;
-    return max($minutesNeeded, 30);
+    if (!$kg || $kg <= 0) {
+        return 30;
+    }
+    $blocks = max(1, ceil($kg / 1500));
+    return $blocks * 30;
 }
 
 try {

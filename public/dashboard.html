@@ -402,6 +402,7 @@
     <script>
         // --- CONSTANTES & SETUP ---
         const { API_URL, SAMPI, COEFFICIENTS, START_HOUR, END_HOUR, SLOT_DURATION } = AppConfig;
+        const KG_PER_BLOCK = 1500;
 
         let currentUser = null;
         let currentDate = new Date().toISOString().split('T')[0];
@@ -409,6 +410,56 @@
         let pendingBookings = [];
         let currentModalBookingId = null; // For Edit Mode
         let itemsList = []; // Helper for Modal Items
+        const ignoredPendingIds = new Set();
+
+        function calculateDurationFromKg(kg) {
+            if (!kg || kg <= 0) return SLOT_DURATION;
+            const blocks = Math.max(1, Math.ceil(kg / KG_PER_BLOCK));
+            return blocks * SLOT_DURATION;
+        }
+
+        function getMetricsFromItems(items = [], fallbackKg = 0) {
+            let totalKg = 0;
+            let sampiKg = 0;
+
+            items.forEach(item => {
+                const kg = Number(item.kg ?? (item.qty * (item.coef || 1))) || 0;
+                totalKg += kg;
+                if (SAMPI.CODES.includes((item.code || '').toUpperCase())) {
+                    sampiKg += kg;
+                }
+            });
+
+            if (totalKg === 0 && fallbackKg > 0) {
+                totalKg = fallbackKg;
+            }
+
+            const regularKg = Math.max(0, totalKg - sampiKg);
+
+            return {
+                totalKg,
+                sampiKg,
+                regularKg,
+                totalDuration: calculateDurationFromKg(totalKg),
+                sampiDuration: sampiKg > 0 ? calculateDurationFromKg(sampiKg) : 0,
+                regularDuration: regularKg > 0 ? calculateDurationFromKg(regularKg) : 0,
+                requiresSampi: sampiKg > SAMPI.THRESHOLD_KG
+            };
+        }
+
+        function splitItemsBySampi(items = []) {
+            const sampiItems = [];
+            const regularItems = [];
+            items.forEach(item => {
+                const code = (item.code || '').toUpperCase();
+                if (SAMPI.CODES.includes(code)) {
+                    sampiItems.push(item);
+                } else {
+                    regularItems.push(item);
+                }
+            });
+            return { sampiItems, regularItems };
+        }
 
         // --- AUTH ---
         async function checkAuth() {
@@ -463,91 +514,32 @@
         // --- DATA FETCH ---
         async function fetchData() {
             try {
-                // Fetch from n8n READ Webhook
-                const res = await fetch(AppConfig.WEBHOOKS.READ_DATA);
+                const token = localStorage.getItem('token');
+                const [pendingRes, boardRes] = await Promise.all([
+                    fetch(AppConfig.WEBHOOKS.READ_DATA),
+                    fetch(`${API_URL}/index.php?date=${currentDate}`, {
+                        headers: token ? { 'Authorization': `Bearer ${token}` } : undefined
+                    })
+                ]);
 
-                if (res.ok) {
-                    let data = await res.json();
-
-                    // The webhook returns an array of objects.
-                    // We need to map them to the expected structure.
-
-                    // Check if we need to merge with some local/other state for "Board" items?
-                    // The user said "app feeds from massive excel... leaving a table... to be taken by front".
-                    // This implies n8n IS the backend.
-
-                    // Current simplified logic: All n8n items -> Pending
-                    // UNLESS we eventually add resource columns to n8n.
-
-                    // Validate array type - n8n might return single object or wrapped data
-                    if (!Array.isArray(data)) {
-                        console.warn('n8n response is not an array:', data);
-                        if (data.data && Array.isArray(data.data)) {
-                            data = data.data;
-                        } else if (data.items && Array.isArray(data.items)) {
-                            data = data.items;
-                        } else if (typeof data === 'object' && data !== null && (data.CODIGO_CLIENTE || data.N_PEDIDO || data.RAZON_SOCIAL)) {
-                            // Single object response - wrap in array
-                            console.log('Wrapping single object in array');
-                            data = [data];
-                        } else {
-                            console.error('Could not parse response format:', data);
-                            data = [];
-                        }
-                    }
-
-                    pendingBookings = data.map(item => {
-                        // Map fields
-                        // DATOS_FRONT.json shows: "N_PEDIDO", "RAZON_SOCIAL", "DETALLE_PEDIDO_KG", etc.
-
-                        // Parse DETALLE_PEDIDO_KG for total kg calculation if needed, 
-                        // although the prompt says "cargados y calculados en kg directamente".
-                        // If n8n already provides calculated data, we use it. 
-                        // DATOS_FRONT structure in implementation plan assumption was based on backup using "DETALLE_PEDIDO_KG".
-
-                        return {
-                            id: item.id || `n8n-${item.N_PEDIDO}`, // Use n8n ID or generate one
-                            client: item.RAZON_SOCIAL,
-                            orderNumber: item.N_PEDIDO,
-                            description: item.DETALLE_PEDIDO || '',
-                            rawDetail: item.DETALLE_PEDIDO_KG, // Keep raw if needed
-                            // The user said n8n leaves "pedidos cargados y calculados en kg".
-                            // We should check if there's a TOTAL_KG field. 
-                            // If not, we might need to parse `DETALLE_PEDIDO_KG` or rely on a field.
-                            // Let's assume we need to parse or it comes in a field. 
-                            // Looking at `carga_pedido_drive.json`, it calculates "TOTAL_KG" in the Code Node,
-                            // but the "Update row" node only maps "DETALLE_PEDIDO_KG".
-                            // Wait, the "Upsert" maps "DETALLE_PEDIDO_KG" to "calcular".
-                            // The "Code" node calculates "TOTAL_KG" and "DETALLE_PEDIDO_KG".
-                            // The "Update" node updates "DETALLE_PEDIDO_KG".
-                            // It seems TOTAL_KG might NOT be saved to the table unless "DETALLE_PEDIDO_KG" contains it or the schema has it.
-                            // The schema in `Upsert` has `DETALLE_PEDIDO_KG`.
-                            // I will parse `DETALLE_PEDIDO_KG` to be safe, or check if `item.TOTAL_KG` exists.
-
-                            kg: item.TOTAL_KG || parseKgFromDetail(item.DETALLE_PEDIDO_KG) || 0,
-                            duration: item.DURACION_SUGERIDA || 30, // Fallback
-                            priority: 'Normal', // Default
-                            status: 'PENDING',
-                            items: parseDetailToItems(item.DETALLE_PEDIDO, item.DETALLE_PEDIDO_KG),
-                            sampi_on: 0 // Default
-                        };
-                    });
-
-                    // Recalculate duration/sampi logic if not provided by n8n
-                    pendingBookings = pendingBookings.map(b => {
-                        // If we didn't get duration/kg from n8n directly, we might need to recalc.
-                        // But user said "calculados en kg". 
-                        // Let's assume the mapping above covers it.
-                        return b;
-                    });
-
-                    bookings = []; // Clear board for now as we don't have scheduled items in n8n yet.
-
-                    renderBoard();
-                    renderPending();
+                if (pendingRes.ok) {
+                    let data = await pendingRes.json();
+                    pendingBookings = normalizePendingPayload(data);
+                } else {
+                    pendingBookings = [];
                 }
 
-            } catch (e) { console.error('Error fetching data:', e); }
+                if (boardRes.ok) {
+                    bookings = await boardRes.json();
+                } else {
+                    bookings = [];
+                }
+
+                renderBoard();
+                renderPending();
+            } catch (e) {
+                console.error('Error fetching data:', e);
+            }
         }
 
         function parseKgFromDetail(detailStr) {
@@ -599,6 +591,46 @@
             }
 
             return items;
+        }
+
+        function normalizePendingPayload(raw) {
+            if (!Array.isArray(raw)) {
+                if (raw?.data && Array.isArray(raw.data)) {
+                    raw = raw.data;
+                } else if (raw?.items && Array.isArray(raw.items)) {
+                    raw = raw.items;
+                } else if (raw && typeof raw === 'object' && (raw.N_PEDIDO || raw.RAZON_SOCIAL)) {
+                    raw = [raw];
+                } else {
+                    console.warn('Formato inesperado desde n8n', raw);
+                    return [];
+                }
+            }
+
+            const mapped = raw.map(item => {
+                const parsedItems = parseDetailToItems(item.DETALLE_PEDIDO, item.DETALLE_PEDIDO_KG);
+                const fallbackKg = Number(item.TOTAL_KG) || parseKgFromDetail(item.DETALLE_PEDIDO_KG) || 0;
+                const metrics = getMetricsFromItems(parsedItems, fallbackKg);
+
+                return {
+                    id: item.id || `n8n-${item.N_PEDIDO || Date.now()}`,
+                    client: item.RAZON_SOCIAL || item.CLIENTE || 'Sin cliente',
+                    clientCode: item.CODIGO_CLIENTE || item.CLIENT_CODE || '',
+                    orderNumber: item.N_PEDIDO || item.PEDIDO || '',
+                    description: item.DETALLE_PEDIDO || '',
+                    rawDetail: item.DETALLE_PEDIDO_KG || '',
+                    kg: metrics.totalKg,
+                    duration: metrics.totalDuration,
+                    priority: item.PRIORIDAD || 'Normal',
+                    status: 'PENDING',
+                    items: parsedItems,
+                    metrics,
+                    sampiKg: metrics.sampiKg,
+                    regularKg: metrics.regularKg
+                };
+            });
+
+            return mapped.filter(item => !ignoredPendingIds.has(item.id));
         }
 
         async function uploadMassiveExcel(input) {
@@ -669,7 +701,7 @@
                 { id: 'Puerta 2', name: 'Puerta 2' },
                 { id: 'Puerta 3', name: 'Puerta 3' },
                 { id: 'Puerta 4', name: 'Puerta 4' },
-                { id: 'Playon', name: 'Playón' }
+                { id: 'Sampi', name: 'Sampi' }
             ];
 
             // Build Grid HTML
@@ -761,7 +793,7 @@
             document.querySelectorAll('.grid-cell-dropzone').forEach(c => c.innerHTML = '');
 
             bookings.forEach(b => {
-                if (b.status === 'PENDING') return;
+                if ((b.status || '').toUpperCase() === 'PENDING') return;
 
                 // Find target cell
                 // Format: cell-Resource-HH-MM
@@ -770,8 +802,10 @@
                 // Specs say 30 min blocks. We map to nearest previous block.
 
                 // Normalize time to 00 or 30
-                let m = b.startTimeMinute >= 30 ? 30 : 0;
-                let h = b.startTimeHour;
+                const startHour = Number(b.startTimeHour ?? 0);
+                const startMinute = Number(b.startTimeMinute ?? 0);
+                let m = startMinute >= 30 ? 30 : 0;
+                let h = startHour;
 
                 // Sanity check range
                 if (h < 4 || h > 20) return; // Hide out of range or put in special place?
@@ -781,15 +815,19 @@
 
                 if (cell) {
                     const card = createCardElement(b);
-                    // Adjust visual height based on duration?
-                    // 1 slot = 30 min. If duration 60, height = 2 slots?
-                    // For now, just standard card. Advanced: Absolute positioning over multiple slots.
-                    // Making card height dynamic:
-                    const slots = Math.ceil(b.duration / 30);
-                    if (slots > 1) {
-                        card.style.height = `calc(${slots * 100}% + ${slots * 1}px)`; // Approximate
-                        card.style.zIndex = 10;
-                    }
+                    const durationMinutes = Number(b.duration ?? SLOT_DURATION);
+                    const slots = Math.max(1, Math.ceil(durationMinutes / SLOT_DURATION));
+                    const slotHeight = cell.getBoundingClientRect().height || 100;
+                    const cardHeight = Math.max(slotHeight - 8, (slotHeight * slots) - 8);
+
+                    card.style.position = 'absolute';
+                    card.style.top = '4px';
+                    card.style.left = '4px';
+                    card.style.right = '4px';
+                    card.style.height = `${cardHeight}px`;
+                    card.style.zIndex = 5 + slots;
+                    card.dataset.slots = slots;
+
                     cell.appendChild(card);
                 }
             });
@@ -799,6 +837,7 @@
             const el = document.createElement('div');
             el.className = `card-3d bg-white p-2 rounded-lg shadow-sm border border-slate-100 cursor-pointer relative overflow-hidden group hover:shadow-md transition-all h-full`;
             el.setAttribute('data-id', b.id);
+            el.setAttribute('data-resource', b.resourceId);
             el.onclick = (e) => { e.stopPropagation(); openEditModal(b); };
 
             // Priority Border
@@ -810,19 +849,32 @@
 
             // Sampi Strip
             let sampiBar = '';
-            if (b.sampi_on == 1) {
+            const isSampiResource = (b.resourceId || '').toLowerCase() === 'sampi';
+            const isSampi = Number(b.sampi_on) === 1 || isSampiResource;
+            if (isSampi) {
                 el.classList.add('bg-purple-50');
                 sampiBar = `<div class="absolute top-0 right-0 p-1"><i class="fa-solid fa-bolt text-purple-500 animate-pulse" title="Sampi Activo"></i></div>`;
             }
+
+            const startHour = Number(b.startTimeHour ?? 0);
+            const startMinute = Number(b.startTimeMinute ?? 0);
+            const duration = Number(b.duration ?? SLOT_DURATION);
+            const startLabel = formatTime(startHour, startMinute);
+            const endTotal = startHour * 60 + startMinute + duration;
+            const endHour = Math.floor(endTotal / 60);
+            const endMinute = endTotal % 60;
+            const endLabel = formatTime(endHour % 24, endMinute);
+            const weight = Number(b.kg ?? b.totalKg ?? 0);
 
             el.innerHTML = `
                 <div class="flex justify-between items-start leading-tight mb-1">
                     <span class="font-bold text-slate-800 text-xs truncate w-[85%]">${b.client}</span>
                 </div>
                 <div class="text-[10px] text-slate-500 truncate leading-tight">${b.description || '-'}</div>
+                <div class="text-[10px] text-slate-400">${startLabel} - ${endLabel}</div>
                 
                 <div class="flex justify-between items-end mt-1">
-                    <div class="text-[10px] font-bold text-slate-600 bg-slate-100 px-1 rounded">${Number(b.kg).toFixed(0)} kg</div>
+                    <div class="text-[10px] font-bold text-slate-600 bg-slate-100 px-1 rounded">${weight.toFixed(0)} kg</div>
                     <div class="text-[10px] text-slate-400">
                         ${b.duration}m
                     </div>
@@ -855,16 +907,16 @@
                 ghostClass: 'bg-blue-50',
                 onEnd: async function (evt) {
                     const itemEl = evt.item;
-                    const newResourceId = evt.to.getAttribute('data-resource');
+                    const targetCell = evt.to;
+                    const newResourceId = targetCell.getAttribute('data-resource');
 
-                    if (newResourceId && newResourceId !== 'null') {
-                        // Moved to Board
+                    if (newResourceId) {
                         const id = itemEl.getAttribute('data-id');
-                        // Default to 8:00 AM if dropping blindly, or keep existing?
-                        // Let's check if the card has a time; if not (Pending), defaulting to 8:00
-                        await updateBookingStatus(id, 'PLANNED', newResourceId);
+                        const h = Number(targetCell.getAttribute('data-h') ?? START_HOUR);
+                        const m = Number(targetCell.getAttribute('data-m') ?? 0);
+                        const booking = pendingBookings.find(b => b.id === id);
+                        await schedulePendingBooking(booking, newResourceId, h, m);
                         itemEl.remove();
-                        fetchData();
                     }
                 }
             });
@@ -878,7 +930,9 @@
             list.innerHTML = '';
 
             const filtered = pendingBookings.filter(b => {
-                if (filter === 'SAMPI') return b.sampiKg > SAMPI.THRESHOLD_KG;
+                if (filter === 'SAMPI') {
+                    return b.metrics?.requiresSampi;
+                }
                 return true;
             });
 
@@ -894,6 +948,7 @@
                 card.className = "bg-white p-3 rounded-lg border border-slate-200 shadow-sm text-sm cursor-grab border-l-4 border-l-yellow-400 hover:shadow-md mb-2 relative group";
                 card.setAttribute('data-id', b.id);
                 card.onclick = () => openEditModal(b); // Can edit pending too
+                const metrics = b.metrics || { sampiKg: 0 };
                 card.innerHTML = `
                     <div class="font-bold text-slate-700">${b.client}</div>
                     <div class="text-xs text-slate-500 mb-1">Ped: ${b.orderNumber || '-'}</div>
@@ -901,12 +956,111 @@
                         <span>${Number(b.kg).toFixed(0)} kg</span>
                         <div class="text-right">
                              <div>${b.duration} min</div>
-                             ${b.sampiKg > SAMPI.THRESHOLD_KG ? '<span class="text-purple-600 text-[10px]">SAMPI</span>' : ''}
+                             ${metrics.requiresSampi ? '<span class="text-purple-600 text-[10px]">SAMPI</span>' : ''}
                         </div>
                     </div>
                 `;
                 list.appendChild(card);
             });
+        }
+
+        async function schedulePendingBooking(booking, resourceId, hour, minute) {
+            if (!booking || !resourceId) return;
+
+            const payloads = buildSchedulePayloads(booking, resourceId, hour, minute);
+            if (payloads.length === 0) {
+                Swal.fire('Sin datos', 'No hay productos para planificar.', 'info');
+                return;
+            }
+
+            const token = localStorage.getItem('token');
+            try {
+                for (const payload of payloads) {
+                    const res = await fetch(`${API_URL}/manage.php`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+                        },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (!res.ok) {
+                        const errorBody = await res.json().catch(() => ({}));
+                        throw new Error(errorBody.error || 'No se pudo agendar la carga');
+                    }
+                }
+
+                ignoredPendingIds.add(booking.id);
+                pendingBookings = pendingBookings.filter(b => b.id !== booking.id);
+                renderPending();
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Carga planificada',
+                    toast: true,
+                    timer: 1500,
+                    showConfirmButton: false,
+                    position: 'top-end'
+                });
+                fetchData();
+            } catch (error) {
+                console.error(error);
+                Swal.fire('Error', error.message || 'No se pudo planificar la carga', 'error');
+            }
+        }
+
+        function buildSchedulePayloads(booking, resourceId, hour, minute) {
+            const metrics = booking.metrics || getMetricsFromItems(booking.items, booking.kg);
+            const { sampiItems, regularItems } = splitItemsBySampi(booking.items || []);
+            const basePayload = {
+                client: booking.client,
+                clientCode: booking.clientCode || null,
+                orderNumber: booking.orderNumber || null,
+                description: booking.description || '',
+                priority: booking.priority || 'Normal',
+                date: currentDate,
+                startTimeHour: hour,
+                startTimeMinute: minute,
+                observations: booking.observations || '',
+                status: 'PLANNED',
+                color: 'blue'
+            };
+
+            const payloads = [];
+            const requiresAutoSampi = metrics.requiresSampi && metrics.sampiKg > 0 && resourceId !== 'Sampi';
+
+            if (requiresAutoSampi) {
+                if (metrics.regularKg > 0) {
+                    payloads.push({
+                        ...basePayload,
+                        resourceId,
+                        kg: Number(metrics.regularKg),
+                        duration: metrics.regularDuration || SLOT_DURATION,
+                        items: regularItems,
+                        sampi_on: 0
+                    });
+                }
+                payloads.push({
+                    ...basePayload,
+                    resourceId: 'Sampi',
+                    kg: Number(metrics.sampiKg),
+                    duration: metrics.sampiDuration || SLOT_DURATION,
+                    items: sampiItems,
+                    sampi_on: 1,
+                    description: `${booking.description || booking.client} [Sampi]`
+                });
+            } else {
+                payloads.push({
+                    ...basePayload,
+                    resourceId,
+                    kg: Number(metrics.totalKg),
+                    duration: metrics.totalDuration || SLOT_DURATION,
+                    items: booking.items,
+                    sampi_on: metrics.requiresSampi ? 1 : 0
+                });
+            }
+
+            return payloads;
         }
 
         window.filterPending = (type) => {
@@ -1022,33 +1176,18 @@
         };
 
         function recalculateTotals() {
-            let totalKg = 0;
-            let sampiKg = 0;
+            const metrics = getMetricsFromItems(itemsList);
 
-            itemsList.forEach(i => {
-                totalKg += i.kg;
-                if (SAMPI.CODES.includes(i.code)) {
-                    sampiKg += i.kg;
-                }
-            });
+            document.getElementById('calcTotalKg').textContent = metrics.totalKg.toFixed(2);
+            document.getElementById('calcSampiKg').textContent = metrics.sampiKg.toFixed(2);
 
-            // Update DOM
-            document.getElementById('calcTotalKg').textContent = totalKg.toFixed(2);
-            document.getElementById('calcSampiKg').textContent = sampiKg.toFixed(2);
+            document.getElementById('duration').value = metrics.totalDuration;
+            document.getElementById('calcDuration').textContent = `${metrics.totalDuration} min`;
 
-            // Duration Logic: Kg / 2000 * 60 minutes.
-            let rawMinutes = (totalKg / 2000) * 60;
-            let blocks = Math.max(1, Math.ceil(rawMinutes / 30));
-            let finalDuration = blocks * 30;
-
-            document.getElementById('duration').value = finalDuration;
-            document.getElementById('calcDuration').textContent = `${finalDuration} min`;
-
-            // Sampi Trigger
             const badge = document.getElementById('sampiBadge');
-            if (sampiKg > SAMPI.THRESHOLD_KG) {
+            if (metrics.requiresSampi) {
                 badge.className = 'px-3 py-1 rounded-full text-xs font-bold bg-purple-100 text-purple-600 animate-pulse border border-purple-200';
-                badge.textContent = 'SAMPI ON ⚠️';
+                badge.textContent = 'SAMPI ON';
             } else {
                 badge.className = 'px-3 py-1 rounded-full text-xs font-bold bg-slate-200 text-slate-500';
                 badge.textContent = 'SAMPI OFF';

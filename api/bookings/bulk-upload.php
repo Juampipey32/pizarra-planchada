@@ -19,6 +19,11 @@ if (!$user) {
     exit;
 }
 
+// Configuración Sampi y tiempos
+$SAMPI_CODES = ['1011', '1015', '1016'];
+$SAMPI_THRESHOLD_KG = 648;
+$SLOT_DURATION = 30;
+
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     http_response_code(405);
     exit;
@@ -228,7 +233,7 @@ function parseItemsFromBooking($booking) {
 }
 
 function calculateSampiAndTime($items) {
-    global $SAMPI_CODES, $SAMPI_THRESHOLD_KG, $WEIGHT_PER_HOUR, $SLOT_DURATION;
+    global $SAMPI_CODES, $SAMPI_THRESHOLD_KG, $SLOT_DURATION;
 
     $totalKg = 0;
     $sampiKg = 0;
@@ -241,8 +246,7 @@ function calculateSampiAndTime($items) {
         }
     }
 
-    $rawMinutes = ($totalKg / $WEIGHT_PER_HOUR) * 60;
-    $blocks = max(1, ceil($rawMinutes / $SLOT_DURATION));
+    $blocks = max(1, ceil($totalKg / 1500));
     $duration = $blocks * $SLOT_DURATION;
 
     return [

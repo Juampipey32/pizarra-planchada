@@ -29,9 +29,8 @@ function normalizeDuration($duration) {
 
 function suggestDurationMinutes($kgTotal) {
     if (!$kgTotal || $kgTotal <= 0) return 30;
-    $hours = $kgTotal / 2000;
-    $minutes = ceil(($hours * 60) / 30) * 30;
-    return max(30, (int)$minutes);
+    $blocks = max(1, ceil($kgTotal / 1500));
+    return $blocks * 30;
 }
 
 function findOverlap($pdo, $date, $resourceId, $startHour, $startMinute, $duration, $excludeId = null) {

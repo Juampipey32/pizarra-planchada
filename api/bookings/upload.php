@@ -99,11 +99,10 @@ try {
 }
 
 function suggestDurationMinutes($kgTotal) {
-    // Base rule: 2000 kg por hora, redondeo a 30m
+    // Regla base: 30 minutos por cada 1500 kg
     if (!$kgTotal || $kgTotal <= 0) return 30;
-    $hours = $kgTotal / 2000;
-    $minutes = ceil(($hours * 60) / 30) * 30;
-    return max(30, (int)$minutes);
+    $blocks = max(1, ceil($kgTotal / 1500));
+    return $blocks * 30;
 }
 
 function parsePdfData($text, $productMap, $fileNameBase) {

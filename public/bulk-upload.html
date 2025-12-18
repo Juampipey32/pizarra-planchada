@@ -156,9 +156,8 @@
                 }
             });
 
-            // Calculate duration based on total weight
-            let rawMinutes = (totalKg / 2000) * 60;
-            let blocks = Math.max(1, Math.ceil(rawMinutes / 30));
+            // Calculate duration: 30 minutos por cada 1500 kg
+            let blocks = Math.max(1, Math.ceil(totalKg / 1500));
             let duration = blocks * 30;
 
             return {

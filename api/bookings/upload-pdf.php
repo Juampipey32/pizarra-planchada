@@ -169,10 +169,8 @@ function parsePDFText($text) {
         }
     }
 
-    // 4. Calculate Duration
-    // Kg / 2000 * 60. Min 30.
-    $rawMinutes = ($totalKg / 2000) * 60;
-    $blocks = max(1, ceil($rawMinutes / 30));
+    // 4. Calculate Duration (30 min por cada 1500 kg)
+    $blocks = max(1, ceil($totalKg / 1500));
     $duration = $blocks * 30;
 
     return [
