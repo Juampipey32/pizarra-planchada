@@ -36,6 +36,9 @@ if (!$user) {
 $stmtU = $pdo->prepare("SELECT username FROM Users WHERE id = :id");
 $stmtU->execute([':id' => $user['id']]);
 $currentUser = $stmtU->fetch();
+if (!$currentUser) {
+    $currentUser = ['username' => $user['username'] ?? 'Sistema'];
+}
 
 $id = $_GET['id'] ?? null;
 $date = $_GET['date'] ?? null;

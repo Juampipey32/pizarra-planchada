@@ -18,7 +18,40 @@ function generate_jwt($payload, $secret) {
     return $base64UrlHeader . "." . $base64UrlPayload . "." . $base64UrlSignature;
 }
 
+function auth_disabled_user() {
+    $flag = getenv('AUTH_DISABLED');
+    if ($flag === false && defined('AUTH_DISABLED')) {
+        $flag = AUTH_DISABLED;
+    }
+    if ($flag === false && defined('DEV_MODE')) {
+        $flag = DEV_MODE ? 'true' : 'false';
+    }
+
+    $isDisabled = filter_var($flag, FILTER_VALIDATE_BOOLEAN);
+    if (!$isDisabled) {
+        return null;
+    }
+
+    $role = getenv('AUTH_DISABLED_ROLE') ?: (defined('AUTH_DISABLED_ROLE') ? AUTH_DISABLED_ROLE : 'ADMIN');
+    $username = getenv('AUTH_DISABLED_USER') ?: (defined('AUTH_DISABLED_USER') ? AUTH_DISABLED_USER : 'Sistema Público');
+    $id = getenv('AUTH_DISABLED_USER_ID') ?: (defined('AUTH_DISABLED_USER_ID') ? AUTH_DISABLED_USER_ID : 0);
+
+    return [
+        'id' => (int)$id,
+        'username' => $username,
+        'role' => $role
+    ];
+}
+
 function verify_jwt($token, $secret) {
+    if ($overrideUser = auth_disabled_user()) {
+        return $overrideUser;
+    }
+
+    if (!$token) {
+        return false;
+    }
+
     $parts = explode('.', $token);
     if (count($parts) !== 3) return false;
 

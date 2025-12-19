@@ -153,7 +153,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         // Get username for webhook
         $stmtU = $pdo->prepare("SELECT username FROM Users WHERE id = :id");
         $stmtU->execute([':id' => $user['id']]);
-        $creator = $stmtU->fetch();
+        $creator = $stmtU->fetch() ?: ['username' => $user['username'] ?? 'Sistema'];
 
         syncToSheets($booking, 'CREATED', $creator['username'], $WEBHOOK_SHEETS);
         

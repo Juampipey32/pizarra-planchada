@@ -45,6 +45,7 @@ Herramientas disponibles:
 ## Seguridad y configuracion
 - Nunca publiques URLs reales de webhooks (`webhooks.txt` debe contener solo placeholders o datos ofuscados). Si hay que compartir endpoints productivos, usarlos via `.env`.
 - Cualquier credencial nueva va en `.env` (`DB_*`, `JWT_SECRET`, `DEV_MODE`, etc.) y se documenta en `api/config.example.php`.
+- Para entornos sin login, podés setear `AUTH_DISABLED=true` (y opcionalmente `AUTH_DISABLED_ROLE`, `AUTH_DISABLED_USER`) para forzar que los endpoints acepten cualquier request como ADMIN.
 - Forzar HTTPS en despliegues, validar `Origin` en CORS y expirar tokens JWT acorde a negocio.
 
 ## Checklist rapida antes de subir
