@@ -4,7 +4,12 @@ require_once '../cors.php';
 require_once '../db.php';
 require_once '../jwt_helper.php';
 
-$SECRET_KEY = getenv('JWT_SECRET') ?: 'secret_key_change_me';
+$SECRET_KEY = defined('JWT_SECRET') ? JWT_SECRET : getenv('JWT_SECRET');
+if (!$SECRET_KEY) {
+    http_response_code(500);
+    echo json_encode(['error' => 'Server misconfiguration: JWT_SECRET missing']);
+    exit;
+}
 $token = get_bearer_token();
 $user = verify_jwt($token, $SECRET_KEY);
 

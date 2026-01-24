@@ -116,7 +116,7 @@
         // DEV MODE AUTO-LOGIN
         // Simplemente generamos un token falso para que el frontend crea que estamos logueados
         // y el backend en DEV_MODE aceptará cualquier cosa o nada.
-        const isDev = true; // Hardcoded en frontend para matching simple
+        const isDev = false; // Hardcoded en frontend para matching simple
         if (isDev && !localStorage.getItem('token')) {
             const devToken = "DEV_TOKEN_BYPASS";
             localStorage.setItem('token', devToken);

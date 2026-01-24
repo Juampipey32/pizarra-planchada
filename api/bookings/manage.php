@@ -15,7 +15,12 @@ if ($requestMethod === 'POST') {
     }
 }
 
-$SECRET_KEY = defined('JWT_SECRET') ? JWT_SECRET : (getenv('JWT_SECRET') ?: 'secret_key_change_me');
+$SECRET_KEY = defined('JWT_SECRET') ? JWT_SECRET : getenv('JWT_SECRET');
+if (!$SECRET_KEY) {
+    http_response_code(500);
+    echo json_encode(['error' => 'Server misconfiguration: JWT_SECRET missing']);
+    exit;
+}
 $WEBHOOK_SHEETS = defined('SHEET_WEBHOOK_URL') ? SHEET_WEBHOOK_URL : (getenv('WEBHOOK_SHEETS') ?: '');
 
 $token = get_bearer_token();

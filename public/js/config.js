@@ -8,7 +8,7 @@ const AppConfig = {
     // Note: Ideally these should be proxied via backend to hide URLs, 
     // but for now we keep existing behavior with centralized constants.
     WEBHOOKS: {
-        PDF_UPLOAD: 'https://juampi-agente-n8n.h1yobv.easypanel.host/webhook/PEDIDOS-COSALTA',
+        PDF_UPLOAD: '/api/n8n-proxy.php?action=upload_pdf',
         LOAD_MASSIVE: '/api/n8n-proxy.php?action=load',
         READ_DATA: '/api/n8n-proxy.php?action=read'
     },

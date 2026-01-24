@@ -23,7 +23,8 @@ if (file_exists($configFile)) {
 // URLs de n8n desde config.php o defaults
 $WEBHOOKS = [
     'read' => defined('WEBHOOK_READ_DATA') ? WEBHOOK_READ_DATA : 'https://n8n-n8n.rbmlzu.easypanel.host/webhook/DATOS_FRONT',
-    'load' => defined('WEBHOOK_LOAD_MASSIVE') ? WEBHOOK_LOAD_MASSIVE : 'https://n8n-n8n.rbmlzu.easypanel.host/webhook/carga_masiva'
+    'load' => defined('WEBHOOK_LOAD_MASSIVE') ? WEBHOOK_LOAD_MASSIVE : 'https://n8n-n8n.rbmlzu.easypanel.host/webhook/carga_masiva',
+    'upload_pdf' => defined('WEBHOOK_PDF_UPLOAD') ? WEBHOOK_PDF_UPLOAD : 'https://juampi-agente-n8n.h1yobv.easypanel.host/webhook/PEDIDOS-COSALTA'
 ];
 
 $action = $_GET['action'] ?? '';
