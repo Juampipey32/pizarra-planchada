@@ -22,6 +22,36 @@ if (empty($username) || empty($password)) {
     exit;
 }
 
+// DEV_MODE bypass: permite login sin verificar BD
+if (defined('DEV_MODE') && DEV_MODE === true) {
+    // En modo desarrollo, cualquier usuario/password funciona
+    $payload = [
+        'sub' => 1,
+        'username' => $username,
+        'role' => 'ADMIN',
+        'iat' => time(),
+        'exp' => time() + (60 * 60 * 24) // 24 horas
+    ];
+
+    $SECRET_KEY = defined('JWT_SECRET') ? JWT_SECRET : getenv('JWT_SECRET');
+    if (!$SECRET_KEY) {
+        $SECRET_KEY = 'dev_secret_key';
+    }
+    $token = generate_jwt($payload, $SECRET_KEY);
+
+    echo json_encode([
+        'success' => true,
+        'token' => $token,
+        'role' => 'ADMIN',
+        'user' => [
+            'id' => 1,
+            'username' => $username,
+            'role' => 'ADMIN'
+        ]
+    ]);
+    exit;
+}
+
 try {
     // Buscar usuario (case insensitive para el username)
     $stmt = $pdo->prepare("SELECT * FROM Users WHERE username = :username LIMIT 1");
@@ -32,7 +62,7 @@ try {
     // Nota: Si tus usuarios viejos no usan hash, esto se actualizará solo si implementas migración.
     // Aquí asumimos que password_verify es lo correcto. Si usas texto plano temporalmente, cambia la condición.
     if ($user && password_verify($password, $user['password'])) {
-        
+
         // Generar Payload del Token
         $payload = [
             'sub' => $user['id'],
@@ -53,6 +83,7 @@ try {
         echo json_encode([
             'success' => true,
             'token' => $token,
+            'role' => $user['role'],
             'user' => [
                 'id' => $user['id'],
                 'username' => $user['username'],
