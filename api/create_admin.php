@@ -1,13 +1,14 @@
 <?php
-// create_admin.php
-// Script de utilidad para crear o actualizar el usuario administrador sin necesidad de acceso SQL directo.
+// api/create_admin.php
+// Script de utilidad para crear o actualizar el usuario administrador.
 // SUBIR AL SERVIDOR, EJECUTAR UNA VEZ Y BORRAR.
+// Acceder vía: https://tu-dominio.com/api/create_admin.php
 
-require_once 'api/db.php';
+require_once 'db.php';
 
 // CONFIGURACIÓN DEL NUEVO ADMIN
 $NEW_USER = 'admin';
-$NEW_PASS = 'admin123'; // CAMBIAR ESTO POR UNA CONTRASEÑA SEGURA
+$NEW_PASS = 'admin123'; // CAMBIAR ESTO
 $ROLE = 'ADMIN';
 
 echo "<h1>Gestión de Usuario Admin</h1>";
