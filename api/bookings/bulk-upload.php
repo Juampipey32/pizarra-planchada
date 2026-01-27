@@ -221,6 +221,21 @@ function processBulkUpload($bookings, $pdo, $user) {
                 'updatedAt' => date('Y-m-d H:i:s')
             ];
 
+            // Duplicate Check: Verify if orderNumber already exists
+            if (!empty($bookingData['orderNumber'])) {
+                $checkStmt = $pdo->prepare("SELECT id FROM Bookings WHERE orderNumber = :orderNumber LIMIT 1");
+                $checkStmt->execute([':orderNumber' => $bookingData['orderNumber']]);
+                if ($checkStmt->fetch()) {
+                    // Duplicate found: Skip insertion
+                    $errors++; // Count as skipped/error
+                    $results[] = [
+                        'booking' => $booking,
+                        'error' => "Pedido duplicado: {$bookingData['orderNumber']} ya existe. Omitido."
+                    ];
+                    continue; 
+                }
+            }
+
             // Insert into database
             $stmt = $pdo->prepare("
                 INSERT INTO Bookings

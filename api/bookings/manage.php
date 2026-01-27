@@ -101,123 +101,157 @@ if (!in_array($user['role'], ['ADMIN', 'VENTAS', 'LOGISTICA'])) { // Added LOGIS
     exit;
 }
 
-// Helper for Webhook
-function syncToSheets($booking, $action, $username, $webhookUrl) {
-    if (!$webhookUrl) return;
-    // Format payload as expected by Sheets
-    $h = $booking['startTimeHour'];
-    $m = $booking['startTimeMinute'];
-    $timeLabel = str_pad($h, 2, '0', STR_PAD_LEFT) . ':' . str_pad($m, 2, '0', STR_PAD_LEFT);
-    
-    $payload = array_merge($booking, [
-        'startTimeHour' => $timeLabel,
-        'action' => $action,
-        'updatedBy' => $username,
-        'timestamp' => date('c')
-    ]);
-    
-    // Fire and forget
-    $ch = curl_init($webhookUrl);
-    curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($payload));
-    curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
-    curl_setopt($ch, CURLOPT_TIMEOUT_MS, 500); 
-    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-    curl_exec($ch);
-    curl_close($ch);
-}
+    // Helper for Webhook
+    require_once __DIR__ . '/unmet_demand_helper.php';
 
-// CREATE / UPDATE
-if ($requestMethod === 'POST' || $requestMethod === 'PUT') {
-    $input = json_decode(file_get_contents('php://input'), true);
-    $fields = [];
-    $params = [];
-    
-    if ($requestMethod === 'PUT' && !$id) {
-         $id = $input['id'] ?? null;
-         if (!$id) { http_response_code(400); echo json_encode(['error'=>'ID needed']); exit; }
-         $params[':id'] = $id;
+    function syncToSheets($booking, $action, $username, $webhookUrl) {
+        if (!$webhookUrl) return;
+        // Format payload as expected by Sheets
+        $h = $booking['startTimeHour'];
+        $m = $booking['startTimeMinute'];
+        $timeLabel = str_pad($h, 2, '0', STR_PAD_LEFT) . ':' . str_pad($m, 2, '0', STR_PAD_LEFT);
+        
+        $payload = array_merge($booking, [
+            'startTimeHour' => $timeLabel,
+            'action' => $action,
+            'updatedBy' => $username,
+            'timestamp' => date('c')
+        ]);
+        
+        // Fire and forget
+        $ch = curl_init($webhookUrl);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($payload));
+        curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
+        curl_setopt($ch, CURLOPT_TIMEOUT_MS, 500); 
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_exec($ch);
+        curl_close($ch);
     }
 
-    // Allowed fields
-    $allowed = [
-        'client', 'clientCode', 'orderNumber', 'description', 'kg', 'duration', 
-        'color', 'resourceId', 'date', 'startTimeHour', 'startTimeMinute', 
-        'realStartTime', 'realEndTime', 'status', 'priority', 'observations', 
-        'items', 'sampi_time', 'sampi_on'
-    ];
+    // CREATE / UPDATE
+    if ($requestMethod === 'POST' || $requestMethod === 'PUT') {
+        $input = json_decode(file_get_contents('php://input'), true);
+        $fields = [];
+        $params = [];
+        
+        $oldBooking = null;
+        if ($requestMethod === 'PUT') {
+             $id = $input['id'] ?? $id ?? null; // Prefer input ID if passed in body
+             if (!$id) { http_response_code(400); echo json_encode(['error'=>'ID needed']); exit; }
+             $params[':id'] = $id;
 
-    foreach ($input as $key => $value) {
-        if (in_array($key, $allowed)) {
-            $fields[] = "$key = :$key";
-            // Json handling
-            if ($key === 'items') {
-                $params[":$key"] = is_array($value) ? json_encode($value) : $value;
-            } else {
-                 $params[":$key"] = $value;
+             // Fetch Old State for Deviation/Unmet Demand Logic
+             $stmtOld = $pdo->prepare("SELECT * FROM Bookings WHERE id = :id");
+             $stmtOld->execute([':id' => $id]);
+             $oldBooking = $stmtOld->fetch(PDO::FETCH_ASSOC);
+        }
+
+        // Allowed fields
+        $allowed = [
+            'client', 'clientCode', 'orderNumber', 'description', 'kg', 'duration', 
+            'color', 'resourceId', 'date', 'startTimeHour', 'startTimeMinute', 
+            'realStartTime', 'realEndTime', 'status', 'priority', 'observations', 
+            'items', 'sampi_time', 'sampi_on', 'cancellation_reason'
+        ];
+
+        foreach ($input as $key => $value) {
+            if (in_array($key, $allowed)) {
+                $fields[] = "$key = :$key";
+                // Json handling
+                if ($key === 'items') {
+                    $params[":$key"] = is_array($value) ? json_encode($value) : $value;
+                } else {
+                     $params[":$key"] = $value;
+                }
             }
         }
-    }
-    
-    // Auto status update if pending moved to board
-    if (isset($input['resourceId']) && $input['resourceId'] !== 'PENDIENTE') {
-        // If it was pending, now it's PLANNED (unless specified otherwise)
-        if (!isset($input['status']) || $input['status'] === 'PENDING') {
-             $fields[] = "status = 'PLANNED'";
+        
+        // Auto status update if pending moved to board
+        if (isset($input['resourceId']) && $input['resourceId'] !== 'PENDIENTE') {
+            // If it was pending, now it's PLANNED (unless specified otherwise)
+            if (!isset($input['status']) || $input['status'] === 'PENDING') {
+                 $fields[] = "status = 'PLANNED'";
+            }
+        }
+
+        $fields[] = "updatedAt = NOW()";
+        
+        if ($requestMethod === 'POST') {
+            $fields[] = "createdBy = :createdBy";
+            $params[':createdBy'] = $user['id'];
+            
+            $sql = "INSERT INTO Bookings SET " . implode(', ', $fields);
+        } else {
+            $sql = "UPDATE Bookings SET " . implode(', ', $fields) . " WHERE id = :id";
+        }
+
+        try {
+            $stmt = $pdo->prepare($sql);
+            $stmt->execute($params);
+            
+            $lastId = $id ? $id : $pdo->lastInsertId();
+            
+            // Fetch full record for webhook
+            $stmt = $pdo->prepare("SELECT * FROM Bookings WHERE id = :id");
+            $stmt->execute([':id' => $lastId]);
+            $finalBooking = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            // --- LOGIC: Unmet Demand & Deviations ---
+            if ($oldBooking && $finalBooking) {
+                // 1. Check for Unmet Demand (Items changed)
+                $oldItems = json_decode($oldBooking['items'] ?? '[]', true);
+                $newItems = json_decode($finalBooking['items'] ?? '[]', true);
+                // Simple equality check to avoid expensive logic if unnecessary
+                if (json_encode($oldItems) !== json_encode($newItems)) {
+                     registerUnmetDemand($pdo, $lastId, $oldItems, $newItems, 'modification', 'User modification', $user['id']);
+                }
+
+                // 2. Check for Logistic Deviations (Time/Door/Cancel)
+                registerLogisticDeviation($pdo, $lastId, $oldBooking, $finalBooking, $user['id']);
+
+                // 3. Special Case: Cancellation via Status Update
+                if ($finalBooking['status'] === 'CANCELLED' && $oldBooking['status'] !== 'CANCELLED') {
+                     registerCancellationUnmetDemand($pdo, $lastId, $input['cancellation_reason'] ?? 'Cancelled by user', $user['id']);
+                }
+            }
+            // ------------------------------------------
+
+            syncToSheets($finalBooking, $requestMethod === 'POST' ? 'CREATED' : 'UPDATED', $currentUser['username'], $WEBHOOK_SHEETS);
+            
+            echo json_encode($finalBooking);
+
+        } catch (PDOException $e) {
+            http_response_code(500);
+            echo json_encode(['error' => $e->getMessage()]);
         }
     }
 
-    $fields[] = "updatedAt = NOW()";
-    
-    if ($requestMethod === 'POST') {
-        $fields[] = "createdBy = :createdBy";
-        $params[':createdBy'] = $user['id'];
-        
-        $sql = "INSERT INTO Bookings SET " . implode(', ', $fields);
-    } else {
-        $sql = "UPDATE Bookings SET " . implode(', ', $fields) . " WHERE id = :id";
-    }
+    // DELETE
+    if ($requestMethod === 'DELETE') {
+        if (!$id) { http_response_code(400); exit; }
+        try {
+            // Fetch for webhook before delete
+            $stmt = $pdo->prepare("SELECT * FROM Bookings WHERE id = :id");
+            $stmt->execute([':id' => $id]);
+            $booking = $stmt->fetch(PDO::FETCH_ASSOC);
 
-    try {
-        $stmt = $pdo->prepare($sql);
-        $stmt->execute($params);
-        
-        $lastId = $id ? $id : $pdo->lastInsertId();
-        
-        // Fetch full record for webhook
-        $stmt = $pdo->prepare("SELECT * FROM Bookings WHERE id = :id");
-        $stmt->execute([':id' => $lastId]);
-        $finalBooking = $stmt->fetch();
-        
-        syncToSheets($finalBooking, $requestMethod === 'POST' ? 'CREATED' : 'UPDATED', $currentUser['username'], $WEBHOOK_SHEETS);
-        
-        echo json_encode($finalBooking);
+            // --- LOGIC: Cancel Unmet Demand before delete ---
+            if ($booking) {
+                registerCancellationUnmetDemand($pdo, $id, 'Booking Deleted', $user['id']);
+            }
+            // ------------------------------------------------
 
-    } catch (PDOException $e) {
-        http_response_code(500);
-        echo json_encode(['error' => $e->getMessage()]);
-    }
-}
-
-// DELETE
-if ($requestMethod === 'DELETE') {
-    if (!$id) { http_response_code(400); exit; }
-    try {
-        // Fetch for webhook before delete
-        $stmt = $pdo->prepare("SELECT * FROM Bookings WHERE id = :id");
-        $stmt->execute([':id' => $id]);
-        $booking = $stmt->fetch();
-
-        $stmt = $pdo->prepare("DELETE FROM Bookings WHERE id = :id");
-        $stmt->execute([':id' => $id]);
-        
-        if ($booking) {
-             syncToSheets($booking, 'DELETED', $currentUser['username'], $WEBHOOK_SHEETS);
+            $stmt = $pdo->prepare("DELETE FROM Bookings WHERE id = :id");
+            $stmt->execute([':id' => $id]);
+            
+            if ($booking) {
+                 syncToSheets($booking, 'DELETED', $currentUser['username'], $WEBHOOK_SHEETS);
+            }
+            
+            echo json_encode(['success' => true]);
+        } catch (PDOException $e) {
+            http_response_code(500);
+            echo json_encode(['error' => $e->getMessage()]);
         }
-        
-        echo json_encode(['success' => true]);
-    } catch (PDOException $e) {
-        http_response_code(500);
-        echo json_encode(['error' => $e->getMessage()]);
     }
-}
 ?>
