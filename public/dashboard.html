@@ -132,11 +132,40 @@
                 class="bg-blue-600 text-white text-xs px-2 py-1 rounded-full shadow-lg shadow-blue-500/50">0</span>
         </div>
         <!-- Filtro Sampi -->
-        <div class="p-2 bg-slate-800/50 border-b border-slate-700 flex gap-2">
-            <button onclick="filterPending('ALL')"
-                class="text-xs px-3 py-1 bg-slate-700 text-slate-200 rounded border border-slate-600 hover:bg-slate-600 flex-1 transition-all">Todos</button>
-            <button onclick="filterPending('SAMPI')"
-                class="text-xs px-3 py-1 bg-purple-900/30 text-purple-300 rounded border border-purple-500/30 hover:bg-purple-900/50 flex-1 transition-all">Sampi</button>
+        <div class="p-3 bg-slate-800/50 border-b border-slate-700 flex flex-col gap-2">
+            <!-- Search & Date Row -->
+            <div class="flex gap-2">
+                <div class="relative flex-1">
+                    <i class="fa-solid fa-magnifying-glass absolute left-2 top-2 text-slate-500 text-xs"></i>
+                    <input type="text" id="pendingFilterClient" onkeyup="renderPending()" placeholder="Cliente..."
+                        class="w-full bg-slate-900 border border-slate-700 rounded pl-7 pr-2 py-1 text-xs text-slate-200 focus:border-blue-500 focus:outline-none placeholder-slate-600">
+                </div>
+                <input type="date" id="pendingFilterDate" onchange="renderPending()"
+                    class="bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-slate-400 focus:border-blue-500 focus:outline-none w-28 color-scheme-dark">
+            </div>
+
+            <!-- Sort & Quick Filters Row -->
+            <div class="flex justify-between items-center gap-2">
+                <!-- Quick Toggles -->
+                <div class="flex bg-slate-900 rounded p-0.5 border border-slate-700">
+                    <button onclick="setPendingFilter('ALL')" id="btnFilterAll"
+                        class="px-2 py-0.5 text-[10px] bg-slate-700 text-slate-200 rounded transition-all">Todos</button>
+                    <button onclick="setPendingFilter('SAMPI')" id="btnFilterSampi"
+                        class="px-2 py-0.5 text-[10px] text-purple-400 hover:bg-white/5 rounded transition-all">Sampi</button>
+                </div>
+
+                <!-- Sort Select -->
+                <div class="relative flex-1">
+                    <select id="pendingSort" onchange="renderPending()"
+                        class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-[10px] text-slate-300 focus:border-blue-500 focus:outline-none appearance-none">
+                        <option value="ID_DESC">Más nuevos</option>
+                        <option value="ID_ASC">Más antiguos</option>
+                        <option value="CLIENT_ASC">Cliente A-Z</option>
+                        <option value="CLIENT_DESC">Cliente Z-A</option>
+                        <option value="ORDER_ASC">N° Pedido</option>
+                    </select>
+                </div>
+            </div>
         </div>
         <div id="pendingAlerts"
             class="px-3 py-2 text-xs text-yellow-200 bg-yellow-900/30 border-b border-yellow-700/30 hidden flex flex-col gap-1">
@@ -1191,60 +1220,93 @@
             });
         }
 
+        window.setPendingFilter = (type) => {
+            window.currentPendingFilter = type;
+            const btnAll = document.getElementById('btnFilterAll');
+            const btnSampi = document.getElementById('btnFilterSampi');
+
+            if (btnAll && btnSampi) {
+                if (type === 'ALL') {
+                    btnAll.className = 'px-2 py-0.5 text-[10px] bg-slate-700 text-slate-200 rounded transition-all';
+                    btnSampi.className = 'px-2 py-0.5 text-[10px] text-purple-400 hover:bg-white/5 rounded transition-all';
+                } else {
+                    btnAll.className = 'px-2 py-0.5 text-[10px] text-slate-400 hover:bg-white/5 rounded transition-all';
+                    btnSampi.className = 'px-2 py-0.5 text-[10px] bg-purple-900/30 text-purple-300 rounded border border-purple-500/30 transition-all';
+                }
+            }
+            renderPending();
+        };
+
         function renderPending() {
             const list = document.getElementById('pendingList');
             const countBadge = document.getElementById('pendingCount');
             const alertsBox = document.getElementById('pendingAlerts');
-            const filter = window.currentPendingFilter || 'ALL';
+
+            const filterType = window.currentPendingFilter || 'ALL';
+            const filterClient = (document.getElementById('pendingFilterClient')?.value || '').toLowerCase();
+            const filterDate = document.getElementById('pendingFilterDate')?.value;
+            const sortMode = document.getElementById('pendingSort')?.value || 'ID_DESC';
 
             list.innerHTML = '';
 
-            const filtered = pendingBookings.filter(b => {
-                if (filter === 'SAMPI') {
-                    return b.metrics?.requiresSampi;
+            let filtered = pendingBookings.filter(b => {
+                if (filterType === 'SAMPI' && !b.metrics?.requiresSampi) return false;
+                if (filterClient && !b.client.toLowerCase().includes(filterClient) &&
+                    !String(b.orderNumber || '').includes(filterClient)) return false;
+                if (filterDate) {
+                    const bDate = b.date ? b.date.substring(0, 10) : '';
+                    if (bDate !== filterDate) return false;
                 }
                 return true;
+            });
+
+            filtered.sort((a, b) => {
+                if (sortMode === 'ID_DESC') return b.id - a.id;
+                if (sortMode === 'ID_ASC') return a.id - b.id;
+                if (sortMode === 'CLIENT_ASC') return a.client.localeCompare(b.client);
+                if (sortMode === 'CLIENT_DESC') return b.client.localeCompare(a.client);
+                if (sortMode === 'ORDER_ASC') return String(a.orderNumber || '').localeCompare(String(b.orderNumber || ''));
+                return 0;
             });
 
             countBadge.textContent = filtered.length;
 
             if (alertsBox) {
                 const messages = [];
-                if (orderDiagnostics?.duplicates?.length) {
-                    const dupSample = orderDiagnostics.duplicates.slice(0, 5).join(', ');
-                    const suffix = orderDiagnostics.duplicates.length > 5 ? '…' : '';
-                    messages.push(`⚠️ Duplicados: ${dupSample}${suffix}`);
-                }
-                if (orderDiagnostics?.missing?.length) {
-                    messages.push(`🚨 Pedidos faltantes detectados (${orderDiagnostics.missing.length})`);
+                // Only show alerts if filters are somewhat clear
+                if (!filterClient && !filterDate && filterType === 'ALL') {
+                    if (orderDiagnostics?.duplicates?.length) {
+                        const dupSample = orderDiagnostics.duplicates.slice(0, 3).join(', ');
+                        const suffix = orderDiagnostics.duplicates.length > 3 ? '…' : '';
+                        messages.push(`Duplicados recientes: ${dupSample}${suffix}`);
+                    }
                 }
                 if (messages.length) {
                     alertsBox.innerHTML = messages.map(m => `<span>${m}</span>`).join('');
                     alertsBox.classList.remove('hidden');
                 } else {
                     alertsBox.classList.add('hidden');
-                    alertsBox.innerHTML = '';
                 }
             }
 
             if (filtered.length === 0) {
-                list.innerHTML = '<div class="text-center text-slate-400 text-sm mt-10">No hay pedidos pendientes.</div>';
+                list.innerHTML = '<div class="text-center text-slate-400 text-sm mt-10">No hay pedidos que coincidan.</div>';
                 return;
             }
 
             filtered.forEach(b => {
                 const flags = b.flags || {};
                 const isMissing = Boolean(flags.missing);
+                // Flag duplicates but allow them to be seen clearly
                 const isDuplicate = Boolean(flags.duplicate || flags.alreadyScheduled);
 
                 const card = document.createElement('div');
-                // Dark Pending Card
                 let cardClass = "p-3 rounded-lg border shadow-sm text-sm cursor-grab mb-2 relative group transition-all hover:scale-[1.02] ";
 
                 if (isMissing) {
                     cardClass += " bg-red-900/20 border-red-500/50 border-l-4 border-l-red-500 text-red-200";
                 } else if (isDuplicate) {
-                    cardClass += " bg-orange-900/20 border-orange-500/50 border-l-4 border-l-orange-500 text-orange-200";
+                    cardClass += " bg-orange-900/10 border-orange-500/30 border-l-4 border-l-orange-500 text-slate-300 opacity-90";
                 } else {
                     cardClass += " bg-slate-800/80 backdrop-blur border-slate-600 border-l-4 border-l-yellow-500 text-slate-200 hover:border-blue-400 hover:bg-slate-700";
                 }
@@ -1252,27 +1314,23 @@
                 card.className = cardClass;
                 card.setAttribute('data-id', b.id);
                 card.onclick = () => {
-                    if (isMissing) {
-                        Swal.fire('Pedido faltante', `Esperando ingreso del pedido ${b.orderNumber || ''}.`, 'warning');
-                        return;
-                    }
-                    if (isDuplicate) {
-                        Swal.fire('Pedido duplicado', `El pedido ${b.orderNumber || 'sin número'} ya existe registrado.`, 'info');
-                        return;
-                    }
+                    if (isMissing) return Swal.fire('Faltante', `Esperando: ${b.orderNumber}`, 'warning');
+                    // Duplicate doesn't block opening anymore, just visual warning 
                     openEditModal(b);
                 };
+
                 const metrics = b.metrics || { sampiKg: 0 };
-                const badge = isMissing
-                    ? '<span class="text-[10px] font-bold text-red-100 bg-red-600 px-2 py-0.5 rounded-full shadow-sm">SIN PEDIDO</span>'
-                    : isDuplicate
-                        ? '<span class="text-[10px] font-bold text-orange-100 bg-orange-600 px-2 py-0.5 rounded-full shadow-sm">DUPLICADO</span>'
-                        : '';
+                let badgeHtml = '';
+                if (isMissing) badgeHtml = '<span class="ml-2 text-[9px] font-bold text-red-100 bg-red-600 px-1.5 py-0.5 rounded shadow-sm">SIN PEDIDO</span>';
+                else if (isDuplicate) badgeHtml = '<span class="ml-2 text-[9px] font-bold text-orange-100 bg-orange-600/80 px-1.5 py-0.5 rounded shadow-sm">DUPLICADO</span>';
 
                 card.innerHTML = `
-                    <div class="font-bold text-slate-100">${b.client}</div>
+                    <div class="flex justify-between items-start">
+                        <div class="font-bold text-slate-100 truncate w-[70%]">${b.client}</div>
+                        ${badgeHtml}
+                    </div>
                     <div class="text-xs text-slate-400 mb-1 flex items-center gap-1"><i class="fa-solid fa-hashtag text-[10px]"></i> ${b.orderNumber || '-'} </div>
-                    ${badge}
+                    
                     <div class="flex justify-between text-xs font-semibold text-slate-500 mt-2 pt-2 border-t border-white/5">
                         <span class="text-slate-300 bg-slate-900/50 px-1.5 rounded">${Number(b.kg).toFixed(0)} kg</span>
                         <div class="text-right">
@@ -1292,9 +1350,18 @@
                 Swal.fire('Pedido faltante', 'No se puede planificar un pedido que aún no fue generado.', 'warning');
                 return;
             }
+            // Allow scheduling duplicate with confirmation
             if (booking.flags?.duplicate || booking.flags?.alreadyScheduled) {
-                Swal.fire('Pedido duplicado', 'Este número de pedido ya está registrado. Verifica en el tablero.', 'info');
-                return;
+                const res = await Swal.fire({
+                    title: '¿Pedido Duplicado?',
+                    text: 'Este pedido ya parece estar en el tablero. ¿Quieres planificarlo de todas formas?',
+                    icon: 'question',
+                    showCancelButton: true,
+                    confirmButtonText: 'Sí, planificar',
+                    cancelButtonText: 'Cancelar',
+                    confirmButtonColor: '#f97316'
+                });
+                if (!res.isConfirmed) return;
             }
 
             const payloads = buildSchedulePayloads(booking, resourceId, hour, minute);
@@ -1393,10 +1460,7 @@
             return payloads;
         }
 
-        window.filterPending = (type) => {
-            window.currentPendingFilter = type;
-            renderPending();
-        };
+        // window.filterPending replaced by setPendingFilter
 
         // --- MODAL LOGIC (ADVANCED) ---
         window.openModal = () => {
@@ -1764,8 +1828,9 @@
 
                     if (res.ok) {
                         let msg = `Procesados: ${data.processed || 0}`;
-                        if (data.errors && data.errors.length > 0) {
-                            msg += ` | Errores: ${data.errors.length}`;
+                        if (data.errors > 0 || (Array.isArray(data.errors) && data.errors.length > 0)) {
+                            const errCount = Array.isArray(data.errors) ? data.errors.length : data.errors;
+                            msg += ` | Omitidos/Duplicados: ${errCount}`;
                         }
                         Swal.fire({
                             icon: 'success',
