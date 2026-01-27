@@ -157,16 +157,16 @@
                 </div><input type="date" id="pendingFilterDate" onchange="renderPending()"
                     class="bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-slate-400 focus:border-blue-500 focus:outline-none w-28 color-scheme-dark">
             </div>
-            < !-- Sort & Quick Filters Row -->
+            <!-- Sort & Quick Filters Row -->
                 <div class="flex justify-between items-center gap-2">
-                    < !-- Quick Toggles -->
+                    <!-- Quick Toggles -->
                         <div class="flex bg-slate-900 rounded p-0.5 border border-slate-700"><button
                                 onclick="setPendingFilter('ALL')" id="btnFilterAll"
                                 class="px-2 py-0.5 text-[10px] bg-slate-700 text-slate-200 rounded transition-all">Todos</button><button
                                 onclick="setPendingFilter('SAMPI')" id="btnFilterSampi"
                                 class="px-2 py-0.5 text-[10px] text-purple-400 hover:bg-white/5 rounded transition-all">Sampi</button>
                         </div>
-                        < !-- Sort Select -->
+                        <!-- Sort Select -->
                             <div class="relative flex-1"><select id="pendingSort" onchange="renderPending()"
                                     class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-[10px] text-slate-300 focus:border-blue-500 focus:outline-none appearance-none">
                                     <option value="ID_DESC">Más nuevos</option>
@@ -181,20 +181,20 @@
             class="px-3 py-2 text-xs text-yellow-200 bg-yellow-900/30 border-b border-yellow-700/30 hidden flex flex-col gap-1">
         </div>
         <div id="pendingList" class="flex-1 overflow-y-auto p-3 space-y-3 bg-transparent">
-            < !-- Tarjetas Pendientes Aquí -->
+            <!-- Tarjetas Pendientes Aquí -->
                 <div class="text-center mt-10 flex flex-col items-center gap-3 opacity-60"><i
                         class="fa-solid fa-circle-notch fa-spin text-3xl text-blue-500"></i><span
                         class="text-xs text-slate-400 font-medium tracking-wide">Cargando pedidos...</span>
                 </div>
         </div>
-        < !-- Trigger Area Invisible para abrir -->
+        <!-- Trigger Area Invisible para abrir -->
             <div class="absolute right-[-20px] top-0 bottom-0 w-5 cursor-pointer"
                 onmouseenter="document.getElementById('drawerPanel').classList.remove('-translate-x-full'); document.getElementById('drawerOverlay').classList.remove('hidden');">
             </div>
     </aside>
-    < !-- MAIN CONTENT -->
+    <!-- MAIN CONTENT -->
         <div class="flex-1 flex flex-col h-full relative transition-all duration-300 ml-0" id="mainContent">
-            < !-- Header -->
+            <!-- Header -->
                 <header
                     class="bg-slate-900/80 backdrop-blur-md border-b border-white/5 shadow-lg z-30 shrink-0 h-16 flex items-center justify-between px-6">
                     <div class="flex items-center gap-4"><button onclick="toggleDrawer()"
@@ -207,7 +207,7 @@
                                 <span class="font-light">3.0</span></span>
                         </div>
                         <div class="flex items-center gap-4">
-                            < !-- Date Picker -->
+                            <!-- Date Picker -->
                                 <div class="flex items-center bg-slate-800/50 rounded-lg p-1 border border-white/5">
                                     <button id="prevDayBtn"
                                         class="p-2 hover:bg-slate-700 rounded-md text-slate-400 hover:text-white transition-colors"><i
@@ -218,7 +218,7 @@
                                         class="p-2 hover:bg-slate-700 rounded-md text-slate-400 hover:text-white transition-colors"><i
                                             class="fa-solid fa-chevron-right"></i></button>
                                 </div>
-                                < !-- Navigation Links (Restored) -->
+                                <!-- Navigation Links (Restored) -->
                                     <nav
                                         class="hidden lg:flex items-center gap-1 bg-slate-800/30 p-1 rounded-lg border border-white/5">
                                         <a href="comparativo.html"
@@ -230,11 +230,11 @@
                                     </nav>
                         </div>
                         <div class="flex items-center gap-4">
-                            < !-- DB Reset Button (Added) --><button onclick="resetDatabase()"
+                            <!-- DB Reset Button (Added) --><button onclick="resetDatabase()"
                                     class="w-8 h-8 rounded-full bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white border border-red-500/20 flex items-center justify-center transition-all"
                                     title="Vaciar Base de Datos"><i class="fa-solid fa-trash-can text-xs"></i></button>
-                                < !-- Refresh Button -->
-                                    < !-- KPI Rápido -->
+                                <!-- Refresh Button -->
+                                    <!-- KPI Rápido -->
                                         <div class="hidden md:flex gap-4 mr-4 text-xs font-semibold text-slate-400">
                                             <div class="flex items-center gap-1">
                                                 <div
@@ -250,20 +250,20 @@
                                         <div class="flex items-center gap-2"><button onclick="openModal()"
                                                 class="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg text-sm font-bold shadow-lg shadow-blue-600/20 transition-all active:scale-95 flex items-center gap-2 border border-blue-500"><i
                                                     class="fa-solid fa-plus"></i>Manual </button>
-                                            < !-- PDF Upload (Native) --><input type="file" id="pdfUploadInput"
+                                            <!-- PDF Upload (Native) --><input type="file" id="pdfUploadInput"
                                                     class="hidden" accept=".pdf" onchange="uploadPDF(this)"><button
                                                     onclick="document.getElementById('pdfUploadInput').click()"
                                                     class="bg-slate-800 hover:bg-slate-700 text-slate-200 px-4 py-2 rounded-lg text-sm font-bold border border-slate-700 transition-all active:scale-95 flex items-center gap-2 hover:text-white"
                                                     title="Subir Pedido PDF"><i
                                                         class="fa-solid fa-cloud-arrow-up"></i>PDF </button>
-                                                < !-- Bulk Upload --><input type="file" id="bulkUploadInput"
+                                                <!-- Bulk Upload --><input type="file" id="bulkUploadInput"
                                                         class="hidden" accept=".xlsx, .xls, .csv"
                                                         onchange="uploadMassiveExcel(this)"><button
                                                         onclick="document.getElementById('bulkUploadInput').click()"
                                                         class="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-lg text-sm font-bold shadow-lg shadow-emerald-600/20 transition-all active:scale-95 flex items-center gap-2 border border-emerald-500"
                                                         title="Carga Masiva de Pedidos"><i
                                                             class="fa-solid fa-file-csv"></i>Masivo </button>
-                                                    < !-- Admin Menu -->
+                                                    <!-- Admin Menu -->
                                                         <div class="relative group"><button
                                                                 class="bg-slate-800 border border-slate-700 hover:bg-slate-700 text-slate-300 w-10 h-10 rounded-full shadow-sm flex items-center justify-center transition-all"><i
                                                                     class="fa-solid fa-gear"></i></button>
@@ -288,19 +288,19 @@
                                         </div>
                         </div>
                 </header>
-                < !-- Main Board -->
+                <!-- Main Board -->
                     <main class="flex-1 overflow-x-auto overflow-y-hidden p-6 perspective-container">
                         <div class="h-full flex gap-6 min-w-max pb-4" id="boardContainer">
-                            < !-- Columns injected here -->
+                            <!-- Columns injected here -->
                         </div>
                     </main>
         </div>
-        < !-- MODAL AVANZADO (Edición Completa) -->
+        <!-- MODAL AVANZADO (Edición Completa) -->
             <div id="bookingModal"
                 class="fixed inset-0 bg-black/80 hidden z-50 flex items-center justify-center backdrop-blur-sm transition-opacity opacity-0">
                 <div class="bg-[#1e293b] rounded-2xl shadow-2xl w-full max-w-4xl mx-4 flex flex-col max-h-[95vh] overflow-hidden transform scale-95 transition-transform border border-slate-700"
                     id="modalContent">
-                    < !-- Modal Header -->
+                    <!-- Modal Header -->
                         <div class="px-6 py-4 bg-[#0f172a] border-b border-slate-700 flex justify-between items-center">
                             <div>
                                 <h3 class="text-xl font-black text-slate-100 flex items-center gap-2"><i
@@ -312,11 +312,11 @@
                                 class="w-8 h-8 rounded-full hover:bg-slate-700 flex items-center justify-center text-slate-400 hover:text-white transition-colors"><i
                                     class="fa-solid fa-xmark text-xl"></i></button>
                         </div>
-                        < !-- Modal Body -->
+                        <!-- Modal Body -->
                             <div class="flex-1 overflow-y-auto p-6 bg-[#0f172a]/50">
                                 <form id="bookingForm" class="grid grid-cols-12 gap-6"><input type="hidden"
                                         id="bookingId">
-                                    < !-- Left Column: Primary Info -->
+                                    <!-- Left Column: Primary Info -->
                                         <div class="col-span-12 md:col-span-4 space-y-4">
                                             <div class="bg-[#1e293b] p-4 rounded-xl border border-slate-700 shadow-sm">
                                                 <h4 class="text-xs font-bold text-slate-500 uppercase mb-3">
@@ -358,7 +358,7 @@
                                                             class="block text-xs font-semibold text-slate-400 mb-1">Recurso
                                                             (Puerta)</label><select id="resourceSelect"
                                                             class="w-full px-3 py-2 rounded-lg border-slate-700 bg-[#0f172a] text-slate-200 text-sm font-medium focus:ring-2 ring-blue-500 outline-none">
-                                                            < !-- Options JS -->
+                                                            <!-- Options JS -->
                                                         </select></div>
                                                     <div class="grid grid-cols-2 gap-2">
                                                         <div><label
@@ -382,9 +382,9 @@
                                                 </div>
                                             </div>
                                         </div>
-                                        < !-- Right Column: Calculation & Items -->
+                                        <!-- Right Column: Calculation & Items -->
                                             <div class="col-span-12 md:col-span-8 flex flex-col gap-4">
-                                                < !-- Calculations Panel -->
+                                                <!-- Calculations Panel -->
                                                     <div
                                                         class="bg-slate-800 text-white p-4 rounded-xl shadow-lg border border-slate-700 flex justify-between items-center">
                                                         <div class="text-center">
@@ -411,7 +411,7 @@
                                                                 class="px-3 py-1 rounded-full text-xs font-bold bg-slate-700 text-slate-500">SAMPI
                                                                 OFF</span></div>
                                                     </div>
-                                                    < !-- Items Table -->
+                                                    <!-- Items Table -->
                                                         <div
                                                             class="bg-[#1e293b] rounded-xl border border-slate-700 shadow-sm flex-1 flex flex-col overflow-hidden">
                                                             <div
@@ -441,12 +441,12 @@
                                                                     </thead>
                                                                     <tbody id="itemsTableBody"
                                                                         class="divide-y divide-slate-700 text-slate-300">
-                                                                        < !-- Rows JS -->
+                                                                        <!-- Rows JS -->
                                                                     </tbody>
                                                                 </table>
                                                             </div>
                                                         </div>
-                                                        < !-- Real Time Tracking (Solo visual por ahora) -->
+                                                        <!-- Real Time Tracking (Solo visual por ahora) -->
                                                             <div
                                                                 class="bg-[#1e293b] p-4 rounded-xl border border-slate-700 shadow-sm flex gap-4 items-center opacity-70 hover:opacity-100 transition-opacity">
                                                                 <i
@@ -469,7 +469,7 @@
                                             </div>
                                 </form>
                             </div>
-                            < !-- Modal Footer -->
+                            <!-- Modal Footer -->
                                 <div
                                     class="px-6 py-4 bg-[#0f172a] border-t border-slate-700 flex justify-between items-center">
                                     <button type="button" id="deleteBtn" onclick="deleteBooking()"
@@ -483,7 +483,7 @@
                                 </div>
                 </div>
             </div>
-            < !-- JS Logic -->
+            <!-- JS Logic -->
                 <script> // --- CONSTANTES & SETUP ---
 
                     const {
@@ -500,9 +500,7 @@
 
                     const ORDER_GUARD = {
                         maxPlaceholders: 50
-                    }
-
-                        ;
+                    };
 
                     let currentUser = null;
                     let currentDate = new Date().toISOString().split('T')[0];
@@ -513,9 +511,7 @@
 
                     let orderDiagnostics = {
                         duplicates: [], missing: []
-                    }
-
-                        ;
+                    };
                     const ignoredPendingIds = new Set();
 
                     function calculateDurationFromKg(kg) {
@@ -532,9 +528,7 @@
                         const MINUTES_PER_PALLET = SAMPI.MINUTES_PER_PALLET || 4;
                         let totalPallets = 0;
 
-                        const detail = {}
-
-                            ;
+                        const detail = {};
 
                         items.forEach(item => {
                             const code = (item.code || '').toUpperCase();
@@ -555,9 +549,7 @@
                                 units_per_pallet: unitsPerPallet,
                                 pallets: pallets,
                                 minutes: minutes
-                            }
-
-                                ;
+                            };
                         });
 
                         const totalMinutes = totalPallets * MINUTES_PER_PALLET;
@@ -567,9 +559,7 @@
                             totalPallets: totalPallets,
                             detail: detail,
                             hasSampi: totalPallets > 0
-                        }
-
-                            ;
+                        };
                     }
 
                     function getMetricsFromItems(items = [], fallbackKg = 0) {
@@ -617,9 +607,7 @@
                             sampiDetail: sampiCalc.detail,
                             regularDuration: regularDuration,
                             requiresSampi: sampiCalc.hasSampi
-                        }
-
-                            ;
+                        };
                     }
 
                     function extractNumericOrder(orderNumber) {
@@ -634,11 +622,7 @@
                         const numeric = extractNumericOrder(orderNumber);
 
                         return {
-                            id: `missing-$ {
-                    orderNumber
-                }
-
-                `,
+                            id: `missing-${orderNumber}`,
                             client: 'PEDIDO FALTANTE',
                             clientCode: null,
                             orderNumber: String(orderNumber),
@@ -663,15 +647,11 @@
                             flags: {
                                 missing: true
                             }
-                        }
-
-                            ;
+                        };
                     }
 
                     function applyOrderGuards(pendingList, scheduledList) {
-                        const counts = {}
-
-                            ;
+                        const counts = {};
                         const scheduledNumbers = new Set();
                         const numericUniverse = new Set();
 
@@ -679,9 +659,7 @@
                             const num = extractNumericOrder(b.orderNumber);
                             b.orderNumeric = num;
 
-                            b.flags = b.flags || {}
-
-                                ;
+                            b.flags = b.flags || {};
 
                             if (num !== null) {
                                 counts[num] = (counts[num] || 0) + 1;
@@ -741,9 +719,7 @@
                                 duplicates: Array.from(duplicates),
                                 missing: missingNumbers
                             }
-                        }
-
-                            ;
+                        };
                     }
 
                     function splitItemsBySampi(items = []) {
@@ -765,9 +741,7 @@
                         return {
                             sampiItems,
                             regularItems
-                        }
-
-                            ;
+                        };
                     }
 
                     // --- AUTH ---
@@ -784,9 +758,7 @@
                             if (token === 'DEV_TOKEN_BYPASS' || token && token.includes('dummy_signature') || isDev) {
                                 currentUser = {
                                     id: 1, username: 'System (Dev)', role: 'ADMIN'
-                                }
-
-                                    ;
+                                };
                                 if (!token) localStorage.setItem('token', 'DEV_TOKEN_BYPASS');
                             }
 
@@ -840,31 +812,15 @@
                             const [pendingRes,
                                 boardRes] = await Promise.all([fetch(AppConfig.API.PENDING, {
                                     headers: token ? {
-                                        'Authorization': `Bearer $ {
-                                token
-                            }
-
-                            `
+                                        'Authorization': `Bearer ${token}`
                                     }
 
                                         : undefined
 
                                 }),
-                                fetch(`$ {
-                        API_URL
-                    }
-
-                    /index.php?date=$ {
-                        currentDate
-                    }
-
-                    `, {
+                                fetch(`${API_URL}/index.php?date=${currentDate}`, {
                                     headers: token ? {
-                                        'Authorization': `Bearer $ {
-                            token
-                        }
-
-                        `
+                                        'Authorization': `Bearer ${token}`
                                     }
 
                                         : undefined
@@ -955,9 +911,7 @@
                     let match;
 
                     // Build KG lookup from DETALLE_PEDIDO_KG
-                    const kgLookup = {}
-
-                        ;
+                    const kgLookup = {};
 
                     if (detailPedidoKg) {
                         const kgRegex =/(\d {
@@ -1016,9 +970,7 @@
                             const metrics = getMetricsFromItems(parsedItems, fallbackKg);
 
                             return {
-                                id: item.id || `n8n-$ {
-                            item.N_PEDIDO || Date.now()
-                        }
+                                id: item.id || `n8n-${item.N_PEDIDO || Date.now()}
 
                         `,
                                 client: item.RAZON_SOCIAL || item.CLIENTE || 'Sin cliente',
@@ -1035,9 +987,7 @@
                                 sampiKg: metrics.sampiKg,
                                 regularKg: metrics.regularKg,
                                 flags: {}
-                            }
-
-                                ;
+                            };
                         });
 
                         return mapped.filter(item => !ignoredPendingIds.has(item.id));
@@ -1068,11 +1018,7 @@
 
                                 method: 'POST',
                                 headers: token ? {
-                                    'Authorization': `Bearer $ {
-                        token
-                    }
-
-                    `
+                                    'Authorization': `Bearer ${token}`
                                 }
 
                                     : undefined,
@@ -1086,13 +1032,9 @@
 
                                     icon: 'success',
                                     title: 'Carga Completada',
-                                    html: `<p>Procesados: <strong>$ {
-                    data.processed
-                }
+                                    html: `<p>Procesados: <strong>${data.processed}
 
-                </strong></p> <p>Errores: <strong>$ {
-                    data.errors
-                }
+                </strong></p> <p>Errores: <strong>${data.errors}
 
                 </strong></p>`,
                                     timer: 3000
@@ -1173,10 +1115,7 @@
 
                         // Build Grid HTML
                         // Header Row
-                        let html = ` <div class="inline-block min-w-full"><div class="flex sticky top-0 z-20 shadow-xl bg-slate-800/90 backdrop-blur border-b border-indigo-500/30 rounded-t-lg"><div class="w-16 bg-slate-900/90 border-r border-slate-700 p-2 font-bold text-center text-xs flex items-center justify-center flex-none text-indigo-400">Hora</div>$ {
-            resources.map(r=> ` < div class="w-64 bg-slate-800/80 text-indigo-100 p-2 border-r border-slate-700 font-bold text-center text-sm flex-none shadow-sm tracking-wide" > $ {
-                            r.name
-                        }
+                        let html = ` <div class="inline-block min-w-full"><div class="flex sticky top-0 z-20 shadow-xl bg-slate-800/90 backdrop-blur border-b border-indigo-500/30 rounded-t-lg"><div class="w-16 bg-slate-900/90 border-r border-slate-700 p-2 font-bold text-center text-xs flex items-center justify-center flex-none text-indigo-400">Hora</div>${resources.map(r=>`<div class="w-64 bg-slate-800/80 text-indigo-100 p-2 border-r border-slate-700 font-bold text-center text-sm flex-none shadow-sm tracking-wide"> ${r.name}
 
                 </div > `).join('')
         }
@@ -1197,9 +1136,7 @@
                             html += `<div class="flex border-b border-slate-700/50 ${rowBg} hover:bg-slate-700/40 transition-colors group/row" >`;
 
                             // Time Cell
-                            html += `<div class="w-16 bg-slate-900/80 border-r border-slate-700 p-1 text-[10px] font-bold text-slate-500 text-center sticky left-0 z-10 flex items-center justify-center group-hover/row:bg-slate-800 group-hover/row:text-indigo-300 transition-colors flex-none backdrop-blur-sm" > $ {
-                    timeLabel
-                }
+                            html += `<div class="w-16 bg-slate-900/80 border-r border-slate-700 p-1 text-[10px] font-bold text-slate-500 text-center sticky left-0 z-10 flex items-center justify-center group-hover/row:bg-slate-800 group-hover/row:text-indigo-300 transition-colors flex-none backdrop-blur-sm"> ${timeLabel}
 
                 </div>`;
 
@@ -1207,17 +1144,11 @@
                             resources.forEach(res => {
 
                                 // ID for the cell: "cell-RESOURCE-TIME"
-                                const cellId = `cell-$ {
-                            res.id.replace(/\s+/g, '-')
-                        }
+                                const cellId = `cell-${res.id.replace(/\s+/g, '-')}
 
-                        -$ {
-                            String(slot.h).padStart(2, '0')
-                        }
+                        -${String(slot.h).padStart(2, '0')}
 
-                        -$ {
-                            String(slot.m).padStart(2, '0')
-                        }
+                        -${String(slot.m).padStart(2, '0')}
 
                         `;
 
@@ -1225,7 +1156,7 @@
                         class="w-64 border-r border-slate-700/50 min-h-[100px] p-2 relative grid-cell-dropzone transition-colors flex-none hover:bg-white/5"
                         data-resource="${res.id}"
                         data-h="${slot.h}"
-                        data-m="${slot.m}" > < !-- Cards injected here --> </div> `;
+                        data-m="${slot.m}" > <!-- Cards injected here --> </div> `;
                             });
 
                             html += `</div>`; // End Row
@@ -1301,17 +1232,11 @@
                             // Sanity check range
                             if (h < 4 || h > 20) return; // Hide out of range or put in special place?
 
-                            const cellId = `cell-$ {
-                        b.resourceId.replace(/\s+/g, '-')
-                    }
+                            const cellId = `cell-${b.resourceId.replace(/\s+/g, '-')}
 
-                    -$ {
-                        String(h).padStart(2, '0')
-                    }
+                    -${String(h).padStart(2, '0')}
 
-                    -$ {
-                        String(m).padStart(2, '0')
-                    }
+                    -${String(m).padStart(2, '0')}
 
                     `;
                             const cell = document.getElementById(cellId);
@@ -1328,9 +1253,7 @@
                                 card.style.left = '4px';
                                 card.style.right = '4px';
 
-                                card.style.height = `$ {
-                            cardHeight
-                        }
+                                card.style.height = `${cardHeight}
 
                         px`;
                                 card.style.zIndex = 5 + slots;
@@ -1351,9 +1274,7 @@
                         el.onclick = (e) => {
                             e.stopPropagation();
                             openEditModal(b);
-                        }
-
-                            ;
+                        };
 
                         // Priority Border
                         const priorityColors = {
@@ -1361,9 +1282,7 @@
                             'Lista': '!border-l-4 !border-l-emerald-500',
                             'Espera': '!border-l-4 !border-l-amber-500',
                             'Normal': '!border-l-4 !border-l-blue-500'
-                        }
-
-                            ;
+                        };
                         const priorityClass = priorityColors[b.priority] || priorityColors['Normal'];
 
                         // Apply priority class safely
@@ -1391,46 +1310,26 @@
                         const endLabel = formatTime(endHour % 24, endMinute);
                         const weight = Number(b.kg ?? b.totalKg ?? 0);
 
-                        el.innerHTML = ` <div class="flex justify-between items-start leading-tight mb-1"><span class="font-bold text-slate-100 text-xs truncate w-[85%] group-hover:text-cyan-300 transition-colors shadow-black drop-shadow-sm">$ {
-                b.client
-            }
+                        el.innerHTML = ` <div class="flex justify-between items-start leading-tight mb-1"><span class="font-bold text-slate-100 text-xs truncate w-[85%] group-hover:text-cyan-300 transition-colors shadow-black drop-shadow-sm">${b.client}
 
-            </span></div><div class="text-[10px] text-slate-400 truncate leading-tight mb-1">$ {
-                b.description || '-'
-            }
+            </span></div><div class="text-[10px] text-slate-400 truncate leading-tight mb-1">${b.description || '-'}
 
-            </div><div class="text-[10px] text-slate-500 font-mono">$ {
-                startLabel
-            }
+            </div><div class="text-[10px] text-slate-500 font-mono">${startLabel}
 
-            - $ {
-                endLabel
-            }
+            - ${endLabel}
 
-            </div><div class="flex justify-between items-end mt-2 border-t border-slate-700/50 pt-1"><div class="text-[10px] font-bold text-slate-300 bg-slate-700/50 px-1.5 py-0.5 rounded border border-slate-600">$ {
-                weight.toFixed(0)
-            }
+            </div><div class="flex justify-between items-end mt-2 border-t border-slate-700/50 pt-1"><div class="text-[10px] font-bold text-slate-300 bg-slate-700/50 px-1.5 py-0.5 rounded border border-slate-600">${weight.toFixed(0)}
 
-            kg</div><div class="text-[10px] text-slate-400 flex items-center gap-1"><i class="fa-regular fa-clock text-[9px]"></i>$ {
-                b.duration
-            }
+            kg</div><div class="text-[10px] text-slate-400 flex items-center gap-1"><i class="fa-regular fa-clock text-[9px]"></i>${b.duration}
 
-            m </div></div>$ {
-                sampiBar
-            }
-
-            `;
+            m </div></div>${sampiBar}`;
                         return el;
                     }
 
                     function formatTime(h, m) {
-                        return `$ {
-                String(h).padStart(2, '0')
-            }
+                        return `${String(h).padStart(2, '0')}
 
-            :$ {
-                String(m).padStart(2, '0')
-            }
+            :${String(m).padStart(2, '0')}
 
             `;
                     }
@@ -1444,16 +1343,12 @@
                         window.openDrawer = () => {
                             drawer.classList.add('open');
                             mainContent.style.marginLeft = '320px';
-                        }
-
-                            ;
+                        };
 
                         window.closeDrawer = () => {
                             drawer.classList.remove('open');
                             mainContent.style.marginLeft = '0';
-                        }
-
-                            ;
+                        };
                         window.toggleDrawer = () => drawer.classList.contains('open') ? closeDrawer() : openDrawer();
 
                         drawer.addEventListener('mouseleave', () => setTimeout(() => {
@@ -1521,9 +1416,7 @@
                         }
 
                         renderPending();
-                    }
-
-                        ;
+                    };
 
                     function renderPending() {
                         const list = document.getElementById('pendingList');
@@ -1569,22 +1462,14 @@
                                     const dupSample = orderDiagnostics.duplicates.slice(0, 3).join(', ');
                                     const suffix = orderDiagnostics.duplicates.length > 3 ? '…' : '';
 
-                                    messages.push(`Duplicados recientes: $ {
-                                dupSample
-                            }
+                                    messages.push(`Duplicados recientes: ${dupSample}
 
-                            $ {
-                                suffix
-                            }
-
-                            `);
+                            ${suffix}`);
                                 }
                             }
 
                             if (messages.length) {
-                                alertsBox.innerHTML = messages.map(m => `<span>$ {
-                            m
-                        }
+                                alertsBox.innerHTML = messages.map(m => `<span>${m}
 
                         </span>`).join('');
                                 alertsBox.classList.remove('hidden');
@@ -1601,9 +1486,7 @@
                         }
 
                         filtered.forEach(b => {
-                            const flags = b.flags || {}
-
-                                ;
+                            const flags = b.flags || {};
                             const isMissing = Boolean(flags.missing);
                             // Flag duplicates but allow them to be seen clearly
                             const isDuplicate = Boolean(flags.duplicate || flags.alreadyScheduled);
@@ -1627,48 +1510,31 @@
                             card.setAttribute('data-id', b.id);
 
                             card.onclick = () => {
-                                if (isMissing) return Swal.fire('Faltante', `Esperando: $ {
-                                b.orderNumber
-                            }
+                                if (isMissing) return Swal.fire('Faltante', `Esperando: ${b.orderNumber}
 
                             `, 'warning');
                                 // Duplicate doesn't block opening anymore, just visual warning 
                                 openEditModal(b);
-                            }
-
-                                ;
+                            };
 
                             const metrics = b.metrics || {
                                 sampiKg: 0
-                            }
-
-                                ;
+                            };
                             let badgeHtml = '';
                             if (isMissing) badgeHtml = '<span class="ml-2 text-[9px] font-bold text-red-100 bg-red-600 px-1.5 py-0.5 rounded shadow-sm">SIN PEDIDO</span>';
                             else if (isDuplicate) badgeHtml = '<span class="ml-2 text-[9px] font-bold text-orange-100 bg-orange-600/80 px-1.5 py-0.5 rounded shadow-sm">DUPLICADO</span>';
 
-                            card.innerHTML = ` <div class="flex justify-between items-start" > <div class="font-bold text-slate-100 truncate w-[70%]" >$ {
-                        b.client
-                    }
+                            card.innerHTML = ` <div class="flex justify-between items-start" > <div class="font-bold text-slate-100 truncate w-[70%]" >${b.client}
 
-                    </div> $ {
-                        badgeHtml
-                    }
+                    </div> ${badgeHtml}
 
-                    </div> <div class="text-xs text-slate-400 mb-1 flex items-center gap-1" ><i class="fa-solid fa-hashtag text-[10px]" ></i> $ {
-                        b.orderNumber || '-'
-                    }
+                    </div> <div class="text-xs text-slate-400 mb-1 flex items-center gap-1" ><i class="fa-solid fa-hashtag text-[10px]" ></i> ${b.orderNumber || '-'}
 
-                    </div> <div class="flex justify-between text-xs font-semibold text-slate-500 mt-2 pt-2 border-t border-white/5" > <span class="text-slate-300 bg-slate-900/50 px-1.5 rounded" >$ {
-                        Number(b.kg).toFixed(0)
-                    }
+                    </div> <div class="flex justify-between text-xs font-semibold text-slate-500 mt-2 pt-2 border-t border-white/5" > <span class="text-slate-300 bg-slate-900/50 px-1.5 rounded" >${Number(b.kg).toFixed(0)}
 
-                    kg</span> <div class="text-right" > <div>$ {
-                        b.duration
-                    }
+                    kg</span> <div class="text-right" > <div>${b.duration}
 
-                    min</div> $ {
-                        metrics.requiresSampi ? '<span class="text-purple-400 text-[10px] animate-pulse">SAMPI</span>' : ''
+                    min</div> ${metrics.requiresSampi ? '<span class="text-purple-400 text-[10px] animate-pulse">SAMPI</span>' : ''
                     }
 
                     </div> </div> `;
@@ -1709,21 +1575,13 @@
 
                         try {
                             for (const payload of payloads) {
-                                const res = await fetch(`$ {
-                        API_URL
-                    }
-
-                    /manage.php`, {
+                                const res = await fetch(`${API_URL}/manage.php`, {
                                     method: 'POST',
                                     headers: {
 
                                         'Content-Type': 'application/json',
                                         ...(token ? {
-                                            'Authorization': `Bearer $ {
-                                    token
-                                }
-
-                                `
+                                            'Authorization': `Bearer ${token}`
                                         }
 
                                             : {})
@@ -1782,9 +1640,7 @@
                             observations: booking.observations || '',
                             status: 'PLANNED',
                             color: 'blue'
-                        }
-
-                            ;
+                        };
 
                         const payloads = [];
                         const requiresAutoSampi = metrics.requiresSampi && metrics.sampiKg > 0 && resourceId !== 'Sampi';
@@ -1809,9 +1665,7 @@
                                 duration: metrics.sampiDuration || SLOT_DURATION,
                                 items: sampiItems,
                                 sampi_on: 1,
-                                description: `$ {
-                    booking.description || booking.client
-                }
+                                description: `${booking.description || booking.client}
 
                 [Sampi]`
                             });
@@ -1838,17 +1692,13 @@
                         resetModal();
                         document.getElementById('bookingModal').classList.remove('hidden');
                         setTimeout(() => document.getElementById('bookingModal').classList.remove('opacity-0'), 10);
-                    }
-
-                        ;
+                    };
 
                     window.openEditModal = (booking) => {
                         openModal();
                         currentModalBookingId = booking.id;
 
-                        document.getElementById('modalTitle').textContent = `Editar Carga #$ {
-                booking.id
-            }
+                        document.getElementById('modalTitle').textContent = `Editar Carga #${booking.id}
 
             `;
                         document.getElementById('deleteBtn').classList.remove('hidden');
@@ -1862,9 +1712,7 @@
                         document.getElementById('startTime').value = formatTime(booking.startTimeHour, booking.startTimeMinute);
                         document.getElementById('duration').value = booking.duration;
 
-                        document.getElementById('calcDuration').textContent = `$ {
-                booking.duration
-            }
+                        document.getElementById('calcDuration').textContent = `${booking.duration}
 
             min`;
                         document.getElementById('observations').value = booking.observations || '';
@@ -1893,16 +1741,12 @@
 
                         renderItemsTable();
                         recalculateTotals();
-                    }
-
-                        ;
+                    };
 
                     window.closeModal = () => {
                         document.getElementById('bookingModal').classList.add('opacity-0');
                         setTimeout(() => document.getElementById('bookingModal').classList.add('hidden'), 300);
-                    }
-
-                        ;
+                    };
 
                     function resetModal() {
                         currentModalBookingId = null;
@@ -1924,9 +1768,7 @@
                             code: '', qty: 0, coef: 1.0, kg: 0
                         });
                         renderItemsTable();
-                    }
-
-                        ;
+                    };
 
                     function renderItemsTable() {
                         const tbody = document.getElementById('itemsTableBody');
@@ -1935,9 +1777,7 @@
                         itemsList.forEach((item, index) => {
                             const tr = document.createElement('tr');
 
-                            tr.innerHTML = ` <td class="px-2 py-1" ><input type="text" value="${item.code}" onchange="updateItem(${index}, 'code', this.value)" class="w-full text-xs border-b border-slate-200 focus:border-blue-500 outline-none uppercase" placeholder="Código" ></td> <td class="px-2 py-1" ><input type="number" value="${item.qty}" onchange="updateItem(${index}, 'qty', this.value)" class="w-full text-xs border-slate-200 rounded p-1 bg-slate-50" ></td> <td class="px-2 py-1 text-right font-mono font-bold text-slate-600" >$ {
-                        Number(item.kg).toFixed(2)
-                    }
+                            tr.innerHTML = ` <td class="px-2 py-1" ><input type="text" value="${item.code}" onchange="updateItem(${index}, 'code', this.value)" class="w-full text-xs border-b border-slate-200 focus:border-blue-500 outline-none uppercase" placeholder="Código" ></td> <td class="px-2 py-1" ><input type="number" value="${item.qty}" onchange="updateItem(${index}, 'qty', this.value)" class="w-full text-xs border-slate-200 rounded p-1 bg-slate-50" ></td> <td class="px-2 py-1 text-right font-mono font-bold text-slate-600" >${Number(item.kg).toFixed(2)}
 
                     </td> <td class="px-2 py-1 text-center" ><button type="button" onclick="removeItem(${index})" class="text-red-400 hover:text-red-600" ><i class="fa-solid fa-times" ></i></button></td> `;
                             tbody.appendChild(tr);
@@ -1968,17 +1808,13 @@
                         item.kg = item.qty * item.coef;
                         renderItemsTable();
                         recalculateTotals();
-                    }
-
-                        ;
+                    };
 
                     window.removeItem = (index) => {
                         itemsList.splice(index, 1);
                         renderItemsTable();
                         recalculateTotals();
-                    }
-
-                        ;
+                    };
 
                     function recalculateTotals() {
                         const metrics = getMetricsFromItems(itemsList);
@@ -1988,9 +1824,7 @@
 
                         document.getElementById('duration').value = metrics.totalDuration;
 
-                        document.getElementById('calcDuration').textContent = `$ {
-                metrics.totalDuration
-            }
+                        document.getElementById('calcDuration').textContent = `${metrics.totalDuration}
 
             min`;
 
@@ -2033,9 +1867,7 @@
                             items: itemsList,
                             kg: Number(document.getElementById('calcTotalKg').textContent),
                             sampi_on: sampiOn ? 1 : 0
-                        }
-
-                            ;
+                        };
 
                         // If resource is "PENDIENTE" (if we add that to select) or we want to force explicit status
                         // If resource is NOT Pending, Status -> PLANNED
@@ -2050,18 +1882,12 @@
                         try {
                             const realMethod = payload.id ? 'PUT' : 'POST';
 
-                            const res = await fetch(`$ {
-                        API_URL
-                    }
-
-                    /manage.php`, {
+                            const res = await fetch(`${API_URL}/manage.php`, {
                                 method: 'POST',
                                 headers: {
 
                                     'Content-Type': 'application/json',
-                                    'Authorization': `Bearer $ {
-                            localStorage.getItem('token')
-                        }
+                                    'Authorization': `Bearer ${localStorage.getItem('token')}
 
                         `,
                                     'X-HTTP-Method-Override': realMethod
@@ -2088,9 +1914,7 @@
                         catch (e) {
                             console.error(e);
                         }
-                    }
-
-                        ;
+                    };
 
                     window.deleteBooking = async () => {
                         if (!currentModalBookingId) return;
@@ -2100,21 +1924,11 @@
                         });
 
                         if (res.isConfirmed) {
-                            await fetch(`$ {
-                    API_URL
-                }
-
-                /manage.php?id=$ {
-                    currentModalBookingId
-                }
-
-                `, {
+                            await fetch(`${API_URL}/manage.php?id=${currentModalBookingId}`, {
 
                                 method: 'POST',
                                 headers: {
-                                    'Authorization': `Bearer $ {
-                        localStorage.getItem('token')
-                    }
+                                    'Authorization': `Bearer ${localStorage.getItem('token')}
 
                     `,
                                     'X-HTTP-Method-Override': 'DELETE'
@@ -2123,32 +1937,22 @@
                             closeModal();
                             fetchData();
                         }
-                    }
-
-                        ;
+                    };
 
                     // --- UTILS UPDATE ---
                     async function updateBookingStatus(id, status, resourceId = null) {
                         const body = {
                             id,
                             status
-                        }
-
-                            ;
+                        };
                         if (resourceId) body.resourceId = resourceId;
 
-                        await fetch(`$ {
-                    API_URL
-                }
-
-                /manage.php`, {
+                        await fetch(`${API_URL}/manage.php`, {
                             method: 'POST',
                             headers: {
 
                                 'Content-Type': 'application/json',
-                                'Authorization': `Bearer $ {
-                        localStorage.getItem('token')
-                    }
+                                'Authorization': `Bearer ${localStorage.getItem('token')}
 
                     `,
                                 'X-HTTP-Method-Override': 'PUT'
@@ -2174,22 +1978,14 @@
                             resourceId: resourceId,
                             startTimeHour: h,
                             startTimeMinute: m
-                        }
+                        };
 
-                            ;
-
-                        await fetch(`$ {
-                    API_URL
-                }
-
-                /manage.php`, {
+                        await fetch(`${API_URL}/manage.php`, {
                             method: 'POST',
                             headers: {
 
                                 'Content-Type': 'application/json',
-                                'Authorization': `Bearer $ {
-                        localStorage.getItem('token')
-                    }
+                                'Authorization': `Bearer ${localStorage.getItem('token')}
 
                     `,
                                 'X-HTTP-Method-Override': 'PUT'
@@ -2205,9 +2001,7 @@
                     window.logout = () => {
                         localStorage.removeItem('token');
                         window.location.href = 'index.html';
-                    }
-
-                        ;
+                    };
 
                     // --- NATIVE PDF UPLOAD ---
                     window.uploadPDF = async (input) => {
@@ -2228,17 +2022,11 @@
                             });
 
                             try {
-                                const res = await fetch(`$ {
-                        API_URL
-                    }
-
-                    /bookings/upload-pdf.php`, {
+                                const res = await fetch(`${API_URL}/bookings/upload-pdf.php`, {
                                     // Adjusted path check if needed
                                     method: 'POST',
                                     headers: {
-                                        'Authorization': `Bearer $ {
-                            localStorage.getItem('token')
-                        }
+                                        'Authorization': `Bearer ${localStorage.getItem('token')}
 
                         `
                                     }
@@ -2254,13 +2042,9 @@
 
                                         icon: 'success',
                                         title: '¡Pedido Procesado!',
-                                        text: `Cliente: $ {
-                        data.data.client
-                    }
+                                        text: `Cliente: ${data.data.client}
 
-                    - Items: $ {
-                        data.data.items.length
-                    }
+                    - Items: ${data.data.items.length}
 
                     `,
                                         timer: 3000
@@ -2281,9 +2065,7 @@
                             // Clear input
                             input.value = '';
                         }
-                    }
-
-                        ;
+                    };
 
                     window.uploadMassiveExcel = async (input) => {
                         if (input.files && input.files[0]) {
@@ -2359,9 +2141,7 @@
 
                                     method: 'POST',
                                     headers: {
-                                        'Authorization': `Bearer $ {
-                    localStorage.getItem('token')
-                }
+                                        'Authorization': `Bearer ${localStorage.getItem('token')}
 
                 `
                                     }
@@ -2372,20 +2152,14 @@
                                 const data = await res.json();
 
                                 if (res.ok) {
-                                    let msg = `Procesados: $ {
-                data.processed || 0
-            }
+                                    let msg = `Procesados: ${data.processed || 0}
 
             `;
 
                                     if (data.errors > 0 || (Array.isArray(data.errors) && data.errors.length > 0)) {
                                         const errCount = Array.isArray(data.errors) ? data.errors.length : data.errors;
 
-                                        msg += ` | Omitidos/Duplicados: $ {
-                    errCount
-                }
-
-                `;
+                                        msg += ` | Omitidos/Duplicados: ${errCount}`;
                                     }
 
                                     Swal.fire({
@@ -2423,9 +2197,7 @@
                             // Don't clear immediately if error keeps user from retrying same file easily, but standard is clear.
                             input.value = '';
                         }
-                    }
-
-                        ;
+                    };
 
                     // Database Reset Function
                     window.resetDatabase = async () => {
@@ -2463,9 +2235,7 @@
                                     headers: {
 
                                         'Content-Type': 'application/json',
-                                        'Authorization': `Bearer $ {
-                        localStorage.getItem('token')
-                    }
+                                        'Authorization': `Bearer ${localStorage.getItem('token')}
 
                     `
                                     }
@@ -2499,9 +2269,7 @@
                                 });
                             }
                         }
-                    }
-
-                        ;
+                    };
 
                 </script>
 </body>
