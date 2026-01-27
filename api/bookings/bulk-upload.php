@@ -60,6 +60,9 @@ try {
     if ($fileExtension === 'csv') {
         $bookings = parseCSVFile($tempPath);
     } elseif (in_array($fileExtension, ['xlsx', 'xls'])) {
+        if (!class_exists('\PhpOffice\PhpSpreadsheet\IOFactory')) {
+            throw new Exception('Excel library (PhpSpreadsheet) is missing. Please convert to CSV and upload.');
+        }
         $bookings = parseExcelFile($tempPath);
     } else {
         throw new Exception('Unsupported file format. Please upload CSV or Excel file.');
