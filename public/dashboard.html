@@ -659,6 +659,9 @@
             });
 
             (scheduledList || []).forEach(b => {
+                // Fix: Ignore PENDING items that might be returned by the board API
+                if (b.status === 'PENDING') return;
+
                 const num = extractNumericOrder(b.orderNumber);
                 if (num !== null) {
                     scheduledNumbers.add(num);
