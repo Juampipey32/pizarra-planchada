@@ -61,7 +61,9 @@ try {
         $bookings = parseCSVFile($tempPath);
     } elseif (in_array($fileExtension, ['xlsx', 'xls'])) {
         if (!class_exists('\PhpOffice\PhpSpreadsheet\IOFactory')) {
-            throw new Exception('Excel library (PhpSpreadsheet) is missing. Please convert to CSV and upload.');
+            http_response_code(400);
+            echo json_encode(['error' => 'La librería Excel no está instalada en el servidor. Por favor guarda tu archivo como .CSV e inténtalo de nuevo.']);
+            exit;
         }
         $bookings = parseExcelFile($tempPath);
     } else {
