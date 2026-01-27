@@ -7,7 +7,9 @@
     <title>Centro de Comando Logístico</title>
     <!-- Favicon -->
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
-    <!-- Tailwind CSS -->
+    <!-- Tailwind CSS (Local Modern Theme) -->
+    <link rel="stylesheet" href="css/tailwind-dashboard.css">
+    <!-- Fallback/Utility CDN (Low Priority) -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/js/all.min.js"></script>
     <!-- SortableJS -->
@@ -18,56 +20,77 @@
     <script src="js/config.js"></script>
 
     <style>
-        /* 3D EFFECT & DOMINO STYLE */
+        /* 3D EFFECT & DOMINO STYLE (Dark Mode Optimized) */
+        .color-scheme-dark {
+            color-scheme: dark;
+        }
+
         .perspective-container {
             perspective: 1000px;
         }
 
         .card-3d {
-            transition: transform 0.2s, box-shadow 0.2s;
+            transition: all 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94);
             transform-style: preserve-3d;
             box-shadow:
-                1px 1px 0px #cbd5e1,
-                2px 2px 0px #cbd5e1,
-                3px 3px 0px #cbd5e1,
-                4px 4px 0px #cbd5e1,
-                5px 5px 10px rgba(0, 0, 0, 0.1);
-            border: 1px solid #e2e8f0;
+                0 4px 6px -1px rgba(0, 0, 0, 0.3),
+                0 2px 4px -1px rgba(0, 0, 0, 0.1),
+                inset 0 1px 0 rgba(255, 255, 255, 0.05);
+            /* Subtle glass border is handled by Tailwind classes */
         }
 
         .card-3d:hover {
-            transform: translateY(-2px) translateX(-2px);
+            transform: translateY(-2px);
             box-shadow:
-                2px 2px 0px #cbd5e1,
-                4px 4px 0px #cbd5e1,
-                6px 6px 0px #cbd5e1,
-                8px 8px 0px #cbd5e1,
-                10px 10px 15px rgba(0, 0, 0, 0.15);
+                0 10px 15px -3px rgba(0, 0, 0, 0.4),
+                0 4px 6px -2px rgba(0, 0, 0, 0.2),
+                0 0 15px rgba(59, 130, 246, 0.2);
+            /* Glow effect */
             z-index: 50;
         }
 
         .card-3d:active {
-            transform: translateY(0px) translateX(0px);
+            transform: translateY(0px) scale(0.98);
             box-shadow: none;
         }
 
         /* SAMPI VISUALIZATION */
         .sampi-strip {
             background-image: repeating-linear-gradient(45deg,
-                    rgba(255, 255, 255, 0.3),
-                    rgba(255, 255, 255, 0.3) 10px,
-                    rgba(0, 0, 0, 0.05) 10px,
-                    rgba(0, 0, 0, 0.05) 20px);
+                    transparent,
+                    transparent 10px,
+                    rgba(147, 51, 234, 0.1) 10px,
+                    rgba(147, 51, 234, 0.1) 20px);
         }
 
         /* DRAWER ANIMATION */
         .drawer {
-            transition: transform 0.3s ease-in-out;
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             transform: translateX(-100%);
+            box-shadow: 10px 0 30px rgba(0, 0, 0, 0.5);
         }
 
         .drawer.open {
             transform: translateX(0);
+        }
+
+        /* CUSTOM SCROLLBAR */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #0f172a;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #334155;
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #475569;
         }
 
         /* UTILS */
@@ -76,7 +99,9 @@
         }
 
         .kanban-col.sortable-drag-over {
-            background-color: #f3f4f6;
+            background-color: rgba(59, 130, 246, 0.1);
+            border: 2px dashed rgba(59, 130, 246, 0.3);
+            border-radius: 0.5rem;
         }
 
         .no-scrollbar::-webkit-scrollbar {
@@ -90,28 +115,36 @@
     </style>
 </head>
 
-<body class="bg-slate-100 text-slate-800 h-screen flex overflow-hidden">
+<body class="bg-[#0f172a] text-slate-100 h-screen flex overflow-hidden"
+    style="background: radial-gradient(circle at 10% 20%, #1e293b, #0f172a 90%);">
 
     <!-- DRAWER LATERAL (PENDIENTES) -->
     <!-- Se abre al pasar el mouse cerca del borde izquierdo o click en botón -->
     <aside id="drawer"
-        class="drawer fixed inset-y-0 left-0 w-80 bg-white shadow-2xl z-40 flex flex-col border-r border-slate-200">
-        <div class="p-4 bg-slate-800 text-white flex justify-between items-center shrink-0">
-            <h2 class="font-bold text-lg"><i class="fa-solid fa-inbox mr-2"></i>Pendientes</h2>
-            <span id="pendingCount" class="bg-red-500 text-white text-xs px-2 py-1 rounded-full">0</span>
+        class="drawer fixed inset-y-0 left-0 w-80 bg-slate-800/95 backdrop-blur-xl border-r border-slate-700 z-50 flex flex-col shadow-2xl">
+        <div
+            class="p-4 bg-slate-900/80 text-white flex justify-between items-center shrink-0 border-b border-slate-700">
+            <h2 class="font-bold text-lg tracking-wide"><i class="fa-solid fa-inbox mr-2 text-blue-400"></i>Pendientes
+            </h2>
+            <span id="pendingCount"
+                class="bg-blue-600 text-white text-xs px-2 py-1 rounded-full shadow-lg shadow-blue-500/50">0</span>
         </div>
         <!-- Filtro Sampi -->
-        <div class="p-2 bg-slate-100 border-b border-slate-200 flex gap-2">
+        <div class="p-2 bg-slate-800/50 border-b border-slate-700 flex gap-2">
             <button onclick="filterPending('ALL')"
-                class="text-xs px-3 py-1 bg-white rounded border hover:bg-slate-50 flex-1">Todos</button>
+                class="text-xs px-3 py-1 bg-slate-700 text-slate-200 rounded border border-slate-600 hover:bg-slate-600 flex-1 transition-all">Todos</button>
             <button onclick="filterPending('SAMPI')"
-                class="text-xs px-3 py-1 bg-purple-100 text-purple-700 rounded border border-purple-200 hover:bg-purple-200 flex-1">Sampi</button>
+                class="text-xs px-3 py-1 bg-purple-900/30 text-purple-300 rounded border border-purple-500/30 hover:bg-purple-900/50 flex-1 transition-all">Sampi</button>
         </div>
         <div id="pendingAlerts"
-            class="px-3 py-2 text-xs text-yellow-800 bg-yellow-50 border-b border-yellow-200 hidden flex flex-col gap-1"></div>
-        <div id="pendingList" class="flex-1 overflow-y-auto p-3 space-y-3 bg-slate-50">
+            class="px-3 py-2 text-xs text-yellow-200 bg-yellow-900/30 border-b border-yellow-700/30 hidden flex flex-col gap-1">
+        </div>
+        <div id="pendingList" class="flex-1 overflow-y-auto p-3 space-y-3 bg-transparent">
             <!-- Tarjetas Pendientes Aquí -->
-            <div class="text-center text-slate-400 text-sm mt-10">Cargando...</div>
+            <div class="text-center mt-10 flex flex-col items-center gap-3 opacity-60">
+                <i class="fa-solid fa-circle-notch fa-spin text-3xl text-blue-500"></i>
+                <span class="text-xs text-slate-400 font-medium tracking-wide">Cargando pedidos...</span>
+            </div>
         </div>
         <!-- Trigger Area Invisible para abrir -->
         <div class="absolute right-[-20px] top-0 bottom-0 w-5 cursor-pointer" onmouseenter="openDrawer()"></div>
@@ -121,87 +154,111 @@
     <div class="flex-1 flex flex-col h-full relative transition-all duration-300 ml-0" id="mainContent">
 
         <!-- Header -->
-        <header class="bg-white shadow-sm z-30 shrink-0 h-16 flex items-center justify-between px-4">
+        <header
+            class="bg-slate-900/80 backdrop-blur-md border-b border-white/5 shadow-lg z-30 shrink-0 h-16 flex items-center justify-between px-6">
             <div class="flex items-center gap-4">
-                <button onclick="toggleDrawer()" class="text-slate-500 hover:text-blue-600 focus:outline-none">
+                <button onclick="toggleDrawer()"
+                    class="text-slate-400 hover:text-white transition-colors focus:outline-none">
                     <i class="fa-solid fa-bars text-2xl"></i>
                 </button>
-                <div class="flex items-center gap-2 text-blue-800">
-                    <i class="fa-solid fa-truck-fast text-2xl"></i>
-                    <span class="font-black text-xl tracking-tight hidden sm:block">LOGÍSTICA 3.0</span>
-                </div>
-                <!-- Date Picker -->
-                <div class="flex items-center bg-slate-100 rounded-lg p-1 ml-4 shadow-inner">
-                    <button id="prevDayBtn" class="p-2 hover:bg-white rounded-md text-slate-500"><i
-                            class="fa-solid fa-chevron-left"></i></button>
-                    <input type="date" id="currentDate"
-                        class="bg-transparent border-0 focus:ring-0 text-sm font-bold text-slate-700 w-32 text-center cursor-pointer">
-                    <button id="nextDayBtn" class="p-2 hover:bg-white rounded-md text-slate-500"><i
-                            class="fa-solid fa-chevron-right"></i></button>
-                </div>
-            </div>
-
-            <div class="flex items-center gap-4">
-                <!-- KPI Rápido -->
-                <div class="hidden md:flex gap-4 mr-4 text-xs font-semibold text-slate-500">
-                    <div class="flex items-center gap-1">
-                        <div class="w-3 h-3 bg-purple-500 rounded-sm"></div> Sampi
+                <div class="flex items-center gap-2 text-white">
+                    <div class="bg-blue-600 p-1.5 rounded-lg shadow-lg shadow-blue-500/20">
+                        <i class="fa-solid fa-truck-fast text-xl"></i>
                     </div>
-                    <div class="flex items-center gap-1">
-                        <div class="w-3 h-3 bg-blue-500 rounded-sm"></div> Carga Normal
+                    <span
+                        class="font-black text-xl tracking-tight hidden sm:block bg-gradient-to-r from-white to-slate-400 bg-clip-text text-transparent">LOGÍSTICA
+                        <span class="font-light">3.0</span></span>
+                </div>
+                <div class="flex items-center gap-4">
+                    <!-- Date Picker -->
+                    <div class="flex items-center bg-slate-800/50 rounded-lg p-1 border border-white/5">
+                        <button id="prevDayBtn"
+                            class="p-2 hover:bg-slate-700 rounded-md text-slate-400 hover:text-white transition-colors"><i
+                                class="fa-solid fa-chevron-left"></i></button>
+                        <input type="date" id="currentDate"
+                            class="bg-transparent border-0 focus:ring-0 text-sm font-bold text-slate-200 w-32 text-center cursor-pointer appearance-none color-scheme-dark">
+                        <button id="nextDayBtn"
+                            class="p-2 hover:bg-slate-700 rounded-md text-slate-400 hover:text-white transition-colors"><i
+                                class="fa-solid fa-chevron-right"></i></button>
                     </div>
+
+                    <!-- Navigation Links (Restored) -->
+                    <nav class="hidden lg:flex items-center gap-1 bg-slate-800/30 p-1 rounded-lg border border-white/5">
+                        <a href="comparativo.html"
+                            class="px-3 py-1.5 text-xs font-bold text-slate-400 hover:text-white hover:bg-slate-700 rounded-md transition-colors flex items-center gap-2">
+                            <i class="fa-solid fa-chart-line"></i> Comparativo
+                        </a>
+                        <a href="cliente-360.html"
+                            class="px-3 py-1.5 text-xs font-bold text-slate-400 hover:text-white hover:bg-slate-700 rounded-md transition-colors flex items-center gap-2">
+                            <i class="fa-solid fa-users-viewfinder"></i> Cliente 360
+                        </a>
+                    </nav>
                 </div>
 
-                <div class="flex items-center gap-2">
-                    <button onclick="openModal()"
-                        class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-bold shadow-md transition-transform active:scale-95 flex items-center gap-2">
-                        <i class="fa-solid fa-plus"></i> Manual
-                    </button>
-                    <!-- PDF Upload (Native) -->
-                    <input type="file" id="pdfUploadInput" class="hidden" accept=".pdf" onchange="uploadPDF(this)">
-                    <button onclick="document.getElementById('pdfUploadInput').click()"
-                        class="bg-slate-700 hover:bg-slate-800 text-white px-4 py-2 rounded-lg text-sm font-bold shadow-md transition-transform active:scale-95 flex items-center gap-2"
-                        title="Subir Pedido PDF">
-                        <i class="fa-solid fa-cloud-arrow-up"></i> PDF
-                    </button>
-
-                    <!-- Bulk Upload -->
-                    <input type="file" id="bulkUploadInput" class="hidden" accept=".xlsx, .xls, .csv"
-                        onchange="uploadMassiveExcel(this)">
-                    <button onclick="document.getElementById('bulkUploadInput').click()"
-                        class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-bold shadow-md transition-transform active:scale-95 flex items-center gap-2"
-                        title="Carga Masiva de Pedidos">
-                        <i class="fa-solid fa-file-csv"></i> Masivo
-                    </button>
-                    <!-- Admin Menu -->
-                    <div class="relative group">
-                        <button
-                            class="bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 w-10 h-10 rounded-full shadow-sm flex items-center justify-center transition-all">
-                            <i class="fa-solid fa-gear"></i>
-                        </button>
-                        <div
-                            class="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-xl py-2 hidden group-hover:block border border-slate-100 ring-1 ring-black ring-opacity-5 z-50">
-                            <div class="px-4 py-2 border-b border-slate-50">
-                                <p class="text-xs text-slate-500">Logueado como</p>
-                                <p class="font-bold text-slate-800 truncate" id="userInfo">User</p>
+                <div class="flex items-center gap-4">
+                    <!-- KPI Rápido -->
+                    <div class="hidden md:flex gap-4 mr-4 text-xs font-semibold text-slate-400">
+                        <div class="flex items-center gap-1">
+                            <div class="w-2 h-2 bg-purple-500 rounded-full shadow-[0_0_10px_rgba(168,85,247,0.5)]">
                             </div>
-                            <a href="admin-users.html"
-                                class="block px-4 py-2 text-sm text-slate-700 hover:bg-blue-50 hover:text-blue-600"><i
-                                    class="fa-solid fa-users mr-2"></i>Usuarios</a>
-                            <a href="admin-products.html"
-                                class="block px-4 py-2 text-sm text-slate-700 hover:bg-blue-50 hover:text-blue-600"><i
-                                    class="fa-solid fa-boxes-stacked mr-2"></i>Productos</a>
-                            <a href="#" onclick="logout()"
-                                class="block px-4 py-2 text-sm text-red-600 hover:bg-red-50"><i
-                                    class="fa-solid fa-sign-out-alt mr-2"></i>Salir</a>
+                            Sampi
+                        </div>
+                        <div class="flex items-center gap-1">
+                            <div class="w-2 h-2 bg-blue-500 rounded-full shadow-[0_0_10px_rgba(59,130,246,0.5)]"></div>
+                            Normal
+                        </div>
+                    </div>
+
+                    <div class="flex items-center gap-2">
+                        <button onclick="openModal()"
+                            class="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg text-sm font-bold shadow-lg shadow-blue-600/20 transition-all active:scale-95 flex items-center gap-2 border border-blue-500">
+                            <i class="fa-solid fa-plus"></i> Manual
+                        </button>
+                        <!-- PDF Upload (Native) -->
+                        <input type="file" id="pdfUploadInput" class="hidden" accept=".pdf" onchange="uploadPDF(this)">
+                        <button onclick="document.getElementById('pdfUploadInput').click()"
+                            class="bg-slate-800 hover:bg-slate-700 text-slate-200 px-4 py-2 rounded-lg text-sm font-bold border border-slate-700 transition-all active:scale-95 flex items-center gap-2 hover:text-white"
+                            title="Subir Pedido PDF">
+                            <i class="fa-solid fa-cloud-arrow-up"></i> PDF
+                        </button>
+
+                        <!-- Bulk Upload -->
+                        <input type="file" id="bulkUploadInput" class="hidden" accept=".xlsx, .xls, .csv"
+                            onchange="uploadMassiveExcel(this)">
+                        <button onclick="document.getElementById('bulkUploadInput').click()"
+                            class="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-lg text-sm font-bold shadow-lg shadow-emerald-600/20 transition-all active:scale-95 flex items-center gap-2 border border-emerald-500"
+                            title="Carga Masiva de Pedidos">
+                            <i class="fa-solid fa-file-csv"></i> Masivo
+                        </button>
+                        <!-- Admin Menu -->
+                        <div class="relative group">
+                            <button
+                                class="bg-slate-800 border border-slate-700 hover:bg-slate-700 text-slate-300 w-10 h-10 rounded-full shadow-sm flex items-center justify-center transition-all">
+                                <i class="fa-solid fa-gear"></i>
+                            </button>
+                            <div
+                                class="absolute right-0 mt-2 w-48 bg-slate-800 rounded-xl shadow-2xl py-2 hidden group-hover:block border border-slate-700 ring-1 ring-black ring-opacity-5 z-50">
+                                <div class="px-4 py-2 border-b border-slate-700">
+                                    <p class="text-xs text-slate-500">Logueado como</p>
+                                    <p class="font-bold text-slate-200 truncate" id="userInfo">User</p>
+                                </div>
+                                <a href="admin-users.html"
+                                    class="block px-4 py-2 text-sm text-slate-300 hover:bg-slate-700 hover:text-white"><i
+                                        class="fa-solid fa-users mr-2 text-blue-500"></i>Usuarios</a>
+                                <a href="admin-products.html"
+                                    class="block px-4 py-2 text-sm text-slate-300 hover:bg-slate-700 hover:text-white"><i
+                                        class="fa-solid fa-boxes-stacked mr-2 text-purple-500"></i>Productos</a>
+                                <a href="#" onclick="logout()"
+                                    class="block px-4 py-2 text-sm text-red-400 hover:bg-slate-700 hover:text-red-300"><i
+                                        class="fa-solid fa-sign-out-alt mr-2"></i>Salir</a>
+                            </div>
                         </div>
                     </div>
                 </div>
-            </div>
         </header>
 
         <!-- Main Board -->
-        <main class="flex-1 overflow-x-auto overflow-y-hidden p-6 perspective-container bg-slate-200/50">
+        <main class="flex-1 overflow-x-auto overflow-y-hidden p-6 perspective-container">
             <div class="h-full flex gap-6 min-w-max pb-4" id="boardContainer">
                 <!-- Columns injected here -->
             </div>
@@ -210,58 +267,58 @@
 
     <!-- MODAL AVANZADO (Edición Completa) -->
     <div id="bookingModal"
-        class="fixed inset-0 bg-slate-900/60 hidden z-50 flex items-center justify-center backdrop-blur-sm transition-opacity opacity-0">
-        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-4xl mx-4 flex flex-col max-h-[95vh] overflow-hidden transform scale-95 transition-transform"
+        class="fixed inset-0 bg-black/80 hidden z-50 flex items-center justify-center backdrop-blur-sm transition-opacity opacity-0">
+        <div class="bg-[#1e293b] rounded-2xl shadow-2xl w-full max-w-4xl mx-4 flex flex-col max-h-[95vh] overflow-hidden transform scale-95 transition-transform border border-slate-700"
             id="modalContent">
 
             <!-- Modal Header -->
-            <div class="px-6 py-4 bg-slate-50 border-b border-slate-200 flex justify-between items-center">
+            <div class="px-6 py-4 bg-[#0f172a] border-b border-slate-700 flex justify-between items-center">
                 <div>
-                    <h3 class="text-xl font-black text-slate-800 flex items-center gap-2">
-                        <i class="fa-solid fa-clipboard-list text-blue-600"></i>
+                    <h3 class="text-xl font-black text-slate-100 flex items-center gap-2">
+                        <i class="fa-solid fa-clipboard-list text-blue-500"></i>
                         <span id="modalTitle">Detalle de Carga</span>
                     </h3>
-                    <p class="text-xs text-slate-500 mt-1">Gestión completa de pedido y cálculo de tiempos.</p>
+                    <p class="text-xs text-slate-400 mt-1">Gestión completa de pedido y cálculo de tiempos.</p>
                 </div>
                 <button onclick="closeModal()"
-                    class="w-8 h-8 rounded-full hover:bg-slate-200 flex items-center justify-center text-slate-500 transition-colors">
+                    class="w-8 h-8 rounded-full hover:bg-slate-700 flex items-center justify-center text-slate-400 hover:text-white transition-colors">
                     <i class="fa-solid fa-xmark text-xl"></i>
                 </button>
             </div>
 
             <!-- Modal Body -->
-            <div class="flex-1 overflow-y-auto p-6 bg-slate-50/30">
+            <div class="flex-1 overflow-y-auto p-6 bg-[#0f172a]/50">
                 <form id="bookingForm" class="grid grid-cols-12 gap-6">
                     <input type="hidden" id="bookingId">
 
                     <!-- Left Column: Primary Info -->
                     <div class="col-span-12 md:col-span-4 space-y-4">
-                        <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-                            <h4 class="text-xs font-bold text-slate-400 uppercase mb-3">Información General</h4>
+                        <div class="bg-[#1e293b] p-4 rounded-xl border border-slate-700 shadow-sm">
+                            <h4 class="text-xs font-bold text-slate-500 uppercase mb-3">Información General</h4>
 
                             <div class="space-y-3">
                                 <div>
-                                    <label class="block text-xs font-semibold text-slate-600 mb-1">Cliente</label>
+                                    <label class="block text-xs font-semibold text-slate-400 mb-1">Cliente</label>
                                     <input type="text" id="clientName"
-                                        class="w-full px-3 py-2 rounded-lg border-slate-200 bg-slate-50 focus:bg-white text-sm font-medium focus:ring-2 ring-blue-500 outline-none transition-all"
+                                        class="w-full px-3 py-2 rounded-lg border-slate-700 bg-[#0f172a] text-slate-200 text-sm font-medium focus:ring-2 ring-blue-500 outline-none transition-all placeholder-slate-600"
                                         placeholder="Ej: Supermercado X">
                                 </div>
                                 <div class="grid grid-cols-2 gap-2">
                                     <div>
-                                        <label class="block text-xs font-semibold text-slate-600 mb-1">Cód.</label>
+                                        <label class="block text-xs font-semibold text-slate-400 mb-1">Cód.</label>
                                         <input type="text" id="clientCode"
-                                            class="w-full px-3 py-2 rounded-lg border-slate-200 bg-slate-50 text-sm">
+                                            class="w-full px-3 py-2 rounded-lg border-slate-700 bg-[#0f172a] text-slate-200 text-sm">
                                     </div>
                                     <div>
-                                        <label class="block text-xs font-semibold text-slate-600 mb-1">N° Pedido</label>
+                                        <label class="block text-xs font-semibold text-slate-400 mb-1">N° Pedido</label>
                                         <input type="text" id="orderNumber"
-                                            class="w-full px-3 py-2 rounded-lg border-slate-200 bg-slate-50 text-sm">
+                                            class="w-full px-3 py-2 rounded-lg border-slate-700 bg-[#0f172a] text-slate-200 text-sm">
                                     </div>
                                 </div>
                                 <div>
-                                    <label class="block text-xs font-semibold text-slate-600 mb-1">Prioridad</label>
+                                    <label class="block text-xs font-semibold text-slate-400 mb-1">Prioridad</label>
                                     <select id="priority"
-                                        class="w-full px-3 py-2 rounded-lg border-slate-200 bg-white text-sm">
+                                        class="w-full px-3 py-2 rounded-lg border-slate-700 bg-[#0f172a] text-slate-200 text-sm focus:ring-2 ring-blue-500 outline-none">
                                         <option value="Normal">Normal 🟦</option>
                                         <option value="Urgente">Urgente 🟥</option>
                                         <option value="Lista">Lista 🟩</option>
@@ -271,38 +328,38 @@
                             </div>
                         </div>
 
-                        <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-                            <h4 class="text-xs font-bold text-slate-400 uppercase mb-3">Logística</h4>
+                        <div class="bg-[#1e293b] p-4 rounded-xl border border-slate-700 shadow-sm">
+                            <h4 class="text-xs font-bold text-slate-500 uppercase mb-3">Logística</h4>
                             <div class="space-y-3">
                                 <div>
-                                    <label class="block text-xs font-semibold text-slate-600 mb-1">Recurso
+                                    <label class="block text-xs font-semibold text-slate-400 mb-1">Recurso
                                         (Puerta)</label>
                                     <select id="resourceSelect"
-                                        class="w-full px-3 py-2 rounded-lg border-slate-200 bg-white text-sm font-medium">
+                                        class="w-full px-3 py-2 rounded-lg border-slate-700 bg-[#0f172a] text-slate-200 text-sm font-medium focus:ring-2 ring-blue-500 outline-none">
                                         <!-- Options JS -->
                                     </select>
                                 </div>
                                 <div class="grid grid-cols-2 gap-2">
                                     <div>
-                                        <label class="block text-xs font-semibold text-slate-600 mb-1">Hora
+                                        <label class="block text-xs font-semibold text-slate-400 mb-1">Hora
                                             Inicio</label>
                                         <input type="time" id="startTime"
-                                            class="w-full px-3 py-2 rounded-lg border-slate-200 text-sm font-bold">
+                                            class="w-full px-3 py-2 rounded-lg border-slate-700 bg-[#0f172a] text-slate-200 text-sm font-bold color-scheme-dark">
                                     </div>
                                     <div class="relative">
-                                        <label class="block text-xs font-semibold text-slate-600 mb-1">Duración
+                                        <label class="block text-xs font-semibold text-slate-400 mb-1">Duración
                                             (min)</label>
                                         <input type="number" id="duration" readonly
-                                            class="w-full px-3 py-2 rounded-lg border-slate-200 bg-slate-100 text-slate-500 text-sm font-bold cursor-not-allowed"
+                                            class="w-full px-3 py-2 rounded-lg border-slate-700 bg-slate-800 text-slate-500 text-sm font-bold cursor-not-allowed"
                                             title="Auto-calculado">
                                         <i
-                                            class="fa-solid fa-calculator absolute right-3 top-8 text-slate-400 text-xs"></i>
+                                            class="fa-solid fa-calculator absolute right-3 top-8 text-slate-600 text-xs"></i>
                                     </div>
                                 </div>
                                 <div>
-                                    <label class="block text-xs font-semibold text-slate-600 mb-1">Observaciones</label>
+                                    <label class="block text-xs font-semibold text-slate-400 mb-1">Observaciones</label>
                                     <textarea id="observations" rows="2"
-                                        class="w-full px-3 py-2 rounded-lg border-slate-200 text-xs resize-none"></textarea>
+                                        class="w-full px-3 py-2 rounded-lg border-slate-700 bg-[#0f172a] text-slate-200 text-xs resize-none placeholder-slate-600"></textarea>
                                 </div>
                             </div>
                         </div>
@@ -312,7 +369,8 @@
                     <div class="col-span-12 md:col-span-8 flex flex-col gap-4">
 
                         <!-- Calculations Panel -->
-                        <div class="bg-slate-800 text-white p-4 rounded-xl shadow-lg flex justify-between items-center">
+                        <div
+                            class="bg-slate-800 text-white p-4 rounded-xl shadow-lg border border-slate-700 flex justify-between items-center">
                             <div class="text-center">
                                 <p class="text-xs text-slate-400 uppercase tracking-wide">Total Kg</p>
                                 <p class="text-2xl font-black text-blue-400" id="calcTotalKg">0.00</p>
@@ -336,17 +394,17 @@
 
                         <!-- Items Table -->
                         <div
-                            class="bg-white rounded-xl border border-slate-200 shadow-sm flex-1 flex flex-col overflow-hidden">
-                            <div class="p-3 border-b border-slate-100 bg-slate-50 flex justify-between items-center">
+                            class="bg-[#1e293b] rounded-xl border border-slate-700 shadow-sm flex-1 flex flex-col overflow-hidden">
+                            <div class="p-3 border-b border-slate-700 bg-[#0f172a] flex justify-between items-center">
                                 <h4 class="text-xs font-bold text-slate-500 uppercase">Detalle de Productos</h4>
                                 <button type="button" onclick="addItemRow()"
-                                    class="text-xs bg-blue-100 text-blue-700 hover:bg-blue-200 px-3 py-1 rounded font-bold transition-colors">
+                                    class="text-xs bg-blue-900/30 text-blue-400 hover:bg-blue-900/50 px-3 py-1 rounded font-bold transition-colors border border-blue-500/30">
                                     <i class="fa-solid fa-plus mr-1"></i> Agregar Item
                                 </button>
                             </div>
                             <div class="overflow-y-auto flex-1 p-0">
                                 <table class="w-full text-left text-sm">
-                                    <thead class="bg-slate-50 text-slate-500 text-xs uppercase sticky top-0 z-10">
+                                    <thead class="bg-slate-800 text-slate-400 text-xs uppercase sticky top-0 z-10">
                                         <tr>
                                             <th class="px-4 py-2 font-semibold">Cód.</th>
                                             <th class="px-4 py-2 font-semibold">Cant.</th>
@@ -354,7 +412,7 @@
                                             <th class="px-4 py-2 text-center w-10"></th>
                                         </tr>
                                     </thead>
-                                    <tbody id="itemsTableBody" class="divide-y divide-slate-100">
+                                    <tbody id="itemsTableBody" class="divide-y divide-slate-700 text-slate-300">
                                         <!-- Rows JS -->
                                     </tbody>
                                 </table>
@@ -362,18 +420,19 @@
                         </div>
 
                         <!-- Real Time Tracking (Solo visual por ahora) -->
-                        <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex gap-4 items-center">
-                            <i class="fa-solid fa-stopwatch text-slate-400 text-2xl"></i>
+                        <div
+                            class="bg-[#1e293b] p-4 rounded-xl border border-slate-700 shadow-sm flex gap-4 items-center opacity-70 hover:opacity-100 transition-opacity">
+                            <i class="fa-solid fa-stopwatch text-slate-500 text-2xl"></i>
                             <div class="flex-1 grid grid-cols-2 gap-4">
                                 <div>
                                     <label class="block text-xs font-semibold text-slate-500">Inicio Real</label>
                                     <input type="time" id="realStartTime"
-                                        class="w-full bg-slate-50 border-0 border-b-2 border-slate-200 focus:border-blue-500 text-sm px-0 py-1">
+                                        class="w-full bg-transparent border-0 border-b-2 border-slate-700 focus:border-blue-500 text-sm px-0 py-1 text-slate-200 color-scheme-dark">
                                 </div>
                                 <div>
                                     <label class="block text-xs font-semibold text-slate-500">Fin Real</label>
                                     <input type="time" id="realEndTime"
-                                        class="w-full bg-slate-50 border-0 border-b-2 border-slate-200 focus:border-blue-500 text-sm px-0 py-1">
+                                        class="w-full bg-transparent border-0 border-b-2 border-slate-700 focus:border-blue-500 text-sm px-0 py-1 text-slate-200 color-scheme-dark">
                                 </div>
                             </div>
                         </div>
@@ -383,16 +442,16 @@
             </div>
 
             <!-- Modal Footer -->
-            <div class="px-6 py-4 bg-white border-t border-slate-100 flex justify-between items-center">
+            <div class="px-6 py-4 bg-[#0f172a] border-t border-slate-700 flex justify-between items-center">
                 <button type="button" id="deleteBtn" onclick="deleteBooking()"
-                    class="text-red-500 hover:bg-red-50 px-4 py-2 rounded-lg text-sm font-bold transition-colors">
+                    class="text-red-400 hover:bg-red-900/20 px-4 py-2 rounded-lg text-sm font-bold transition-colors">
                     <i class="fa-solid fa-trash-can mr-2"></i>Eliminar
                 </button>
                 <div class="flex gap-3">
                     <button onclick="closeModal()"
-                        class="px-6 py-2 rounded-lg text-sm font-bold text-slate-600 hover:bg-slate-100 transition-colors">Cancelar</button>
+                        class="px-6 py-2 rounded-lg text-sm font-bold text-slate-400 hover:text-white hover:bg-slate-800 transition-colors">Cancelar</button>
                     <button onclick="saveBooking()"
-                        class="bg-blue-600 hover:bg-blue-700 text-white px-8 py-2 rounded-lg text-sm font-bold shadow-lg shadow-blue-500/30 transition-all transform active:scale-95">
+                        class="bg-blue-600 hover:bg-blue-500 text-white px-8 py-2 rounded-lg text-sm font-bold shadow-lg shadow-blue-500/30 transition-all transform active:scale-95 border border-blue-500">
                         <i class="fa-solid fa-save mr-2"></i>Guardar Carga
                     </button>
                 </div>
@@ -898,10 +957,10 @@
             // Header Row
             let html = `
                 <div class="inline-block min-w-full">
-                    <div class="flex sticky top-0 z-20 shadow-xl bg-slate-300 rounded-t-lg">
-                        <div class="w-16 bg-slate-400 border-r border-slate-500 p-2 font-bold text-center text-xs flex items-center justify-center flex-none">Hora</div>
+                    <div class="flex sticky top-0 z-20 shadow-xl bg-slate-800/90 backdrop-blur border-b border-indigo-500/30 rounded-t-lg">
+                        <div class="w-16 bg-slate-900/90 border-r border-slate-700 p-2 font-bold text-center text-xs flex items-center justify-center flex-none text-indigo-400">Hora</div>
                         ${resources.map(r => `
-                            <div class="w-64 bg-slate-800 text-white p-2 border-r border-slate-700 font-bold text-center text-sm flex-none shadow-sm">
+                            <div class="w-64 bg-slate-800/80 text-indigo-100 p-2 border-r border-slate-700 font-bold text-center text-sm flex-none shadow-sm tracking-wide">
                                 ${r.name}
                             </div>
                         `).join('')}
@@ -916,23 +975,24 @@
                 const timeLabel = slot.label;
                 const isHalfHour = slot.m === 30;
 
-                // Row Container
-                html += `<div class="flex border-b border-slate-300 ${isHalfHour ? 'bg-slate-100/50' : 'bg-white'} hover:bg-slate-200 transition-colors group/row">`;
+                // Row Container - Alternating backgrounds for rows (very subtle)
+                const rowBg = isHalfHour ? 'bg-slate-800/30' : 'bg-transparent';
+
+                html += `<div class="flex border-b border-slate-700/50 ${rowBg} hover:bg-slate-700/40 transition-colors group/row">`;
 
                 // Time Cell
-                html += `<div class="w-16 bg-slate-200 border-r border-slate-300 p-1 text-[10px] font-bold text-slate-500 text-center sticky left-0 z-10 flex items-center justify-center group-hover/row:bg-slate-300 group-hover/row:text-slate-800 transition-colors flex-none shadow-md">
+                html += `<div class="w-16 bg-slate-900/80 border-r border-slate-700 p-1 text-[10px] font-bold text-slate-500 text-center sticky left-0 z-10 flex items-center justify-center group-hover/row:bg-slate-800 group-hover/row:text-indigo-300 transition-colors flex-none backdrop-blur-sm">
                     ${timeLabel}
                 </div>`;
 
                 // Resource Cells (Drop Zones)
                 resources.forEach(res => {
-                    // ID for the cell: "cell-RESOURCE-TIME" (e.g., "cell-Puerta-1-08:00")
-                    // Note: ID must be friendly.
+                    // ID for the cell: "cell-RESOURCE-TIME"
                     const cellId = `cell-${res.id.replace(/\s+/g, '-')}-${String(slot.h).padStart(2, '0')}-${String(slot.m).padStart(2, '0')}`;
 
                     html += `
                         <div id="${cellId}" 
-                             class="w-64 border-r border-slate-300 min-h-[100px] p-2 relative grid-cell-dropzone transition-colors flex-none"
+                             class="w-64 border-r border-slate-700/50 min-h-[100px] p-2 relative grid-cell-dropzone transition-colors flex-none hover:bg-white/5"
                              data-resource="${res.id}" 
                              data-h="${slot.h}" 
                              data-m="${slot.m}">
@@ -1025,25 +1085,33 @@
 
         function createCardElement(b) {
             const el = document.createElement('div');
-            el.className = `card-3d bg-white p-2 rounded-lg shadow-sm border border-slate-100 cursor-pointer relative overflow-hidden group hover:shadow-md transition-all h-full`;
+            // Modern Dark Card Style
+            el.className = `card-3d bg-slate-800/90 backdrop-blur-md p-2 rounded-lg shadow-lg border border-slate-600/50 cursor-pointer relative overflow-hidden group hover:shadow-cyan-500/20 hover:border-cyan-500/50 transition-all h-full`;
             el.setAttribute('data-id', b.id);
             el.setAttribute('data-resource', b.resourceId);
             el.onclick = (e) => { e.stopPropagation(); openEditModal(b); };
 
             // Priority Border
-            const priorityColors = { 'Urgente': '!border-l-4 !border-l-red-500', 'Lista': '!border-l-4 !border-l-green-500', 'Espera': '!border-l-4 !border-l-orange-500', 'Normal': '!border-l-4 !border-l-blue-500' };
+            const priorityColors = {
+                'Urgente': '!border-l-4 !border-l-red-500',
+                'Lista': '!border-l-4 !border-l-emerald-500',
+                'Espera': '!border-l-4 !border-l-amber-500',
+                'Normal': '!border-l-4 !border-l-blue-500'
+            };
             const priorityClass = priorityColors[b.priority] || priorityColors['Normal'];
 
             // Apply priority class safely
-            priorityClass.split(' ').forEach(c => el.classList.add(c.replace('!', ''))); // remove ! for classList
+            priorityClass.split(' ').forEach(c => el.classList.add(c.replace('!', '')));
 
             // Sampi Strip
             let sampiBar = '';
             const isSampiResource = (b.resourceId || '').toLowerCase() === 'sampi';
             const isSampi = Number(b.sampi_on) === 1 || isSampiResource;
             if (isSampi) {
-                el.classList.add('bg-purple-50');
-                sampiBar = `<div class="absolute top-0 right-0 p-1"><i class="fa-solid fa-bolt text-purple-500 animate-pulse" title="Sampi Activo"></i></div>`;
+                el.classList.add('bg-purple-900/20');
+                // Diagonal stripes for Sampi
+                el.style.backgroundImage = "repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(168, 85, 247, 0.1) 10px, rgba(168, 85, 247, 0.1) 20px)";
+                sampiBar = `<div class="absolute top-0 right-0 p-1"><i class="fa-solid fa-bolt text-purple-400 animate-pulse drop-shadow-[0_0_5px_rgba(168,85,247,0.8)]" title="Sampi Activo"></i></div>`;
             }
 
             const startHour = Number(b.startTimeHour ?? 0);
@@ -1058,15 +1126,15 @@
 
             el.innerHTML = `
                 <div class="flex justify-between items-start leading-tight mb-1">
-                    <span class="font-bold text-slate-800 text-xs truncate w-[85%]">${b.client}</span>
+                    <span class="font-bold text-slate-100 text-xs truncate w-[85%] group-hover:text-cyan-300 transition-colors shadow-black drop-shadow-sm">${b.client}</span>
                 </div>
-                <div class="text-[10px] text-slate-500 truncate leading-tight">${b.description || '-'}</div>
-                <div class="text-[10px] text-slate-400">${startLabel} - ${endLabel}</div>
+                <div class="text-[10px] text-slate-400 truncate leading-tight mb-1">${b.description || '-'}</div>
+                <div class="text-[10px] text-slate-500 font-mono">${startLabel} - ${endLabel}</div>
                 
-                <div class="flex justify-between items-end mt-1">
-                    <div class="text-[10px] font-bold text-slate-600 bg-slate-100 px-1 rounded">${weight.toFixed(0)} kg</div>
-                    <div class="text-[10px] text-slate-400">
-                        ${b.duration}m
+                <div class="flex justify-between items-end mt-2 border-t border-slate-700/50 pt-1">
+                    <div class="text-[10px] font-bold text-slate-300 bg-slate-700/50 px-1.5 py-0.5 rounded border border-slate-600">${weight.toFixed(0)} kg</div>
+                    <div class="text-[10px] text-slate-400 flex items-center gap-1">
+                        <i class="fa-regular fa-clock text-[9px]"></i> ${b.duration}m
                     </div>
                 </div>
                 ${sampiBar}
@@ -1159,14 +1227,17 @@
                 const isDuplicate = Boolean(flags.duplicate || flags.alreadyScheduled);
 
                 const card = document.createElement('div');
-                let cardClass = "p-3 rounded-lg border shadow-sm text-sm cursor-grab mb-2 relative group";
+                // Dark Pending Card
+                let cardClass = "p-3 rounded-lg border shadow-sm text-sm cursor-grab mb-2 relative group transition-all hover:scale-[1.02] ";
+
                 if (isMissing) {
-                    cardClass += " bg-red-50 border-red-200 border-l-4 border-l-red-500 text-red-700";
+                    cardClass += " bg-red-900/20 border-red-500/50 border-l-4 border-l-red-500 text-red-200";
                 } else if (isDuplicate) {
-                    cardClass += " bg-orange-50 border-orange-200 border-l-4 border-l-orange-500";
+                    cardClass += " bg-orange-900/20 border-orange-500/50 border-l-4 border-l-orange-500 text-orange-200";
                 } else {
-                    cardClass += " bg-white border-slate-200 border-l-4 border-l-yellow-400";
+                    cardClass += " bg-slate-800/80 backdrop-blur border-slate-600 border-l-4 border-l-yellow-500 text-slate-200 hover:border-blue-400 hover:bg-slate-700";
                 }
+
                 card.className = cardClass;
                 card.setAttribute('data-id', b.id);
                 card.onclick = () => {
@@ -1182,25 +1253,25 @@
                 };
                 const metrics = b.metrics || { sampiKg: 0 };
                 const badge = isMissing
-                    ? '<span class="text-[10px] font-bold text-red-600 bg-red-100 px-2 py-0.5 rounded-full">SIN PEDIDO</span>'
+                    ? '<span class="text-[10px] font-bold text-red-100 bg-red-600 px-2 py-0.5 rounded-full shadow-sm">SIN PEDIDO</span>'
                     : isDuplicate
-                        ? '<span class="text-[10px] font-bold text-orange-600 bg-orange-100 px-2 py-0.5 rounded-full">DUPLICADO</span>'
+                        ? '<span class="text-[10px] font-bold text-orange-100 bg-orange-600 px-2 py-0.5 rounded-full shadow-sm">DUPLICADO</span>'
                         : '';
 
                 card.innerHTML = `
-                    <div class="font-bold text-slate-700">${b.client}</div>
-                    <div class="text-xs text-slate-500 mb-1">Ped: ${b.orderNumber || '-'} </div>
+                    <div class="font-bold text-slate-100">${b.client}</div>
+                    <div class="text-xs text-slate-400 mb-1 flex items-center gap-1"><i class="fa-solid fa-hashtag text-[10px]"></i> ${b.orderNumber || '-'} </div>
                     ${badge}
-                    <div class="flex justify-between text-xs font-semibold text-slate-600 mt-2">
-                        <span>${Number(b.kg).toFixed(0)} kg</span>
+                    <div class="flex justify-between text-xs font-semibold text-slate-500 mt-2 pt-2 border-t border-white/5">
+                        <span class="text-slate-300 bg-slate-900/50 px-1.5 rounded">${Number(b.kg).toFixed(0)} kg</span>
                         <div class="text-right">
                              <div>${b.duration} min</div>
-                             ${metrics.requiresSampi ? '<span class="text-purple-600 text-[10px]">SAMPI</span>' : ''}
+                             ${metrics.requiresSampi ? '<span class="text-purple-400 text-[10px] animate-pulse">SAMPI</span>' : ''}
                         </div>
                     </div>
                 `;
                 list.appendChild(card);
-                        });
+            });
         }
 
         async function schedulePendingBooking(booking, resourceId, hour, minute) {
@@ -1607,6 +1678,50 @@
                 }
 
                 // Clear input
+                input.value = '';
+            }
+        };
+
+        window.uploadMassiveExcel = async (input) => {
+            if (input.files && input.files[0]) {
+                const file = input.files[0];
+                const formData = new FormData();
+                formData.append('excelFile', file);
+
+                Swal.fire({
+                    title: 'Procesando Archivo...',
+                    text: 'Leyendo datos masivos',
+                    allowOutsideClick: false,
+                    didOpen: () => { Swal.showLoading(); }
+                });
+
+                try {
+                    const res = await fetch(AppConfig.API.BULK_UPLOAD, {
+                        method: 'POST',
+                        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` },
+                        body: formData
+                    });
+                    const data = await res.json();
+
+                    if (res.ok) {
+                        let msg = `Procesados: ${data.processed || 0}`;
+                        if (data.errors && data.errors.length > 0) {
+                            msg += ` | Errores: ${data.errors.length}`;
+                        }
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Carga Masiva Completa',
+                            text: msg,
+                            timer: 3000
+                        });
+                        fetchData();
+                    } else {
+                        throw new Error(data.error || 'Error en carga masiva');
+                    }
+                } catch (e) {
+                    console.error(e);
+                    Swal.fire('Error', e.message, 'error');
+                }
                 input.value = '';
             }
         };

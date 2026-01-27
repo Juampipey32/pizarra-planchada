@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cliente 360 | Logística 3.0</title>
+    <link rel="stylesheet" href="css/tailwind-dashboard.css">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/js/all.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="js/config.js"></script>
+    <style>
+        .color-scheme-dark {
+            color-scheme: dark;
+        }
+
+        .glass-panel {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+    </style>
+</head>
+
+<body class="bg-[#0f172a] text-slate-100 min-h-screen font-sans"
+    style="background: radial-gradient(circle at 10% 20%, #1e293b, #0f172a 90%);">
+
+    <!-- Navegación -->
+    <nav
+        class="sticky top-0 z-50 glass-panel border-b border-white/5 px-6 py-3 flex justify-between items-center shadow-lg">
+        <div class="flex items-center gap-4">
+            <a href="dashboard.html"
+                class="p-2 rounded-full hover:bg-white/5 transition-colors text-slate-400 hover:text-white">
+                <i class="fa-solid fa-arrow-left"></i>
+            </a>
+            <h1
+                class="text-xl font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-cyan-300">
+                CLIENTE <span class="font-light text-white">360°</span>
+            </h1>
+        </div>
+
+        <!-- Search -->
+        <div class="relative w-96 hidden md:block">
+            <input type="text" placeholder="Buscar cliente, código o Razón Social..."
+                class="w-full bg-slate-900/50 border border-slate-700 rounded-full py-2 pl-10 pr-4 text-sm focus:outline-none focus:border-blue-500 text-slate-200 placeholder-slate-500">
+            <i class="fa-solid fa-search absolute left-3.5 top-2.5 text-slate-500"></i>
+        </div>
+
+        <div class="flex items-center gap-3">
+            <button
+                class="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center hover:bg-slate-700 transition">
+                <i class="fa-regular fa-bell text-slate-400"></i>
+            </button>
+            <div
+                class="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center font-bold text-xs ring-2 ring-slate-800">
+                AD
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="container mx-auto px-6 py-8">
+
+        <!-- Header Cliente -->
+        <div
+            class="glass-panel p-6 rounded-2xl mb-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <div class="flex items-center gap-4">
+                <div
+                    class="w-16 h-16 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-2xl font-bold shadow-lg shadow-blue-500/20">
+                    SM
+                </div>
+                <div>
+                    <h2 class="text-2xl font-bold text-white">Supermercados Modelo S.A.</h2>
+                    <div class="flex items-center gap-3 text-sm text-slate-400 mt-1">
+                        <span
+                            class="bg-blue-500/10 text-blue-400 px-2 py-0.5 rounded border border-blue-500/20 font-medium">VIP</span>
+                        <span><i class="fa-solid fa-hashtag text-slate-600 mr-1"></i> CLI-10059</span>
+                        <span><i class="fa-solid fa-location-dot text-slate-600 mr-1"></i> Buenos Aires, AR</span>
+                    </div>
+                </div>
+            </div>
+            <div class="flex gap-3">
+                <button
+                    class="px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-sm font-semibold transition-colors">
+                    <i class="fa-solid fa-file-export mr-2"></i> Reporte
+                </button>
+                <button
+                    class="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-600/20 text-sm font-bold transition-all transform active:scale-95">
+                    <i class="fa-solid fa-plus mr-2"></i> Nuevo Pedido
+                </button>
+            </div>
+        </div>
+
+        <!-- KPI Grid -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+            <!-- Card 1 -->
+            <div class="glass-panel p-5 rounded-xl border-l-4 border-l-emerald-500 relative group overflow-hidden">
+                <div
+                    class="absolute right-[-10px] top-[-10px] opacity-10 rotate-12 group-hover:scale-110 transition-transform">
+                    <i class="fa-solid fa-box text-6xl text-emerald-500"></i>
+                </div>
+                <p class="text-sm font-semibold text-slate-400 uppercase tracking-wide">Pedidos Totales</p>
+                <h3 class="text-3xl font-black text-white mt-1">1,248</h3>
+                <p class="text-xs text-emerald-400 mt-2 flex items-center gap-1">
+                    <i class="fa-solid fa-arrow-trend-up"></i> +12% vs mes anterior
+                </p>
+            </div>
+            <!-- Card 2 -->
+            <div class="glass-panel p-5 rounded-xl border-l-4 border-l-blue-500 relative group overflow-hidden">
+                <div
+                    class="absolute right-[-10px] top-[-10px] opacity-10 rotate-12 group-hover:scale-110 transition-transform">
+                    <i class="fa-solid fa-weight-hanging text-6xl text-blue-500"></i>
+                </div>
+                <p class="text-sm font-semibold text-slate-400 uppercase tracking-wide">Volumen (Kg)</p>
+                <h3 class="text-3xl font-black text-white mt-1">850k</h3>
+                <p class="text-xs text-blue-400 mt-2 flex items-center gap-1">
+                    <i class="fa-solid fa-arrow-trend-up"></i> +5% vs mes anterior
+                </p>
+            </div>
+            <!-- Card 3 -->
+            <div class="glass-panel p-5 rounded-xl border-l-4 border-l-purple-500 relative group overflow-hidden">
+                <div
+                    class="absolute right-[-10px] top-[-10px] opacity-10 rotate-12 group-hover:scale-110 transition-transform">
+                    <i class="fa-solid fa-bolt text-6xl text-purple-500"></i>
+                </div>
+                <p class="text-sm font-semibold text-slate-400 uppercase tracking-wide">Uso Sampi</p>
+                <h3 class="text-3xl font-black text-white mt-1">42%</h3>
+                <p class="text-xs text-slate-500 mt-2">Promedio de industria: 35%</p>
+            </div>
+            <!-- Card 4 -->
+            <div class="glass-panel p-5 rounded-xl border-l-4 border-l-amber-500 relative group overflow-hidden">
+                <div
+                    class="absolute right-[-10px] top-[-10px] opacity-10 rotate-12 group-hover:scale-110 transition-transform">
+                    <i class="fa-solid fa-clock text-6xl text-amber-500"></i>
+                </div>
+                <p class="text-sm font-semibold text-slate-400 uppercase tracking-wide">Tiempo Promedio</p>
+                <h3 class="text-3xl font-black text-white mt-1">45m</h3>
+                <p class="text-xs text-amber-400 mt-2 flex items-center gap-1">
+                    <i class="fa-solid fa-triangle-exclamation"></i> +2m desviación
+                </p>
+            </div>
+        </div>
+
+        <!-- Charts & Lists -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <!-- Left: Chart -->
+            <div class="col-span-2 glass-panel p-6 rounded-2xl">
+                <div class="flex justify-between items-center mb-6">
+                    <h3 class="font-bold text-lg text-white">Historial de Volumen</h3>
+                    <select
+                        class="bg-slate-800 text-xs text-slate-300 border border-slate-700 rounded px-2 py-1 outline-none">
+                        <option>Últimos 6 meses</option>
+                        <option>Este año</option>
+                    </select>
+                </div>
+                <div
+                    class="h-64 flex items-center justify-center bg-slate-800/30 rounded-lg border border-white/5 border-dashed">
+                    <canvas id="volumeChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Right: Recent Activity -->
+            <div class="glass-panel p-6 rounded-2xl">
+                <h3 class="font-bold text-lg text-white mb-4">Pedidos Recientes</h3>
+                <div class="space-y-3">
+                    <!-- Item -->
+                    <div
+                        class="flex items-center justify-between p-3 rounded-lg hover:bg-slate-800/50 transition-colors border border-transparent hover:border-slate-700 cursor-pointer">
+                        <div class="flex items-center gap-3">
+                            <div
+                                class="w-8 h-8 rounded-full bg-emerald-500/20 text-emerald-500 flex items-center justify-center text-xs">
+                                <i class="fa-solid fa-check"></i>
+                            </div>
+                            <div>
+                                <p class="text-sm font-bold text-slate-200">#ORD-9921</p>
+                                <p class="text-xs text-slate-500">Hace 2 horas</p>
+                            </div>
+                        </div>
+                        <span class="text-xs font-bold text-slate-300">1,200 kg</span>
+                    </div>
+                    <!-- Item -->
+                    <div
+                        class="flex items-center justify-between p-3 rounded-lg hover:bg-slate-800/50 transition-colors border border-transparent hover:border-slate-700 cursor-pointer">
+                        <div class="flex items-center gap-3">
+                            <div
+                                class="w-8 h-8 rounded-full bg-blue-500/20 text-blue-500 flex items-center justify-center text-xs">
+                                <i class="fa-solid fa-spinner"></i>
+                            </div>
+                            <div>
+                                <p class="text-sm font-bold text-slate-200">#ORD-9922</p>
+                                <p class="text-xs text-slate-500">En proceso</p>
+                            </div>
+                        </div>
+                        <span class="text-xs font-bold text-slate-300">850 kg</span>
+                    </div>
+                    <!-- Item -->
+                    <div
+                        class="flex items-center justify-between p-3 rounded-lg hover:bg-slate-800/50 transition-colors border border-transparent hover:border-slate-700 cursor-pointer">
+                        <div class="flex items-center gap-3">
+                            <div
+                                class="w-8 h-8 rounded-full bg-amber-500/20 text-amber-500 flex items-center justify-center text-xs">
+                                <i class="fa-solid fa-clock"></i>
+                            </div>
+                            <div>
+                                <p class="text-sm font-bold text-slate-200">#ORD-9923</p>
+                                <p class="text-xs text-slate-500">Pendiente</p>
+                            </div>
+                        </div>
+                        <span class="text-xs font-bold text-slate-300">2,100 kg</span>
+                    </div>
+                </div>
+                <button class="w-full mt-4 text-xs text-center text-blue-400 hover:text-blue-300 font-bold py-2">
+                    Ver todo el historial
+                </button>
+            </div>
+        </div>
+
+    </main>
+
+    <script>
+        // Placeholder Chart Logic
+        document.addEventListener('DOMContentLoaded', () => {
+            const ctx = document.getElementById('volumeChart').getContext('2d');
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun'],
+                    datasets: [{
+                        label: 'Kg Procesados',
+                        data: [12000, 19000, 3000, 5000, 2000, 3000],
+                        backgroundColor: '#3b82f6',
+                        borderRadius: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: {
+                            grid: { color: 'rgba(255,255,255,0.05)' },
+                            ticks: { color: '#94a3b8' }
+                        },
+                        x: {
+                            grid: { display: false },
+                            ticks: { color: '#94a3b8' }
+                        }
+                    }
+                }
+            });
+        });
+    </script>
+</body>
+
+</html>
