@@ -675,7 +675,9 @@
             try {
                 const token = localStorage.getItem('token');
                 const [pendingRes, boardRes] = await Promise.all([
-                    fetch(AppConfig.WEBHOOKS.READ_DATA),
+                    fetch(AppConfig.API.PENDING, {
+                        headers: token ? { 'Authorization': `Bearer ${token}` } : undefined
+                    }),
                     fetch(`${API_URL}/index.php?date=${currentDate}`, {
                         headers: token ? { 'Authorization': `Bearer ${token}` } : undefined
                     })
@@ -684,7 +686,11 @@
                 let normalizedPending = [];
                 if (pendingRes.ok) {
                     const data = await pendingRes.json();
-                    normalizedPending = normalizePendingPayload(data);
+                    // New format from pending.php: {success, count, bookings}
+                    normalizedPending = data.bookings || data.data || data;
+                    if (!Array.isArray(normalizedPending)) {
+                        normalizedPending = [];
+                    }
                 }
 
                 if (boardRes.ok) {
@@ -801,28 +807,33 @@
             if (!file) return;
 
             const formData = new FormData();
-            formData.append('file', file);
+            formData.append('csvFile', file); // bulk-upload.php expects 'csvFile'
 
             // Show loading
             Swal.fire({
                 title: 'Procesando...',
-                text: 'Subiendo y procesando archivo en n8n',
+                text: 'Subiendo y procesando archivo Excel/CSV',
                 allowOutsideClick: false,
                 didOpen: () => { Swal.showLoading(); }
             });
 
             try {
-                const res = await fetch(AppConfig.WEBHOOKS.LOAD_MASSIVE, {
+                const token = localStorage.getItem('token');
+                const res = await fetch(AppConfig.API.BULK_UPLOAD, {
                     method: 'POST',
+                    headers: token ? { 'Authorization': `Bearer ${token}` } : undefined,
                     body: formData
                 });
 
-                if (res.ok) {
+                const data = await res.json();
+
+                if (res.ok && data.success) {
                     Swal.fire({
                         icon: 'success',
                         title: 'Carga Completada',
-                        text: 'Los pedidos han sido procesados correctamente.',
-                        timer: 2000
+                        html: `<p>Procesados: <strong>${data.processed}</strong></p>
+                               <p>Errores: <strong>${data.errors}</strong></p>`,
+                        timer: 3000
                     });
                     // Refresh data
                     fetchData();

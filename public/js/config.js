@@ -25,12 +25,14 @@ const AppConfig = {
         }
     },
 
-    // Webhooks n8n
-    WEBHOOKS: {
-        READ_DATA: 'https://n8n-n8n.rbmlzu.easypanel.host/webhook/DATOS_FRONT',
-        LOAD_MASSIVE: 'https://n8n-n8n.rbmlzu.easypanel.host/webhook/carga_masiva',
-        IMPORT_PDF: 'https://n8n-n8n.rbmlzu.easypanel.host/webhook/PEDIDOS-COSALTA',
-        SHEETS_SYNC: 'https://n8n-n8n.rbmlzu.easypanel.host/webhook/GUARDAR-SHEET'
+    // API Endpoints (Native - replaced n8n webhooks)
+    API: {
+        BOOKINGS: '/api/bookings',
+        PENDING: '/api/bookings/pending.php',
+        PDF_UPLOAD: '/api/bookings/upload-pdf.php',
+        BULK_UPLOAD: '/api/bookings/bulk-upload.php',
+        UNMET_DEMAND: '/api/unmet-demand',
+        DEVIATIONS: '/api/deviations'
     },
 
     // Coeficientes de productos (código => coeficiente)
