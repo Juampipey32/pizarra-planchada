@@ -1713,6 +1713,27 @@
                         const firstSheetName = workbook.SheetNames[0];
                         const worksheet = workbook.Sheets[firstSheetName];
 
+                        // SMART HEADER DETECTION
+                        // Convert to array of arrays to find the real header row (e.g., Row 9)
+                        const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+                        let headerRowIndex = 0;
+
+                        // Look for the row that contains "N° Pedido" or "N° pedido" or "OrderNumber"
+                        for (let i = 0; i < Math.min(rows.length, 20); i++) {
+                            const rowStr = (rows[i] || []).join(' ').toLowerCase();
+                            if (rowStr.includes('n° pedido') || rowStr.includes('nº pedido') || rowStr.includes('codigo tango')) {
+                                headerRowIndex = i;
+                                break;
+                            }
+                        }
+
+                        // Update the sheet range to start from the detected header row
+                        if (headerRowIndex > 0) {
+                            const range = XLSX.utils.decode_range(worksheet['!ref']);
+                            range.s.r = headerRowIndex; // Start row matches header
+                            worksheet['!ref'] = XLSX.utils.encode_range(range);
+                        }
+
                         // Convert to CSV
                         const csvContent = XLSX.utils.sheet_to_csv(worksheet);
 
