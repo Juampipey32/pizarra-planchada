@@ -278,8 +278,34 @@ function parseItemsFromBooking($booking, $pdo) {
 
     $items = [];
 
-    if (strpos($itemsField, ';') !== false) {
-        // Format: code;qty;coef
+    // Regex Pattern from n8n: /(\d{4}[A-Z]?)\s*\((\d+(?:\.\d+)?)\)/gi
+    // Format: CODE (QTY) e.g., "1027V (90) - 1018F (180)"
+    if (preg_match_all('/(\d{4}[A-Z]?)\s*\((\d+(?:\.\d+)?)\)/i', $itemsField, $matches, PREG_SET_ORDER)) {
+        foreach ($matches as $match) {
+            $code = strtoupper(trim($match[1])); // Group 1: Code
+            $qty = floatval($match[2]);          // Group 2: Qty (in () brackets)
+            
+            // Check coef
+            $coef = $coefficients[$code] ?? 1.0;
+            // In the n8n logic, these (QTY) seem to be KG directly? 
+            // Checking n8n code: "const kg = cantidad * coef;" -> No, quantity * coef = kg. 
+            // Wait, looking at inspect_rows.py output: "1027V (90).00" 
+            // "1018F (180)"
+            // If the excel says (90), is that 90 items or 90 kg?
+            // N8N: const cantidad = parseFloat(match[2]); const kg = cantidad * coef;
+            // So brackets contain Quantity.
+            
+            $kg = $qty * $coef;
+
+            $items[] = [
+                'code' => $code,
+                'qty' => $qty,
+                'coef' => $coef,
+                'kg' => $kg
+            ];
+        }
+    } elseif (strpos($itemsField, ';') !== false) {
+        // Fallback: Legacy Semicolon Format
         $itemParts = explode(';', $itemsField);
         foreach ($itemParts as $itemPart) {
             $parts = explode(',', $itemPart);
@@ -297,8 +323,8 @@ function parseItemsFromBooking($booking, $pdo) {
                 ];
             }
         }
-    } elseif (strpos($itemsField, ',') !== false) {
-        // Format: code,qty,coef
+    } elseif (strpos($itemsField, ',') !== false && !strpos($itemsField, '(')) {
+         // Fallback: Comma, but only if no brackets (brackets imply regex format)
         $itemParts = explode(',', $itemsField);
         foreach ($itemParts as $itemPart) {
             $parts = explode(';', $itemPart);
@@ -317,18 +343,20 @@ function parseItemsFromBooking($booking, $pdo) {
             }
         }
     } else {
-        // Single item
-        $code = $booking['code'] ?? $booking['codigo'] ?? 'GENERIC';
-        $qty = floatval($booking['qty'] ?? $booking['cantidad'] ?? 1);
-        $coef = $coefficients[$code] ?? floatval($booking['coef'] ?? $booking['coeficiente'] ?? 1);
-        $kg = $qty * $coef;
-
-        $items[] = [
-            'code' => $code,
-            'qty' => $qty,
-            'coef' => $coef,
-            'kg' => $kg
-        ];
+        // Single item or different format
+        // Check if it matches single regex
+        if (preg_match('/^(\d{4}[A-Z]?)$/i', trim($itemsField), $m)) {
+             $code = strtoupper($m[1]);
+             $qty = 1;
+             $coef = $coefficients[$code] ?? 1.0;
+             $kg = $qty * $coef;
+             $items[] = ['code'=>$code, 'qty'=>$qty, 'coef'=>$coef, 'kg'=>$kg];
+        } else {
+            // Assume simple format or generic
+            $code = $booking['code'] ?? $booking['codigo'] ?? 'GENERIC';
+            // Only use if really single item structure exists...
+            // If we are here, regex failed.
+        }
     }
 
     return $items;
