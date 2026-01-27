@@ -23,9 +23,11 @@ jobs:
           protocol: ftps
           port: 21
           timeout: 120000
+          dangerous-clean-slate: false
+          log-level: verbose
           exclude: |
-            **/.git*
-            **/.git*/**
+            **/.git
+            **/.git/**
             **/.github/**
             **/node_modules/**
             **/.env
