@@ -687,9 +687,25 @@
                 if (pendingRes.ok) {
                     const data = await pendingRes.json();
                     // New format from pending.php: {success, count, bookings}
-                    normalizedPending = data.bookings || data.data || data;
-                    if (!Array.isArray(normalizedPending)) {
-                        normalizedPending = [];
+                    const bookings = data.bookings || data.data || data;
+
+                    if (Array.isArray(bookings)) {
+                        // Bookings from DB are already in correct format, just ensure items are parsed
+                        normalizedPending = bookings.map(b => {
+                            // Parse items if it's a JSON string
+                            if (typeof b.items === 'string') {
+                                try {
+                                    b.items = JSON.parse(b.items);
+                                } catch (e) {
+                                    b.items = [];
+                                }
+                            }
+                            // Calculate metrics from items
+                            if (!b.metrics && Array.isArray(b.items)) {
+                                b.metrics = getMetricsFromItems(b.items, b.kg || 0);
+                            }
+                            return b;
+                        });
                     }
                 }
 
