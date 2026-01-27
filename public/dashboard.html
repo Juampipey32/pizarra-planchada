@@ -18,6 +18,8 @@
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <!-- App Config -->
     <script src="js/config.js"></script>
+    <!-- SheetJS (Excel Support) -->
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
 
     <style>
         /* 3D EFFECT & DOMINO STYLE (Dark Mode Optimized) */
@@ -1684,19 +1686,45 @@
 
         window.uploadMassiveExcel = async (input) => {
             if (input.files && input.files[0]) {
-                const file = input.files[0];
+                const originalFile = input.files[0];
+                const fileName = originalFile.name.toLowerCase();
                 const formData = new FormData();
-                // Backend expects 'csvFile' key even for Excel files
-                formData.append('csvFile', file);
 
+                // Show Loading
                 Swal.fire({
                     title: 'Procesando Archivo...',
-                    text: 'Leyendo datos masivos',
+                    text: 'Analizando formato y contenido...',
                     allowOutsideClick: false,
                     didOpen: () => { Swal.showLoading(); }
                 });
 
                 try {
+                    let fileToUpload = originalFile;
+
+                    // SMART CONVERSION: If Excel, convert to CSV client-side
+                    if (fileName.endsWith('.xlsx') || fileName.endsWith('.xls')) {
+                        Swal.update({ text: 'Convirtiendo Excel a formato procesable...' });
+
+                        // Read file
+                        const data = await originalFile.arrayBuffer();
+                        const workbook = XLSX.read(data);
+
+                        // Get first sheet
+                        const firstSheetName = workbook.SheetNames[0];
+                        const worksheet = workbook.Sheets[firstSheetName];
+
+                        // Convert to CSV
+                        const csvContent = XLSX.utils.sheet_to_csv(worksheet);
+
+                        // Create Blob
+                        fileToUpload = new File([csvContent], "converted_upload.csv", {
+                            type: "text/csv",
+                        });
+                    }
+
+                    // Always send as 'csvFile' because we verified/converted it
+                    formData.append('csvFile', fileToUpload);
+
                     const res = await fetch(AppConfig.API.BULK_UPLOAD, {
                         method: 'POST',
                         headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` },
@@ -1716,13 +1744,23 @@
                             timer: 3000
                         });
                         fetchData();
+                    } else if (res.status === 400 && data.error && data.error.includes('Excel library')) {
+                        // Fallback message just in case client conversion failed silently
+                        throw new Error('Hubo un problema con la conversión del Excel. Por favor intenta guardar como CSV.');
                     } else {
                         throw new Error(data.error || 'Error en carga masiva');
                     }
                 } catch (e) {
                     console.error(e);
-                    Swal.fire('Error', e.message, 'error');
+                    const errorMsg = e.message || '';
+                    if (errorMsg.includes('XLSX is not defined')) {
+                        Swal.fire('Error de Librería', 'No se cargó el convertidor de Excel. Recarga la página.', 'error');
+                    } else {
+                        Swal.fire('Error', e.message, 'error');
+                    }
                 }
+
+                // Don't clear immediately if error keeps user from retrying same file easily, but standard is clear.
                 input.value = '';
             }
         };
