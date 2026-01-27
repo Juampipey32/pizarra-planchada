@@ -9,9 +9,20 @@ const AppConfig = {
     SLOT_DURATION: 30, // minutos por slot
 
     // Configuración Sampi
+    // El sistema Sampi transporta productos automáticamente mediante pallets
+    // Cada pallet tarda 4 minutos en buscarse y transportarse
     SAMPI: {
-        CODES: ['1011', '1015', '1016'], // Códigos de productos Sampi
-        THRESHOLD_KG: 648, // Umbral en kg para división automática
+        CODES: ['1011', '1014', '1015', '1016', '1059', '1063', '1066'], // Códigos transportados por Sampi
+        MINUTES_PER_PALLET: 4, // Tiempo fijo por pallet
+        UNITS_PER_PALLET: {
+            '1011': 864,
+            '1014': 864,
+            '1015': 864,
+            '1016': 864,
+            '1059': 200,
+            '1063': 192,
+            '1066': 240
+        }
     },
 
     // Webhooks n8n
