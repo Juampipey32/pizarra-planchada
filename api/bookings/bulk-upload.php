@@ -4,11 +4,12 @@ require_once '../cors.php';
 require_once '../db.php';
 require_once '../jwt_helper.php';
 require_once __DIR__ . '/helpers.php';
+require_once __DIR__ . '/sampi_helpers.php'; // Sampi V2 logic
 require_once __DIR__ . '/../lib/autoload.php'; // PhpSpreadsheet autoloader
 
 header('Content-Type: application/json');
 
-$SECRET_KEY = getenv('JWT_SECRET') ?: 'secret_key_change_me';
+$SECRET_KEY = defined('JWT_SECRET') ? JWT_SECRET : (getenv('JWT_SECRET') ?: 'secret_key_change_me');
 
 $token = get_bearer_token();
 $user = verify_jwt($token, $SECRET_KEY);
@@ -18,11 +19,6 @@ if (!$user) {
     echo json_encode(['error' => 'Unauthorized']);
     exit;
 }
-
-// Configuración Sampi y tiempos
-$SAMPI_CODES = ['1011', '1015', '1016'];
-$SAMPI_THRESHOLD_KG = 648;
-$SLOT_DURATION = 30;
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     http_response_code(405);
@@ -143,8 +139,32 @@ function processBulkUpload($bookings, $pdo, $user) {
 
     foreach ($bookings as $booking) {
         try {
-            $items = parseItemsFromBooking($booking);
-            $calculation = calculateSampiAndTime($items);
+            $items = parseItemsFromBooking($booking, $pdo);
+
+            // Calculate regular KG and Sampi time using new V2 logic
+            $totalKg = 0;
+            $sampiProducts = [];
+            $regularProducts = [];
+
+            foreach ($items as $item) {
+                $kg = $item['kg'] ?? ($item['qty'] * ($item['coef'] ?? 1));
+                $totalKg += $kg;
+
+                if (isSampiProduct($item['code'] ?? '', $pdo)) {
+                    $sampiProducts[] = $item;
+                } else {
+                    $regularProducts[] = $item;
+                }
+            }
+
+            // Calculate Sampi time (pallet-based)
+            $sampiCalc = calculateSampiTime($items, $pdo);
+
+            // Calculate regular duration (weight-based)
+            $regularKg = array_reduce($regularProducts, function($sum, $item) {
+                return $sum + ($item['kg'] ?? ($item['qty'] * ($item['coef'] ?? 1)));
+            }, 0);
+            $regularDuration = calculateDuration($regularKg);
 
             // Prepare booking data
             $bookingData = [
@@ -152,9 +172,11 @@ function processBulkUpload($bookings, $pdo, $user) {
                 'orderNumber' => $booking['ordernumber'] ?? $booking['order_number'] ?? $booking['n° pedido'] ?? '',
                 'clientCode' => $booking['clientcode'] ?? $booking['client_code'] ?? '',
                 'description' => $booking['descripcion'] ?? $booking['description'] ?? '',
-                'kg' => $calculation['totalKg'],
-                'duration' => $calculation['duration'],
-                'sampi_on' => $calculation['isSampi'] ? 1 : 0,
+                'kg' => $totalKg,
+                'duration' => $regularDuration + $sampiCalc['totalMinutes'],
+                'sampi_on' => $sampiCalc['hasSampi'] ? 1 : 0,
+                'sampi_time' => $sampiCalc['totalMinutes'],
+                'sampi_pallets' => json_encode($sampiCalc['detail']),
                 'items' => json_encode($items),
                 'status' => 'PENDING',
                 'createdBy' => $user['id'],
@@ -165,9 +187,9 @@ function processBulkUpload($bookings, $pdo, $user) {
             // Insert into database
             $stmt = $pdo->prepare("
                 INSERT INTO Bookings
-                (client, orderNumber, clientCode, description, kg, duration, sampi_on, items, status, createdBy, createdAt, updatedAt)
+                (client, orderNumber, clientCode, description, kg, duration, sampi_on, sampi_time, sampi_pallets, items, status, createdBy, createdAt, updatedAt)
                 VALUES
-                (:client, :orderNumber, :clientCode, :description, :kg, :duration, :sampi_on, :items, :status, :createdBy, :createdAt, :updatedAt)
+                (:client, :orderNumber, :clientCode, :description, :kg, :duration, :sampi_on, :sampi_time, :sampi_pallets, :items, :status, :createdBy, :createdAt, :updatedAt)
             ");
 
             $stmt->execute($bookingData);
@@ -185,7 +207,17 @@ function processBulkUpload($bookings, $pdo, $user) {
     return ['processed' => $processed, 'errors' => $errors, 'details' => $results];
 }
 
-function parseItemsFromBooking($booking) {
+function parseItemsFromBooking($booking, $pdo) {
+    // Get coefficients from database
+    static $coefficients = null;
+    if ($coefficients === null) {
+        $stmt = $pdo->query("SELECT code, coefficient FROM Products");
+        $coefficients = [];
+        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+            $coefficients[$row['code']] = floatval($row['coefficient']);
+        }
+    }
+
     $itemsField = $booking['items'] ?? $booking['productos'] ?? '';
 
     if (!$itemsField) {
@@ -200,10 +232,16 @@ function parseItemsFromBooking($booking) {
         foreach ($itemParts as $itemPart) {
             $parts = explode(',', $itemPart);
             if (count($parts) >= 2) {
+                $code = trim($parts[0] ?? '');
+                $qty = floatval(trim($parts[1] ?? '1'));
+                $coef = isset($parts[2]) ? floatval(trim($parts[2])) : ($coefficients[$code] ?? 1.0);
+                $kg = $qty * $coef;
+
                 $items[] = [
-                    'code' => trim($parts[0] ?? ''),
-                    'qty' => floatval(trim($parts[1] ?? '1')),
-                    'coef' => floatval(trim($parts[2] ?? '1'))
+                    'code' => $code,
+                    'qty' => $qty,
+                    'coef' => $coef,
+                    'kg' => $kg
                 ];
             }
         }
@@ -213,46 +251,37 @@ function parseItemsFromBooking($booking) {
         foreach ($itemParts as $itemPart) {
             $parts = explode(';', $itemPart);
             if (count($parts) >= 2) {
+                $code = trim($parts[0] ?? '');
+                $qty = floatval(trim($parts[1] ?? '1'));
+                $coef = isset($parts[2]) ? floatval(trim($parts[2])) : ($coefficients[$code] ?? 1.0);
+                $kg = $qty * $coef;
+
                 $items[] = [
-                    'code' => trim($parts[0] ?? ''),
-                    'qty' => floatval(trim($parts[1] ?? '1')),
-                    'coef' => floatval(trim($parts[2] ?? '1'))
+                    'code' => $code,
+                    'qty' => $qty,
+                    'coef' => $coef,
+                    'kg' => $kg
                 ];
             }
         }
     } else {
         // Single item
+        $code = $booking['code'] ?? $booking['codigo'] ?? 'GENERIC';
+        $qty = floatval($booking['qty'] ?? $booking['cantidad'] ?? 1);
+        $coef = $coefficients[$code] ?? floatval($booking['coef'] ?? $booking['coeficiente'] ?? 1);
+        $kg = $qty * $coef;
+
         $items[] = [
-            'code' => $booking['code'] ?? $booking['codigo'] ?? 'GENERIC',
-            'qty' => floatval($booking['qty'] ?? $booking['cantidad'] ?? 1),
-            'coef' => floatval($booking['coef'] ?? $booking['coeficiente'] ?? 1)
+            'code' => $code,
+            'qty' => $qty,
+            'coef' => $coef,
+            'kg' => $kg
         ];
     }
 
     return $items;
 }
 
-function calculateSampiAndTime($items) {
-    global $SAMPI_CODES, $SAMPI_THRESHOLD_KG, $SLOT_DURATION;
-
-    $totalKg = 0;
-    $sampiKg = 0;
-
-    foreach ($items as $item) {
-        $kg = $item['kg'] ?? ($item['qty'] * ($item['coef'] ?? 1));
-        $totalKg += $kg;
-        if (in_array($item['code'] ?? '', $SAMPI_CODES)) {
-            $sampiKg += $kg;
-        }
-    }
-
-    $blocks = max(1, ceil($totalKg / 1500));
-    $duration = $blocks * $SLOT_DURATION;
-
-    return [
-        'totalKg' => $totalKg,
-        'sampiKg' => $sampiKg,
-        'duration' => $duration,
-        'isSampi' => $sampiKg > $SAMPI_THRESHOLD_KG
-    ];
-}
+// NOTE: calculateSampiAndTime() removed - now using sampi_helpers.php functions:
+// - calculateSampiTime($items, $pdo) for pallet-based Sampi calculation
+// - calculateDuration($kg) for weight-based duration calculation
