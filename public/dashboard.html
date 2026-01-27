@@ -1686,7 +1686,8 @@
             if (input.files && input.files[0]) {
                 const file = input.files[0];
                 const formData = new FormData();
-                formData.append('excelFile', file);
+                // Backend expects 'csvFile' key even for Excel files
+                formData.append('csvFile', file);
 
                 Swal.fire({
                     title: 'Procesando Archivo...',
