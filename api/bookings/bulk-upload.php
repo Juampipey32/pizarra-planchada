@@ -203,12 +203,12 @@ function processBulkUpload($bookings, $pdo, $user) {
                 $regularDuration = $blocks * 30;
             }
 
-            // Prepare booking data
+            // Prepare booking data - Enhanced Mapping
             $bookingData = [
-                'client' => $booking['cliente'] ?? $booking['client'] ?? 'Sin cliente',
-                'orderNumber' => $booking['ordernumber'] ?? $booking['order_number'] ?? $booking['n° pedido'] ?? '',
-                'clientCode' => $booking['clientcode'] ?? $booking['client_code'] ?? '',
-                'description' => $booking['descripcion'] ?? $booking['description'] ?? '',
+                'client' => $booking['cliente'] ?? $booking['client'] ?? $booking['razon_social'] ?? 'Sin cliente',
+                'orderNumber' => $booking['ordernumber'] ?? $booking['order_number'] ?? $booking['n° pedido'] ?? $booking['n_pedido'] ?? $booking['nº pedido'] ?? '',
+                'clientCode' => $booking['clientcode'] ?? $booking['client_code'] ?? $booking['código tango cliente'] ?? $booking['codigo tango cliente'] ?? '',
+                'description' => $booking['descripcion'] ?? $booking['description'] ?? $booking['detalle de lo solicitado'] ?? '',
                 'kg' => $totalKg,
                 'duration' => $regularDuration + $sampiCalc['totalMinutes'],
                 'sampi_on' => $sampiCalc['hasSampi'] ? 1 : 0,
@@ -255,7 +255,7 @@ function parseItemsFromBooking($booking, $pdo) {
         }
     }
 
-    $itemsField = $booking['items'] ?? $booking['productos'] ?? '';
+    $itemsField = $booking['items'] ?? $booking['productos'] ?? $booking['detalle de lo solicitado'] ?? '';
 
     if (!$itemsField) {
         return [];
