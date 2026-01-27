@@ -422,15 +422,67 @@
             return blocks * SLOT_DURATION;
         }
 
+        /**
+         * Calculate Sampi time based on pallets (NEW LOGIC V2)
+         * Returns: { totalMinutes, totalPallets, detail: {...}, hasSampi }
+         */
+        function calculateSampiTime(items = []) {
+            const MINUTES_PER_PALLET = SAMPI.MINUTES_PER_PALLET || 4;
+            let totalPallets = 0;
+            const detail = {};
+
+            items.forEach(item => {
+                const code = (item.code || '').toUpperCase();
+                const qty = parseInt(item.qty || 0);
+
+                if (!SAMPI.UNITS_PER_PALLET[code] || qty <= 0) {
+                    return;
+                }
+
+                const unitsPerPallet = SAMPI.UNITS_PER_PALLET[code];
+                const pallets = Math.max(1, Math.ceil(qty / unitsPerPallet));
+                const minutes = pallets * MINUTES_PER_PALLET;
+
+                totalPallets += pallets;
+
+                detail[code] = {
+                    units: qty,
+                    units_per_pallet: unitsPerPallet,
+                    pallets: pallets,
+                    minutes: minutes
+                };
+            });
+
+            const totalMinutes = totalPallets * MINUTES_PER_PALLET;
+
+            return {
+                totalMinutes: totalMinutes,
+                totalPallets: totalPallets,
+                detail: detail,
+                hasSampi: totalPallets > 0
+            };
+        }
+
         function getMetricsFromItems(items = [], fallbackKg = 0) {
             let totalKg = 0;
             let sampiKg = 0;
+            let regularKg = 0;
+
+            // Separate Sampi and regular products
+            const sampiProducts = [];
+            const regularProducts = [];
 
             items.forEach(item => {
+                const code = (item.code || '').toUpperCase();
                 const kg = Number(item.kg ?? (item.qty * (item.coef || 1))) || 0;
                 totalKg += kg;
-                if (SAMPI.CODES.includes((item.code || '').toUpperCase())) {
+
+                if (SAMPI.CODES.includes(code)) {
                     sampiKg += kg;
+                    sampiProducts.push(item);
+                } else {
+                    regularKg += kg;
+                    regularProducts.push(item);
                 }
             });
 
@@ -438,16 +490,22 @@
                 totalKg = fallbackKg;
             }
 
-            const regularKg = Math.max(0, totalKg - sampiKg);
+            // Calculate Sampi time using NEW pallet logic
+            const sampiCalc = calculateSampiTime(sampiProducts);
+
+            // Calculate regular duration using KG logic
+            const regularDuration = regularKg > 0 ? calculateDurationFromKg(regularKg) : 0;
 
             return {
                 totalKg,
                 sampiKg,
                 regularKg,
-                totalDuration: calculateDurationFromKg(totalKg),
-                sampiDuration: sampiKg > 0 ? calculateDurationFromKg(sampiKg) : 0,
-                regularDuration: regularKg > 0 ? calculateDurationFromKg(regularKg) : 0,
-                requiresSampi: sampiKg > SAMPI.THRESHOLD_KG
+                totalDuration: regularDuration + sampiCalc.totalMinutes,
+                sampiDuration: sampiCalc.totalMinutes,
+                sampiPallets: sampiCalc.totalPallets,
+                sampiDetail: sampiCalc.detail,
+                regularDuration: regularDuration,
+                requiresSampi: sampiCalc.hasSampi
             };
         }
 
