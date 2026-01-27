@@ -4,6 +4,7 @@
 require_once '../cors.php';
 require_once '../db.php';
 require_once '../jwt_helper.php';
+require_once 'sampi_helpers.php';
 
 header('Content-Type: application/json');
 
@@ -107,65 +108,7 @@ function checkOverlap($pdo, $resourceId, $date, $startHour, $startMinute, $durat
     return $overlaps;
 }
 
-/**
- * Auto-split Sampi logic
- * Returns array with 'split' => bool and 'bookings' => array of bookings to create
- */
-function autoSplitSampi($booking, $items) {
-    $SAMPI_CODES = ['1011', '1015', '1016'];
-    $SAMPI_THRESHOLD = 648;
-
-    $sampiProducts = array_filter($items, function($item) use ($SAMPI_CODES) {
-        return in_array($item['code'], $SAMPI_CODES);
-    });
-
-    $sampiKg = array_reduce($sampiProducts, function($sum, $item) {
-        return $sum + $item['kg'];
-    }, 0);
-
-    if ($sampiKg > $SAMPI_THRESHOLD) {
-        // Split into two bookings
-        $regularProducts = array_filter($items, function($item) use ($SAMPI_CODES) {
-            return !in_array($item['code'], $SAMPI_CODES);
-        });
-
-        $regularKg = array_reduce($regularProducts, function($sum, $item) {
-            return $sum + $item['kg'];
-        }, 0);
-
-        $sampiDuration = calculateDuration($sampiKg);
-        $regularDuration = calculateDuration($regularKg);
-
-        return [
-            'split' => true,
-            'bookings' => [
-                // Regular booking on original resource
-                array_merge($booking, [
-                    'kg' => round($regularKg, 2),
-                    'duration' => $regularDuration,
-                    'description' => ($booking['description'] ?? '') . ' [Productos regulares]'
-                ]),
-                // Sampi booking
-                array_merge($booking, [
-                    'resourceId' => 'sampi',
-                    'kg' => round($sampiKg, 2),
-                    'duration' => $sampiDuration,
-                    'description' => ($booking['description'] ?? '') . ' [Productos Sampi: ' . implode(', ', array_column($sampiProducts, 'code')) . ']'
-                ])
-            ]
-        ];
-    }
-
-    return ['split' => false, 'bookings' => [$booking]];
-}
-
-function calculateDuration($kg) {
-    if (!$kg || $kg <= 0) {
-        return 30;
-    }
-    $blocks = max(1, ceil($kg / 1500));
-    return $blocks * 30;
-}
+// NOTE: autoSplitSampi() and calculateDuration() functions are now in sampi_helpers.php
 
 try {
     $pdo->beginTransaction();
@@ -209,7 +152,7 @@ try {
 
         // Auto-split Sampi if needed
         $items = $booking['items'] ?? [];
-        $splitResult = autoSplitSampi($booking, $items);
+        $splitResult = autoSplitSampi($booking, $items, $pdo);
 
         foreach ($splitResult['bookings'] as $bookingToCreate) {
             // Check overlap for Sampi booking too if split
@@ -250,17 +193,25 @@ try {
                 ':realStartTime' => null,
                 ':realEndTime' => null,
                 ':status' => 'PLANNED',
+                ':items' => $bookingToCreate['items'] ?? null,
+                ':sampiOn' => intval($bookingToCreate['sampi_on'] ?? 0),
+                ':sampiTime' => $bookingToCreate['sampi_time'] ?? null,
+                ':sampiPallets' => $bookingToCreate['sampi_pallets'] ?? null,
                 ':createdBy' => $user['id']
             ];
 
             $sql = "INSERT INTO Bookings (
                 client, clientCode, orderNumber, description, kg, duration, color,
                 resourceId, date, startTimeHour, startTimeMinute,
-                realStartTime, realEndTime, status, createdBy, createdAt, updatedAt
+                realStartTime, realEndTime, status, items,
+                sampi_on, sampi_time, sampi_pallets,
+                createdBy, createdAt, updatedAt
             ) VALUES (
                 :client, :clientCode, :orderNumber, :description, :kg, :duration, :color,
                 :resourceId, :date, :startTimeHour, :startTimeMinute,
-                :realStartTime, :realEndTime, :status, :createdBy, NOW(), NOW()
+                :realStartTime, :realEndTime, :status, :items,
+                :sampiOn, :sampiTime, :sampiPallets,
+                :createdBy, NOW(), NOW()
             )";
 
             $stmt = $pdo->prepare($sql);
