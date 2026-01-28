@@ -903,30 +903,22 @@
                         const items = [];
 
                         // Regex: ** CODE (QTY).
-                        const regex =/\*\*\s*(\d {
-                        4
-                    }
+                        const regex = /\*\*\s*(\d{4}[A-Z]?)\s*\((\d+(?:\.\d+)?)\)/gi;
+                        let match;
 
-                    [A - Z] ?) \s *\((\d + (?: \.\d +)?) \)/gi;
-                    let match;
+                        // Build KG lookup from DETALLE_PEDIDO_KG
+                        const kgLookup = {};
 
-                    // Build KG lookup from DETALLE_PEDIDO_KG
-                    const kgLookup = {};
+                        if (detailPedidoKg) {
+                            const kgRegex = /(\d{4}[A-Z]?)\((\d+(?:\.\d+)?)kg\)/gi;
+                            let kgMatch;
 
-                    if (detailPedidoKg) {
-                        const kgRegex =/(\d {
-                        4
-                    }
+                            while ((kgMatch = kgRegex.exec(detailPedidoKg)) !== null) {
+                                kgLookup[kgMatch[1].toUpperCase()] = parseFloat(kgMatch[2]);
+                            }
+                        }
 
-                    [A - Z] ?) \((\d + (?: \.\d +)?) kg\)/gi;
-                    let kgMatch;
-
-                    while ((kgMatch = kgRegex.exec(detailPedidoKg)) !== null) {
-                        kgLookup[kgMatch[1].toUpperCase()] = parseFloat(kgMatch[2]);
-                    }
-            }
-
-                    while ((match = regex.exec(detailPedido)) !== null) {
+                        while ((match = regex.exec(detailPedido)) !== null) {
                         const code = match[1].toUpperCase();
                         const qty = parseFloat(match[2]);
                         const coef = COEFFICIENTS[code] || 1.0;
@@ -970,9 +962,7 @@
                             const metrics = getMetricsFromItems(parsedItems, fallbackKg);
 
                             return {
-                                id: item.id || `n8n-${item.N_PEDIDO || Date.now()}
-
-                        `,
+                                id: item.id || `n8n-${item.N_PEDIDO || Date.now()}`,
                                 client: item.RAZON_SOCIAL || item.CLIENTE || 'Sin cliente',
                                 clientCode: item.CODIGO_CLIENTE || item.CLIENT_CODE || '',
                                 orderNumber: item.N_PEDIDO || item.PEDIDO || '',
@@ -1032,11 +1022,7 @@
 
                                     icon: 'success',
                                     title: 'Carga Completada',
-                                    html: `<p>Procesados: <strong>${data.processed}
-
-                </strong></p> <p>Errores: <strong>${data.errors}
-
-                </strong></p>`,
+                                    html: `<p>Procesados: <strong>${data.processed}</strong></p><p>Errores: <strong>${data.errors}</strong></p>`,
                                     timer: 3000
                                 });
                                 // Refresh data
@@ -1115,12 +1101,7 @@
 
                         // Build Grid HTML
                         // Header Row
-                        let html = ` <div class="inline-block min-w-full"><div class="flex sticky top-0 z-20 shadow-xl bg-slate-800/90 backdrop-blur border-b border-indigo-500/30 rounded-t-lg"><div class="w-16 bg-slate-900/90 border-r border-slate-700 p-2 font-bold text-center text-xs flex items-center justify-center flex-none text-indigo-400">Hora</div>${resources.map(r=>`<div class="w-64 bg-slate-800/80 text-indigo-100 p-2 border-r border-slate-700 font-bold text-center text-sm flex-none shadow-sm tracking-wide"> ${r.name}
-
-                </div > `).join('')
-        }
-
-        </div>`;
+                        let html = `<div class="inline-block min-w-full"><div class="flex sticky top-0 z-20 shadow-xl bg-slate-800/90 backdrop-blur border-b border-indigo-500/30 rounded-t-lg"><div class="w-16 bg-slate-900/90 border-r border-slate-700 p-2 font-bold text-center text-xs flex items-center justify-center flex-none text-indigo-400">Hora</div>${resources.map(r=>`<div class="w-64 bg-slate-800/80 text-indigo-100 p-2 border-r border-slate-700 font-bold text-center text-sm flex-none shadow-sm tracking-wide">${r.name}</div>`).join('')}</div>`;
 
                         // Time Function: isSampiTime? 
                         // We'll calculate it later.
@@ -1136,27 +1117,14 @@
                             html += `<div class="flex border-b border-slate-700/50 ${rowBg} hover:bg-slate-700/40 transition-colors group/row" >`;
 
                             // Time Cell
-                            html += `<div class="w-16 bg-slate-900/80 border-r border-slate-700 p-1 text-[10px] font-bold text-slate-500 text-center sticky left-0 z-10 flex items-center justify-center group-hover/row:bg-slate-800 group-hover/row:text-indigo-300 transition-colors flex-none backdrop-blur-sm"> ${timeLabel}
-
-                </div>`;
+                            html += `<div class="w-16 bg-slate-900/80 border-r border-slate-700 p-1 text-[10px] font-bold text-slate-500 text-center sticky left-0 z-10 flex items-center justify-center group-hover/row:bg-slate-800 group-hover/row:text-indigo-300 transition-colors flex-none backdrop-blur-sm">${timeLabel}</div>`;
 
                             // Resource Cells (Drop Zones)
                             resources.forEach(res => {
-
                                 // ID for the cell: "cell-RESOURCE-TIME"
-                                const cellId = `cell-${res.id.replace(/\s+/g, '-')}
+                                const cellId = `cell-${res.id.replace(/\s+/g, '-')}-${String(slot.h).padStart(2, '0')}-${String(slot.m).padStart(2, '0')}`;
 
-                        -${String(slot.h).padStart(2, '0')}
-
-                        -${String(slot.m).padStart(2, '0')}
-
-                        `;
-
-                                html += ` <div id="${cellId}"
-                        class="w-64 border-r border-slate-700/50 min-h-[100px] p-2 relative grid-cell-dropzone transition-colors flex-none hover:bg-white/5"
-                        data-resource="${res.id}"
-                        data-h="${slot.h}"
-                        data-m="${slot.m}" > <!-- Cards injected here --> </div> `;
+                                html += `<div id="${cellId}" class="w-64 border-r border-slate-700/50 min-h-[100px] p-2 relative grid-cell-dropzone transition-colors flex-none hover:bg-white/5" data-resource="${res.id}" data-h="${slot.h}" data-m="${slot.m}"></div>`;
                             });
 
                             html += `</div>`; // End Row
@@ -1232,13 +1200,7 @@
                             // Sanity check range
                             if (h < 4 || h > 20) return; // Hide out of range or put in special place?
 
-                            const cellId = `cell-${b.resourceId.replace(/\s+/g, '-')}
-
-                    -${String(h).padStart(2, '0')}
-
-                    -${String(m).padStart(2, '0')}
-
-                    `;
+                            const cellId = `cell-${b.resourceId.replace(/\s+/g, '-')}-${String(h).padStart(2, '0')}-${String(m).padStart(2, '0')}`;
                             const cell = document.getElementById(cellId);
 
                             if (cell) {
@@ -1252,10 +1214,7 @@
                                 card.style.top = '4px';
                                 card.style.left = '4px';
                                 card.style.right = '4px';
-
-                                card.style.height = `${cardHeight}
-
-                        px`;
+                                card.style.height = `${cardHeight}px`;
                                 card.style.zIndex = 5 + slots;
                                 card.dataset.slots = slots;
 
@@ -1310,28 +1269,12 @@
                         const endLabel = formatTime(endHour % 24, endMinute);
                         const weight = Number(b.kg ?? b.totalKg ?? 0);
 
-                        el.innerHTML = ` <div class="flex justify-between items-start leading-tight mb-1"><span class="font-bold text-slate-100 text-xs truncate w-[85%] group-hover:text-cyan-300 transition-colors shadow-black drop-shadow-sm">${b.client}
-
-            </span></div><div class="text-[10px] text-slate-400 truncate leading-tight mb-1">${b.description || '-'}
-
-            </div><div class="text-[10px] text-slate-500 font-mono">${startLabel}
-
-            - ${endLabel}
-
-            </div><div class="flex justify-between items-end mt-2 border-t border-slate-700/50 pt-1"><div class="text-[10px] font-bold text-slate-300 bg-slate-700/50 px-1.5 py-0.5 rounded border border-slate-600">${weight.toFixed(0)}
-
-            kg</div><div class="text-[10px] text-slate-400 flex items-center gap-1"><i class="fa-regular fa-clock text-[9px]"></i>${b.duration}
-
-            m </div></div>${sampiBar}`;
+                        el.innerHTML = `<div class="flex justify-between items-start leading-tight mb-1"><span class="font-bold text-slate-100 text-xs truncate w-[85%] group-hover:text-cyan-300 transition-colors shadow-black drop-shadow-sm">${b.client}</span></div><div class="text-[10px] text-slate-400 truncate leading-tight mb-1">${b.description || '-'}</div><div class="text-[10px] text-slate-500 font-mono">${startLabel} - ${endLabel}</div><div class="flex justify-between items-end mt-2 border-t border-slate-700/50 pt-1"><div class="text-[10px] font-bold text-slate-300 bg-slate-700/50 px-1.5 py-0.5 rounded border border-slate-600">${weight.toFixed(0)} kg</div><div class="text-[10px] text-slate-400 flex items-center gap-1"><i class="fa-regular fa-clock text-[9px]"></i>${b.duration}m</div></div>${sampiBar}`;
                         return el;
                     }
 
                     function formatTime(h, m) {
-                        return `${String(h).padStart(2, '0')}
-
-            :${String(m).padStart(2, '0')}
-
-            `;
+                        return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
                     }
 
                     // --- DRAWER PENDING ---
@@ -1462,16 +1405,12 @@
                                     const dupSample = orderDiagnostics.duplicates.slice(0, 3).join(', ');
                                     const suffix = orderDiagnostics.duplicates.length > 3 ? '…' : '';
 
-                                    messages.push(`Duplicados recientes: ${dupSample}
-
-                            ${suffix}`);
+                                    messages.push(`Duplicados recientes: ${dupSample}${suffix}`);
                                 }
                             }
 
                             if (messages.length) {
-                                alertsBox.innerHTML = messages.map(m => `<span>${m}
-
-                        </span>`).join('');
+                                alertsBox.innerHTML = messages.map(m => `<span>${m}</span>`).join('');
                                 alertsBox.classList.remove('hidden');
                             }
 
@@ -1510,34 +1449,17 @@
                             card.setAttribute('data-id', b.id);
 
                             card.onclick = () => {
-                                if (isMissing) return Swal.fire('Faltante', `Esperando: ${b.orderNumber}
-
-                            `, 'warning');
-                                // Duplicate doesn't block opening anymore, just visual warning 
+                                if (isMissing) return Swal.fire('Faltante', `Esperando: ${b.orderNumber}`, 'warning');
+                                // Duplicate doesn't block opening anymore, just visual warning
                                 openEditModal(b);
                             };
 
-                            const metrics = b.metrics || {
-                                sampiKg: 0
-                            };
+                            const metrics = b.metrics || { sampiKg: 0 };
                             let badgeHtml = '';
                             if (isMissing) badgeHtml = '<span class="ml-2 text-[9px] font-bold text-red-100 bg-red-600 px-1.5 py-0.5 rounded shadow-sm">SIN PEDIDO</span>';
                             else if (isDuplicate) badgeHtml = '<span class="ml-2 text-[9px] font-bold text-orange-100 bg-orange-600/80 px-1.5 py-0.5 rounded shadow-sm">DUPLICADO</span>';
 
-                            card.innerHTML = ` <div class="flex justify-between items-start" > <div class="font-bold text-slate-100 truncate w-[70%]" >${b.client}
-
-                    </div> ${badgeHtml}
-
-                    </div> <div class="text-xs text-slate-400 mb-1 flex items-center gap-1" ><i class="fa-solid fa-hashtag text-[10px]" ></i> ${b.orderNumber || '-'}
-
-                    </div> <div class="flex justify-between text-xs font-semibold text-slate-500 mt-2 pt-2 border-t border-white/5" > <span class="text-slate-300 bg-slate-900/50 px-1.5 rounded" >${Number(b.kg).toFixed(0)}
-
-                    kg</span> <div class="text-right" > <div>${b.duration}
-
-                    min</div> ${metrics.requiresSampi ? '<span class="text-purple-400 text-[10px] animate-pulse">SAMPI</span>' : ''
-                    }
-
-                    </div> </div> `;
+                            card.innerHTML = `<div class="flex justify-between items-start"><div class="font-bold text-slate-100 truncate w-[70%]">${b.client}</div>${badgeHtml}</div><div class="text-xs text-slate-400 mb-1 flex items-center gap-1"><i class="fa-solid fa-hashtag text-[10px]"></i> ${b.orderNumber || '-'}</div><div class="flex justify-between text-xs font-semibold text-slate-500 mt-2 pt-2 border-t border-white/5"><span class="text-slate-300 bg-slate-900/50 px-1.5 rounded">${Number(b.kg).toFixed(0)} kg</span><div class="text-right"><div>${b.duration} min</div>${metrics.requiresSampi ? '<span class="text-purple-400 text-[10px] animate-pulse">SAMPI</span>' : ''}</div></div>`;
                             list.appendChild(card);
                         });
                     }
@@ -1698,9 +1620,7 @@
                         openModal();
                         currentModalBookingId = booking.id;
 
-                        document.getElementById('modalTitle').textContent = `Editar Carga #${booking.id}
-
-            `;
+                        document.getElementById('modalTitle').textContent = `Editar Carga #${booking.id}`;
                         document.getElementById('deleteBtn').classList.remove('hidden');
 
                         // Populate Fields
@@ -1711,10 +1631,7 @@
                         document.getElementById('resourceSelect').value = booking.resourceId;
                         document.getElementById('startTime').value = formatTime(booking.startTimeHour, booking.startTimeMinute);
                         document.getElementById('duration').value = booking.duration;
-
-                        document.getElementById('calcDuration').textContent = `${booking.duration}
-
-            min`;
+                        document.getElementById('calcDuration').textContent = `${booking.duration} min`;
                         document.getElementById('observations').value = booking.observations || '';
                         document.getElementById('realStartTime').value = booking.realStartTime || '';
                         document.getElementById('realEndTime').value = booking.realEndTime || '';
@@ -1777,9 +1694,7 @@
                         itemsList.forEach((item, index) => {
                             const tr = document.createElement('tr');
 
-                            tr.innerHTML = ` <td class="px-2 py-1" ><input type="text" value="${item.code}" onchange="updateItem(${index}, 'code', this.value)" class="w-full text-xs border-b border-slate-200 focus:border-blue-500 outline-none uppercase" placeholder="Código" ></td> <td class="px-2 py-1" ><input type="number" value="${item.qty}" onchange="updateItem(${index}, 'qty', this.value)" class="w-full text-xs border-slate-200 rounded p-1 bg-slate-50" ></td> <td class="px-2 py-1 text-right font-mono font-bold text-slate-600" >${Number(item.kg).toFixed(2)}
-
-                    </td> <td class="px-2 py-1 text-center" ><button type="button" onclick="removeItem(${index})" class="text-red-400 hover:text-red-600" ><i class="fa-solid fa-times" ></i></button></td> `;
+                            tr.innerHTML = `<td class="px-2 py-1"><input type="text" value="${item.code}" onchange="updateItem(${index}, 'code', this.value)" class="w-full text-xs border-b border-slate-200 focus:border-blue-500 outline-none uppercase" placeholder="Código"></td><td class="px-2 py-1"><input type="number" value="${item.qty}" onchange="updateItem(${index}, 'qty', this.value)" class="w-full text-xs border-slate-200 rounded p-1 bg-slate-50"></td><td class="px-2 py-1 text-right font-mono font-bold text-slate-600">${Number(item.kg).toFixed(2)}</td><td class="px-2 py-1 text-center"><button type="button" onclick="removeItem(${index})" class="text-red-400 hover:text-red-600"><i class="fa-solid fa-times"></i></button></td>`;
                             tbody.appendChild(tr);
                         });
                     }
@@ -1824,9 +1739,7 @@
 
                         document.getElementById('duration').value = metrics.totalDuration;
 
-                        document.getElementById('calcDuration').textContent = `${metrics.totalDuration}
-
-            min`;
+                        document.getElementById('calcDuration').textContent = `${metrics.totalDuration} min`;
 
                         const badge = document.getElementById('sampiBadge');
 
@@ -1885,15 +1798,10 @@
                             const res = await fetch(`${API_URL}/manage.php`, {
                                 method: 'POST',
                                 headers: {
-
                                     'Content-Type': 'application/json',
-                                    'Authorization': `Bearer ${localStorage.getItem('token')}
-
-                        `,
+                                    'Authorization': `Bearer ${localStorage.getItem('token')}`,
                                     'X-HTTP-Method-Override': realMethod
-                                }
-
-                                ,
+                                },
                                 body: JSON.stringify(payload)
                             });
 
@@ -1925,12 +1833,9 @@
 
                         if (res.isConfirmed) {
                             await fetch(`${API_URL}/manage.php?id=${currentModalBookingId}`, {
-
                                 method: 'POST',
                                 headers: {
-                                    'Authorization': `Bearer ${localStorage.getItem('token')}
-
-                    `,
+                                    'Authorization': `Bearer ${localStorage.getItem('token')}`,
                                     'X-HTTP-Method-Override': 'DELETE'
                                 }
                             });
@@ -1941,24 +1846,16 @@
 
                     // --- UTILS UPDATE ---
                     async function updateBookingStatus(id, status, resourceId = null) {
-                        const body = {
-                            id,
-                            status
-                        };
+                        const body = { id, status };
                         if (resourceId) body.resourceId = resourceId;
 
                         await fetch(`${API_URL}/manage.php`, {
                             method: 'POST',
                             headers: {
-
                                 'Content-Type': 'application/json',
-                                'Authorization': `Bearer ${localStorage.getItem('token')}
-
-                    `,
+                                'Authorization': `Bearer ${localStorage.getItem('token')}`,
                                 'X-HTTP-Method-Override': 'PUT'
-                            }
-
-                            ,
+                            },
                             body: JSON.stringify(body)
                         });
 
@@ -1983,15 +1880,10 @@
                         await fetch(`${API_URL}/manage.php`, {
                             method: 'POST',
                             headers: {
-
                                 'Content-Type': 'application/json',
-                                'Authorization': `Bearer ${localStorage.getItem('token')}
-
-                    `,
+                                'Authorization': `Bearer ${localStorage.getItem('token')}`,
                                 'X-HTTP-Method-Override': 'PUT'
-                            }
-
-                            ,
+                            },
                             body: JSON.stringify(body)
                         });
                         // Improve UX: Maybe local update before fetch? For now fetch is safe.
@@ -2012,7 +1904,6 @@
 
                             // Show Loading
                             Swal.fire({
-
                                 title: 'Procesando PDF...',
                                 text: 'Extrayendo datos con IA (esto puede tardar unos segundos)',
                                 allowOutsideClick: false,
@@ -2023,15 +1914,10 @@
 
                             try {
                                 const res = await fetch(`${API_URL}/bookings/upload-pdf.php`, {
-                                    // Adjusted path check if needed
                                     method: 'POST',
                                     headers: {
-                                        'Authorization': `Bearer ${localStorage.getItem('token')}
-
-                        `
-                                    }
-
-                                    ,
+                                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                                    },
                                     body: formData
                                 });
 
@@ -2039,14 +1925,9 @@
 
                                 if (res.ok) {
                                     Swal.fire({
-
                                         icon: 'success',
                                         title: '¡Pedido Procesado!',
-                                        text: `Cliente: ${data.data.client}
-
-                    - Items: ${data.data.items.length}
-
-                    `,
+                                        text: `Cliente: ${data.data.client} - Items: ${data.data.items.length}`,
                                         timer: 3000
                                     });
                                     // Refresh Pending List
@@ -2075,7 +1956,6 @@
 
                             // Show Loading
                             Swal.fire({
-
                                 title: 'Procesando Archivo...',
                                 text: 'Analizando formato y contenido...',
                                 allowOutsideClick: false,
@@ -2138,23 +2018,16 @@
                                 formData.append('csvFile', fileToUpload);
 
                                 const res = await fetch(AppConfig.API.BULK_UPLOAD, {
-
                                     method: 'POST',
                                     headers: {
-                                        'Authorization': `Bearer ${localStorage.getItem('token')}
-
-                `
-                                    }
-
-                                    ,
+                                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                                    },
                                     body: formData
                                 });
                                 const data = await res.json();
 
                                 if (res.ok) {
-                                    let msg = `Procesados: ${data.processed || 0}
-
-            `;
+                                    let msg = `Procesados: ${data.processed || 0}`;
 
                                     if (data.errors > 0 || (Array.isArray(data.errors) && data.errors.length > 0)) {
                                         const errCount = Array.isArray(data.errors) ? data.errors.length : data.errors;
@@ -2230,14 +2103,10 @@
                                 });
 
                                 const res = await fetch('/api/reset_data.php', {
-                                    method: 'POST', // or GET depending on script, using POST for safety
-
+                                    method: 'POST',
                                     headers: {
-
                                         'Content-Type': 'application/json',
-                                        'Authorization': `Bearer ${localStorage.getItem('token')}
-
-                    `
+                                        'Authorization': `Bearer ${localStorage.getItem('token')}`
                                     }
                                 });
 
