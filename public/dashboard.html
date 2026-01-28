@@ -1694,7 +1694,7 @@
                         itemsList.forEach((item, index) => {
                             const tr = document.createElement('tr');
 
-                            tr.innerHTML = `<td class="px-2 py-1"><input type="text" value="${item.code}" onchange="updateItem(${index}, 'code', this.value)" class="w-full text-xs border-b border-slate-200 focus:border-blue-500 outline-none uppercase" placeholder="Código"></td><td class="px-2 py-1"><input type="number" value="${item.qty}" onchange="updateItem(${index}, 'qty', this.value)" class="w-full text-xs border-slate-200 rounded p-1 bg-slate-50"></td><td class="px-2 py-1 text-right font-mono font-bold text-slate-600">${Number(item.kg).toFixed(2)}</td><td class="px-2 py-1 text-center"><button type="button" onclick="removeItem(${index})" class="text-red-400 hover:text-red-600"><i class="fa-solid fa-times"></i></button></td>`;
+                            tr.innerHTML = `<td class="px-2 py-1"><input type="text" value="${item.code}" onchange="updateItem(${index}, 'code', this.value)" class="w-full text-xs bg-slate-800 text-slate-200 border-b border-slate-600 focus:border-blue-500 outline-none uppercase px-2 py-1 rounded" placeholder="Código"></td><td class="px-2 py-1"><input type="number" value="${item.qty}" onchange="updateItem(${index}, 'qty', this.value)" class="w-full text-xs bg-slate-800 text-slate-200 border border-slate-600 rounded px-2 py-1 focus:border-blue-500 outline-none"></td><td class="px-2 py-1 text-right font-mono font-bold text-slate-300">${Number(item.kg).toFixed(2)}</td><td class="px-2 py-1 text-center"><button type="button" onclick="removeItem(${index})" class="text-red-400 hover:text-red-600"><i class="fa-solid fa-times"></i></button></td>`;
                             tbody.appendChild(tr);
                         });
                     }
@@ -1761,7 +1761,7 @@
 
                         const [h,
                             m] = startTimeVal ? startTimeVal.split(':').map(Number) : [8, 0];
-                        const sampiOn = Number(document.getElementById('calcSampiKg').textContent) > SAMPI.THRESHOLD_KG;
+                        const sampiOn = Number(document.getElementById('calcSampiKg').textContent) > 0;
 
                         const payload = {
                             id: currentModalBookingId,
