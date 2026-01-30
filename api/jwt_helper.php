@@ -34,7 +34,7 @@ function auth_disabled_user() {
 
     $role = getenv('AUTH_DISABLED_ROLE') ?: (defined('AUTH_DISABLED_ROLE') ? AUTH_DISABLED_ROLE : 'ADMIN');
     $username = getenv('AUTH_DISABLED_USER') ?: (defined('AUTH_DISABLED_USER') ? AUTH_DISABLED_USER : 'Sistema Público');
-    $id = getenv('AUTH_DISABLED_USER_ID') ?: (defined('AUTH_DISABLED_USER_ID') ? AUTH_DISABLED_USER_ID : 0);
+    $id = getenv('AUTH_DISABLED_USER_ID') ?: (defined('AUTH_DISABLED_USER_ID') ? AUTH_DISABLED_USER_ID : 1);
 
     return [
         'id' => (int)$id,
