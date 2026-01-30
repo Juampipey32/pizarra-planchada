@@ -1486,24 +1486,27 @@
 
                         try {
                             for (const payload of payloads) {
+                                // If this is the main payload (not Sampi), update the existing booking
+                                const isMainPayload = payload.resourceId !== 'Sampi';
+                                const method = isMainPayload && booking.id ? 'PUT' : 'POST';
+
+                                if (isMainPayload && booking.id) {
+                                    payload.id = booking.id;
+                                }
+
                                 const res = await fetch(`${API_URL}/manage.php`, {
                                     method: 'POST',
                                     headers: {
-
                                         'Content-Type': 'application/json',
-                                        ...(token ? {
-                                            'Authorization': `Bearer ${token}`
-                                        }
-
-                                            : {})
-                                    }
-
-                                    ,
+                                        'X-HTTP-Method-Override': method,
+                                        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+                                    },
                                     body: JSON.stringify(payload)
                                 });
 
                                 if (!res.ok) {
                                     const errorBody = await res.json().catch(() => ({}));
+                                    console.error('API Error:', errorBody);
                                     throw new Error(errorBody.error || 'No se pudo agendar la carga');
                                 }
                             }
@@ -1514,7 +1517,7 @@
 
                             Swal.fire({
                                 icon: 'success',
-                                title: 'Carga planificada',
+                                title: payloads.length > 1 ? 'Carga + Sampi planificados' : 'Carga planificada',
                                 toast: true,
                                 timer: 1500,
                                 showConfirmButton: false,
