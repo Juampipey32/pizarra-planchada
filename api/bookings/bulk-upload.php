@@ -1,7 +1,8 @@
 <?php
 // api/bookings/bulk-upload.php
+// Disable HTML error output, only JSON
+ini_set('display_errors', 0);
 error_reporting(E_ALL);
-ini_set('display_errors', 1);
 
 require_once '../cors.php';
 require_once '../db.php';
