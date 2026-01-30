@@ -1193,16 +1193,19 @@
                                 const card = createCardElement(b);
                                 const durationMinutes = Number(b.duration ?? SLOT_DURATION);
                                 const slots = Math.max(1, Math.ceil(durationMinutes / SLOT_DURATION));
-                                const slotHeight = cell.getBoundingClientRect().height || 100;
-                                const cardHeight = Math.max(slotHeight - 8, (slotHeight * slots) - 8);
+
+                                // Use fixed slot height (100px from min-h-[100px]) for consistent calculations
+                                const SLOT_HEIGHT_PX = 100;
+                                const cardHeight = (SLOT_HEIGHT_PX * slots) - 8; // 8px for margin
 
                                 card.style.position = 'absolute';
                                 card.style.top = '4px';
                                 card.style.left = '4px';
                                 card.style.right = '4px';
                                 card.style.height = `${cardHeight}px`;
-                                card.style.zIndex = 5 + slots;
+                                card.style.zIndex = 10 + slots; // Higher z-index for multi-slot cards
                                 card.dataset.slots = slots;
+                                card.dataset.duration = durationMinutes;
 
                                 cell.appendChild(card);
                             }
@@ -1211,8 +1214,8 @@
 
                     function createCardElement(b) {
                         const el = document.createElement('div');
-                        // Modern Dark Card Style
-                        el.className = `card-3d bg-slate-800/90 backdrop-blur-md p-2 rounded-lg shadow-lg border border-slate-600/50 cursor-pointer relative overflow-hidden group hover: shadow-cyan-500/20 hover:border-cyan-500/50 transition-all h-full`;
+                        // Modern Dark Card Style - removed h-full to avoid conflict with explicit height
+                        el.className = `card-3d bg-slate-800/90 backdrop-blur-md p-2 rounded-lg shadow-lg border border-slate-600/50 cursor-pointer relative overflow-hidden group hover:shadow-cyan-500/20 hover:border-cyan-500/50 transition-all`;
                         el.setAttribute('data-id', b.id);
                         el.setAttribute('data-resource', b.resourceId);
 
