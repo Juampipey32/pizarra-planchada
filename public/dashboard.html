@@ -502,6 +502,15 @@
                         maxPlaceholders: 50
                     };
 
+                    // Recursos disponibles (puertas + Sampi)
+                    const RESOURCES = [
+                        { id: 'Puerta 1', name: 'Puerta 1' },
+                        { id: 'Puerta 2', name: 'Puerta 2' },
+                        { id: 'Puerta 3', name: 'Puerta 3' },
+                        { id: 'Puerta 4', name: 'Puerta 4' },
+                        { id: 'Sampi', name: 'Sampi' }
+                    ];
+
                     let currentUser = null;
                     let currentDate = new Date().toISOString().split('T')[0];
                     let bookings = [];
@@ -1073,31 +1082,8 @@
                             }
                         }
 
-                        const resources = [{
-                            id: 'Puerta 1', name: 'Puerta 1'
-                        }
-
-                            ,
-                        {
-                            id: 'Puerta 2', name: 'Puerta 2'
-                        }
-
-                            ,
-                        {
-                            id: 'Puerta 3', name: 'Puerta 3'
-                        }
-
-                            ,
-                        {
-                            id: 'Puerta 4', name: 'Puerta 4'
-                        }
-
-                            ,
-                        {
-                            id: 'Sampi', name: 'Sampi'
-                        }
-
-                        ];
+                        // Usar constante global RESOURCES
+                        const resources = RESOURCES;
 
                         // Build Grid HTML
                         // Header Row
@@ -1124,7 +1110,7 @@
                                 // ID for the cell: "cell-RESOURCE-TIME"
                                 const cellId = `cell-${res.id.replace(/\s+/g, '-')}-${String(slot.h).padStart(2, '0')}-${String(slot.m).padStart(2, '0')}`;
 
-                                html += `<div id="${cellId}" class="w-64 border-r border-slate-700/50 min-h-[100px] p-2 relative grid-cell-dropzone transition-colors flex-none hover:bg-white/5" data-resource="${res.id}" data-h="${slot.h}" data-m="${slot.m}"></div>`;
+                                html += `<div id="${cellId}" class="w-64 border-r border-slate-700/50 min-h-[100px] p-2 relative grid-cell-dropzone transition-colors flex-none hover:bg-white/5 overflow-visible" data-resource="${res.id}" data-h="${slot.h}" data-m="${slot.m}"></div>`;
                             });
 
                             html += `</div>`; // End Row
@@ -1677,6 +1663,12 @@
                         document.getElementById('calcSampiKg').textContent = '0.00';
                         document.getElementById('sampiBadge').className = 'px-3 py-1 rounded-full text-xs font-bold bg-slate-700 text-slate-500';
                         document.getElementById('sampiBadge').textContent = 'SAMPI OFF';
+
+                        // Popular select de recursos
+                        const resourceSelect = document.getElementById('resourceSelect');
+                        resourceSelect.innerHTML = RESOURCES.map(r =>
+                            `<option value="${r.id}">${r.name}</option>`
+                        ).join('');
                     }
 
                     // ITEMS TABLE LOGIC
@@ -1739,17 +1731,22 @@
 
                         document.getElementById('duration').value = metrics.totalDuration;
 
-                        document.getElementById('calcDuration').textContent = `${metrics.totalDuration} min`;
+                        // Mostrar desglose de tiempo si hay Sampi
+                        if (metrics.requiresSampi && metrics.sampiDuration > 0) {
+                            document.getElementById('calcDuration').innerHTML = `${metrics.totalDuration} min <span class="text-purple-400 text-[10px]">(${metrics.sampiDuration}m Sampi + ${metrics.regularDuration}m carga)</span>`;
+                        } else {
+                            document.getElementById('calcDuration').textContent = `${metrics.totalDuration} min`;
+                        }
 
                         const badge = document.getElementById('sampiBadge');
 
                         if (metrics.requiresSampi) {
-                            badge.className = 'px-3 py-1 rounded-full text-xs font-bold bg-purple-100 text-purple-600 animate-pulse border border-purple-200';
-                            badge.textContent = 'SAMPI ON';
+                            badge.className = 'px-3 py-1 rounded-full text-xs font-bold bg-purple-900/50 text-purple-300 animate-pulse border border-purple-500/50';
+                            badge.innerHTML = `<i class="fa-solid fa-bolt mr-1"></i>SAMPI ${metrics.sampiPallets} pallet${metrics.sampiPallets > 1 ? 's' : ''} (${metrics.sampiDuration}m)`;
                         }
 
                         else {
-                            badge.className = 'px-3 py-1 rounded-full text-xs font-bold bg-slate-200 text-slate-500';
+                            badge.className = 'px-3 py-1 rounded-full text-xs font-bold bg-slate-700 text-slate-400';
                             badge.textContent = 'SAMPI OFF';
                         }
                     }
