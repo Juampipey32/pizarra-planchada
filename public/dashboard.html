@@ -1319,11 +1319,14 @@
                                     const m = Number(targetCell.getAttribute('data-m'));
 
                                     // Check if valid move (from drawer to board)
-                                    const booking = pendingBookings.find(b => b.id === id);
+                                    // Use String() for comparison because id from attribute is string but b.id may be number
+                                    const booking = pendingBookings.find(b => String(b.id) === String(id));
 
                                     if (booking) {
                                         await schedulePendingBooking(booking, newResourceId, h, m);
-                                        itemEl.remove(); // Visual removal handled by renderPending usually, but safe here
+                                        itemEl.remove();
+                                    } else {
+                                        console.error('Booking not found for id:', id);
                                     }
                                 }
                             }
