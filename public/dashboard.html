@@ -1759,9 +1759,14 @@
                         const startTimeVal = document.getElementById('startTime').value;
                         const resourceId = document.getElementById('resourceSelect').value;
 
-                        const [h,
-                            m] = startTimeVal ? startTimeVal.split(':').map(Number) : [8, 0];
-                        const sampiOn = Number(document.getElementById('calcSampiKg').textContent) > 0;
+                        const [h, m] = startTimeVal ? startTimeVal.split(':').map(Number) : [8, 0];
+
+                        // Calculate metrics for Sampi
+                        const metrics = getMetricsFromItems(itemsList);
+                        const sampiOn = metrics.requiresSampi;
+
+                        // Separate items by Sampi
+                        const { sampiItems, regularItems } = splitItemsBySampi(itemsList);
 
                         const payload = {
                             id: currentModalBookingId,
@@ -1806,11 +1811,51 @@
                             });
 
                             if (res.ok) {
+                                const savedBooking = await res.json();
+
+                                // If there are Sampi items and we're NOT already saving to Sampi resource,
+                                // create a separate booking for Sampi operations
+                                if (sampiOn && resourceId !== 'Sampi' && sampiItems.length > 0 && !currentModalBookingId) {
+                                    const sampiPayload = {
+                                        client: payload.client,
+                                        clientCode: payload.clientCode,
+                                        orderNumber: payload.orderNumber + '-SAMPI',
+                                        priority: payload.priority,
+                                        resourceId: 'Sampi',
+                                        date: currentDate,
+                                        startTimeHour: h,
+                                        startTimeMinute: m,
+                                        duration: metrics.sampiDuration,
+                                        observations: `Sampi para pedido #${payload.orderNumber} (${metrics.sampiPallets} pallets)`,
+                                        items: sampiItems,
+                                        kg: metrics.sampiKg,
+                                        sampi_on: 1,
+                                        status: 'PLANNED',
+                                        linked_to: savedBooking.id
+                                    };
+
+                                    // Create Sampi booking
+                                    await fetch(`${API_URL}/manage.php`, {
+                                        method: 'POST',
+                                        headers: {
+                                            'Content-Type': 'application/json',
+                                            'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                                            'X-HTTP-Method-Override': 'POST'
+                                        },
+                                        body: JSON.stringify(sampiPayload)
+                                    });
+                                }
+
                                 closeModal();
                                 fetchData();
 
                                 Swal.fire({
-                                    icon: 'success', title: 'Guardado', toast: true, position: 'top-end', showConfirmButton: false, timer: 1500
+                                    icon: 'success',
+                                    title: sampiOn ? 'Guardado + Sampi creado' : 'Guardado',
+                                    toast: true,
+                                    position: 'top-end',
+                                    showConfirmButton: false,
+                                    timer: 1500
                                 });
                             }
 
