@@ -196,23 +196,28 @@ if (!in_array($user['role'], ['ADMIN', 'VENTAS', 'LOGISTICA'])) { // Added LOGIS
             $stmt->execute([':id' => $lastId]);
             $finalBooking = $stmt->fetch(PDO::FETCH_ASSOC);
             
-            // --- LOGIC: Unmet Demand & Deviations ---
-            if ($oldBooking && $finalBooking) {
-                // 1. Check for Unmet Demand (Items changed)
-                $oldItems = json_decode($oldBooking['items'] ?? '[]', true);
-                $newItems = json_decode($finalBooking['items'] ?? '[]', true);
-                // Simple equality check to avoid expensive logic if unnecessary
-                if (json_encode($oldItems) !== json_encode($newItems)) {
-                     registerUnmetDemand($pdo, $lastId, $oldItems, $newItems, 'modification', 'User modification', $user['id']);
-                }
+            // --- LOGIC: Unmet Demand & Deviations (optional, tables may not exist) ---
+            try {
+                if ($oldBooking && $finalBooking) {
+                    // 1. Check for Unmet Demand (Items changed)
+                    $oldItems = json_decode($oldBooking['items'] ?? '[]', true);
+                    $newItems = json_decode($finalBooking['items'] ?? '[]', true);
+                    // Simple equality check to avoid expensive logic if unnecessary
+                    if (json_encode($oldItems) !== json_encode($newItems)) {
+                         registerUnmetDemand($pdo, $lastId, $oldItems, $newItems, 'modification', 'User modification', $user['id']);
+                    }
 
-                // 2. Check for Logistic Deviations (Time/Door/Cancel)
-                registerLogisticDeviation($pdo, $lastId, $oldBooking, $finalBooking, $user['id']);
+                    // 2. Check for Logistic Deviations (Time/Door/Cancel)
+                    registerLogisticDeviation($pdo, $lastId, $oldBooking, $finalBooking, $user['id']);
 
-                // 3. Special Case: Cancellation via Status Update
-                if ($finalBooking['status'] === 'CANCELLED' && $oldBooking['status'] !== 'CANCELLED') {
-                     registerCancellationUnmetDemand($pdo, $lastId, $input['cancellation_reason'] ?? 'Cancelled by user', $user['id']);
+                    // 3. Special Case: Cancellation via Status Update
+                    if ($finalBooking['status'] === 'CANCELLED' && $oldBooking['status'] !== 'CANCELLED') {
+                         registerCancellationUnmetDemand($pdo, $lastId, $input['cancellation_reason'] ?? 'Cancelled by user', $user['id']);
+                    }
                 }
+            } catch (Exception $e) {
+                // Silently ignore - tables may not exist yet
+                error_log("Unmet demand tracking skipped: " . $e->getMessage());
             }
             // ------------------------------------------
 
@@ -235,9 +240,14 @@ if (!in_array($user['role'], ['ADMIN', 'VENTAS', 'LOGISTICA'])) { // Added LOGIS
             $stmt->execute([':id' => $id]);
             $booking = $stmt->fetch(PDO::FETCH_ASSOC);
 
-            // --- LOGIC: Cancel Unmet Demand before delete ---
-            if ($booking) {
-                registerCancellationUnmetDemand($pdo, $id, 'Booking Deleted', $user['id']);
+            // --- LOGIC: Cancel Unmet Demand before delete (optional) ---
+            try {
+                if ($booking) {
+                    registerCancellationUnmetDemand($pdo, $id, 'Booking Deleted', $user['id']);
+                }
+            } catch (Exception $e) {
+                // Silently ignore - table may not exist
+                error_log("Unmet demand tracking skipped: " . $e->getMessage());
             }
             // ------------------------------------------------
 
