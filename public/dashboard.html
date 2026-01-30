@@ -7,7 +7,9 @@
     <title>Centro de Comando Logístico</title>
     <!-- Favicon -->
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
-    <!-- Tailwind CSS -->
+    <!-- Tailwind CSS (Local Modern Theme) -->
+    <link rel="stylesheet" href="css/tailwind-dashboard.css">
+    <!-- Fallback/Utility CDN (Low Priority) -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/js/all.min.js"></script>
     <!-- SortableJS -->
@@ -16,58 +18,81 @@
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <!-- App Config -->
     <script src="js/config.js"></script>
+    <!-- SheetJS (Excel Support) -->
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
 
     <style>
-        /* 3D EFFECT & DOMINO STYLE */
+        /* 3D EFFECT & DOMINO STYLE (Dark Mode Optimized) */
+        .color-scheme-dark {
+            color-scheme: dark;
+        }
+
         .perspective-container {
             perspective: 1000px;
         }
 
         .card-3d {
-            transition: transform 0.2s, box-shadow 0.2s;
+            transition: all 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94);
             transform-style: preserve-3d;
             box-shadow:
-                1px 1px 0px #cbd5e1,
-                2px 2px 0px #cbd5e1,
-                3px 3px 0px #cbd5e1,
-                4px 4px 0px #cbd5e1,
-                5px 5px 10px rgba(0, 0, 0, 0.1);
-            border: 1px solid #e2e8f0;
+                0 4px 6px -1px rgba(0, 0, 0, 0.3),
+                0 2px 4px -1px rgba(0, 0, 0, 0.1),
+                inset 0 1px 0 rgba(255, 255, 255, 0.05);
+            /* Subtle glass border is handled by Tailwind classes */
         }
 
         .card-3d:hover {
-            transform: translateY(-2px) translateX(-2px);
+            transform: translateY(-2px);
             box-shadow:
-                2px 2px 0px #cbd5e1,
-                4px 4px 0px #cbd5e1,
-                6px 6px 0px #cbd5e1,
-                8px 8px 0px #cbd5e1,
-                10px 10px 15px rgba(0, 0, 0, 0.15);
+                0 10px 15px -3px rgba(0, 0, 0, 0.4),
+                0 4px 6px -2px rgba(0, 0, 0, 0.2),
+                0 0 15px rgba(59, 130, 246, 0.2);
+            /* Glow effect */
             z-index: 50;
         }
 
         .card-3d:active {
-            transform: translateY(0px) translateX(0px);
+            transform: translateY(0px) scale(0.98);
             box-shadow: none;
         }
 
         /* SAMPI VISUALIZATION */
         .sampi-strip {
             background-image: repeating-linear-gradient(45deg,
-                    rgba(255, 255, 255, 0.3),
-                    rgba(255, 255, 255, 0.3) 10px,
-                    rgba(0, 0, 0, 0.05) 10px,
-                    rgba(0, 0, 0, 0.05) 20px);
+                    transparent,
+                    transparent 10px,
+                    rgba(147, 51, 234, 0.1) 10px,
+                    rgba(147, 51, 234, 0.1) 20px);
         }
 
         /* DRAWER ANIMATION */
         .drawer {
-            transition: transform 0.3s ease-in-out;
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             transform: translateX(-100%);
+            box-shadow: 10px 0 30px rgba(0, 0, 0, 0.5);
         }
 
         .drawer.open {
             transform: translateX(0);
+        }
+
+        /* CUSTOM SCROLLBAR */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #0f172a;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #334155;
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #475569;
         }
 
         /* UTILS */
@@ -76,7 +101,9 @@
         }
 
         .kanban-col.sortable-drag-over {
-            background-color: #f3f4f6;
+            background-color: rgba(59, 130, 246, 0.1);
+            border: 2px dashed rgba(59, 130, 246, 0.3);
+            border-radius: 0.5rem;
         }
 
         .no-scrollbar::-webkit-scrollbar {
@@ -87,1531 +114,2033 @@
             -ms-overflow-style: none;
             scrollbar-width: none;
         }
+
+        /* DnD Visuals */
+        .sortable-ghost {
+            opacity: 0.4;
+            background-color: rgba(59, 130, 246, 0.2) !important;
+            border: 2px dashed #3b82f6 !important;
+        }
+
+        .sortable-drag {
+            cursor: grabbing;
+        }
+
+        .drop-target-active {
+            background-color: rgba(59, 130, 246, 0.15) !important;
+            box-shadow: inset 0 0 0 2px rgba(59, 130, 246, 0.5);
+            transition: all 0.2s ease;
+        }
     </style>
 </head>
 
-<body class="bg-slate-100 text-slate-800 h-screen flex overflow-hidden">
-
+<body class="bg-[#0f172a] text-slate-100 h-screen flex overflow-hidden"
+    style="background: radial-gradient(circle at 10% 20%, #1e293b, #0f172a 90%);">
     <!-- DRAWER LATERAL (PENDIENTES) -->
     <!-- Se abre al pasar el mouse cerca del borde izquierdo o click en botón -->
     <aside id="drawer"
-        class="drawer fixed inset-y-0 left-0 w-80 bg-white shadow-2xl z-40 flex flex-col border-r border-slate-200">
-        <div class="p-4 bg-slate-800 text-white flex justify-between items-center shrink-0">
-            <h2 class="font-bold text-lg"><i class="fa-solid fa-inbox mr-2"></i>Pendientes</h2>
-            <span id="pendingCount" class="bg-red-500 text-white text-xs px-2 py-1 rounded-full">0</span>
+        class="drawer fixed inset-y-0 left-0 w-80 bg-slate-800/95 backdrop-blur-xl border-r border-slate-700 z-50 flex flex-col shadow-2xl">
+        <div
+            class="p-4 bg-slate-900/80 text-white flex justify-between items-center shrink-0 border-b border-slate-700">
+            <h2 class="font-bold text-lg tracking-wide"><i class="fa-solid fa-inbox mr-2 text-blue-400"></i>Pendientes
+            </h2><span id="pendingCount"
+                class="bg-blue-600 text-white text-xs px-2 py-1 rounded-full shadow-lg shadow-blue-500/50">0</span>
         </div>
         <!-- Filtro Sampi -->
-        <div class="p-2 bg-slate-100 border-b border-slate-200 flex gap-2">
-            <button onclick="filterPending('ALL')"
-                class="text-xs px-3 py-1 bg-white rounded border hover:bg-slate-50 flex-1">Todos</button>
-            <button onclick="filterPending('SAMPI')"
-                class="text-xs px-3 py-1 bg-purple-100 text-purple-700 rounded border border-purple-200 hover:bg-purple-200 flex-1">Sampi</button>
+        <div class="p-3 bg-slate-800/50 border-b border-slate-700 flex flex-col gap-2">
+            <!-- Search & Date Row -->
+            <div class="flex gap-2">
+                <div class="relative flex-1"><i
+                        class="fa-solid fa-magnifying-glass absolute left-2 top-2 text-slate-500 text-xs"></i><input
+                        type="text" id="pendingFilterClient" onkeyup="renderPending()" placeholder="Cliente..."
+                        class="w-full bg-slate-900 border border-slate-700 rounded pl-7 pr-2 py-1 text-xs text-slate-200 focus:border-blue-500 focus:outline-none placeholder-slate-400">
+                </div><input type="date" id="pendingFilterDate" onchange="renderPending()"
+                    class="bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-slate-400 focus:border-blue-500 focus:outline-none w-28 color-scheme-dark">
+            </div>
+            <!-- Sort & Quick Filters Row -->
+                <div class="flex justify-between items-center gap-2">
+                    <!-- Quick Toggles -->
+                        <div class="flex bg-slate-900 rounded p-0.5 border border-slate-700"><button
+                                onclick="setPendingFilter('ALL')" id="btnFilterAll"
+                                class="px-2 py-0.5 text-[10px] bg-slate-700 text-slate-200 rounded transition-all">Todos</button><button
+                                onclick="setPendingFilter('SAMPI')" id="btnFilterSampi"
+                                class="px-2 py-0.5 text-[10px] text-purple-400 hover:bg-white/5 rounded transition-all">Sampi</button>
+                        </div>
+                        <!-- Sort Select -->
+                            <div class="relative flex-1"><select id="pendingSort" onchange="renderPending()"
+                                    class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-[10px] text-slate-300 focus:border-blue-500 focus:outline-none appearance-none">
+                                    <option value="ID_DESC">Más nuevos</option>
+                                    <option value="ID_ASC">Más antiguos</option>
+                                    <option value="CLIENT_ASC">Cliente A-Z</option>
+                                    <option value="CLIENT_DESC">Cliente Z-A</option>
+                                    <option value="ORDER_ASC">N° Pedido</option>
+                                </select></div>
+                </div>
         </div>
         <div id="pendingAlerts"
-            class="px-3 py-2 text-xs text-yellow-800 bg-yellow-50 border-b border-yellow-200 hidden flex flex-col gap-1"></div>
-        <div id="pendingList" class="flex-1 overflow-y-auto p-3 space-y-3 bg-slate-50">
+            class="px-3 py-2 text-xs text-yellow-200 bg-yellow-900/30 border-b border-yellow-700/30 hidden flex flex-col gap-1">
+        </div>
+        <div id="pendingList" class="flex-1 overflow-y-auto p-3 space-y-3 bg-transparent">
             <!-- Tarjetas Pendientes Aquí -->
-            <div class="text-center text-slate-400 text-sm mt-10">Cargando...</div>
+                <div class="text-center mt-10 flex flex-col items-center gap-3 opacity-60"><i
+                        class="fa-solid fa-circle-notch fa-spin text-3xl text-blue-500"></i><span
+                        class="text-xs text-slate-400 font-medium tracking-wide">Cargando pedidos...</span>
+                </div>
         </div>
         <!-- Trigger Area Invisible para abrir -->
-        <div class="absolute right-[-20px] top-0 bottom-0 w-5 cursor-pointer" onmouseenter="openDrawer()"></div>
+            <div class="absolute right-[-20px] top-0 bottom-0 w-5 cursor-pointer"
+                onmouseenter="document.getElementById('drawerPanel').classList.remove('-translate-x-full'); document.getElementById('drawerOverlay').classList.remove('hidden');">
+            </div>
     </aside>
-
     <!-- MAIN CONTENT -->
-    <div class="flex-1 flex flex-col h-full relative transition-all duration-300 ml-0" id="mainContent">
-
-        <!-- Header -->
-        <header class="bg-white shadow-sm z-30 shrink-0 h-16 flex items-center justify-between px-4">
-            <div class="flex items-center gap-4">
-                <button onclick="toggleDrawer()" class="text-slate-500 hover:text-blue-600 focus:outline-none">
-                    <i class="fa-solid fa-bars text-2xl"></i>
-                </button>
-                <div class="flex items-center gap-2 text-blue-800">
-                    <i class="fa-solid fa-truck-fast text-2xl"></i>
-                    <span class="font-black text-xl tracking-tight hidden sm:block">LOGÍSTICA 3.0</span>
-                </div>
-                <!-- Date Picker -->
-                <div class="flex items-center bg-slate-100 rounded-lg p-1 ml-4 shadow-inner">
-                    <button id="prevDayBtn" class="p-2 hover:bg-white rounded-md text-slate-500"><i
-                            class="fa-solid fa-chevron-left"></i></button>
-                    <input type="date" id="currentDate"
-                        class="bg-transparent border-0 focus:ring-0 text-sm font-bold text-slate-700 w-32 text-center cursor-pointer">
-                    <button id="nextDayBtn" class="p-2 hover:bg-white rounded-md text-slate-500"><i
-                            class="fa-solid fa-chevron-right"></i></button>
-                </div>
-            </div>
-
-            <div class="flex items-center gap-4">
-                <!-- KPI Rápido -->
-                <div class="hidden md:flex gap-4 mr-4 text-xs font-semibold text-slate-500">
-                    <div class="flex items-center gap-1">
-                        <div class="w-3 h-3 bg-purple-500 rounded-sm"></div> Sampi
-                    </div>
-                    <div class="flex items-center gap-1">
-                        <div class="w-3 h-3 bg-blue-500 rounded-sm"></div> Carga Normal
-                    </div>
-                </div>
-
-                <div class="flex items-center gap-2">
-                    <button onclick="openModal()"
-                        class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-bold shadow-md transition-transform active:scale-95 flex items-center gap-2">
-                        <i class="fa-solid fa-plus"></i> Manual
-                    </button>
-                    <!-- PDF Upload (Native) -->
-                    <input type="file" id="pdfUploadInput" class="hidden" accept=".pdf" onchange="uploadPDF(this)">
-                    <button onclick="document.getElementById('pdfUploadInput').click()"
-                        class="bg-slate-700 hover:bg-slate-800 text-white px-4 py-2 rounded-lg text-sm font-bold shadow-md transition-transform active:scale-95 flex items-center gap-2"
-                        title="Subir Pedido PDF">
-                        <i class="fa-solid fa-cloud-arrow-up"></i> PDF
-                    </button>
-
-                    <!-- Bulk Upload -->
-                    <input type="file" id="bulkUploadInput" class="hidden" accept=".xlsx, .xls, .csv"
-                        onchange="uploadMassiveExcel(this)">
-                    <button onclick="document.getElementById('bulkUploadInput').click()"
-                        class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-bold shadow-md transition-transform active:scale-95 flex items-center gap-2"
-                        title="Carga Masiva de Pedidos">
-                        <i class="fa-solid fa-file-csv"></i> Masivo
-                    </button>
-                    <!-- Admin Menu -->
-                    <div class="relative group">
-                        <button
-                            class="bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 w-10 h-10 rounded-full shadow-sm flex items-center justify-center transition-all">
-                            <i class="fa-solid fa-gear"></i>
-                        </button>
-                        <div
-                            class="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-xl py-2 hidden group-hover:block border border-slate-100 ring-1 ring-black ring-opacity-5 z-50">
-                            <div class="px-4 py-2 border-b border-slate-50">
-                                <p class="text-xs text-slate-500">Logueado como</p>
-                                <p class="font-bold text-slate-800 truncate" id="userInfo">User</p>
-                            </div>
-                            <a href="admin-users.html"
-                                class="block px-4 py-2 text-sm text-slate-700 hover:bg-blue-50 hover:text-blue-600"><i
-                                    class="fa-solid fa-users mr-2"></i>Usuarios</a>
-                            <a href="admin-products.html"
-                                class="block px-4 py-2 text-sm text-slate-700 hover:bg-blue-50 hover:text-blue-600"><i
-                                    class="fa-solid fa-boxes-stacked mr-2"></i>Productos</a>
-                            <a href="#" onclick="logout()"
-                                class="block px-4 py-2 text-sm text-red-600 hover:bg-red-50"><i
-                                    class="fa-solid fa-sign-out-alt mr-2"></i>Salir</a>
+        <div class="flex-1 flex flex-col h-full relative transition-all duration-300 ml-0" id="mainContent">
+            <!-- Header -->
+                <header
+                    class="bg-slate-900/80 backdrop-blur-md border-b border-white/5 shadow-lg z-30 shrink-0 h-16 flex items-center justify-between px-6">
+                    <div class="flex items-center gap-4"><button onclick="toggleDrawer()"
+                            class="text-slate-400 hover:text-white transition-colors focus:outline-none"><i
+                                class="fa-solid fa-bars text-2xl"></i></button>
+                        <div class="flex items-center gap-2 text-white">
+                            <div class="bg-blue-600 p-1.5 rounded-lg shadow-lg shadow-blue-500/20"><i
+                                    class="fa-solid fa-truck-fast text-xl"></i></div><span
+                                class="font-black text-xl tracking-tight hidden sm:block bg-gradient-to-r from-white to-slate-400 bg-clip-text text-transparent">LOGÍSTICA
+                                <span class="font-light">3.0</span></span>
                         </div>
-                    </div>
-                </div>
-            </div>
-        </header>
-
-        <!-- Main Board -->
-        <main class="flex-1 overflow-x-auto overflow-y-hidden p-6 perspective-container bg-slate-200/50">
-            <div class="h-full flex gap-6 min-w-max pb-4" id="boardContainer">
-                <!-- Columns injected here -->
-            </div>
-        </main>
-    </div>
-
-    <!-- MODAL AVANZADO (Edición Completa) -->
-    <div id="bookingModal"
-        class="fixed inset-0 bg-slate-900/60 hidden z-50 flex items-center justify-center backdrop-blur-sm transition-opacity opacity-0">
-        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-4xl mx-4 flex flex-col max-h-[95vh] overflow-hidden transform scale-95 transition-transform"
-            id="modalContent">
-
-            <!-- Modal Header -->
-            <div class="px-6 py-4 bg-slate-50 border-b border-slate-200 flex justify-between items-center">
-                <div>
-                    <h3 class="text-xl font-black text-slate-800 flex items-center gap-2">
-                        <i class="fa-solid fa-clipboard-list text-blue-600"></i>
-                        <span id="modalTitle">Detalle de Carga</span>
-                    </h3>
-                    <p class="text-xs text-slate-500 mt-1">Gestión completa de pedido y cálculo de tiempos.</p>
-                </div>
-                <button onclick="closeModal()"
-                    class="w-8 h-8 rounded-full hover:bg-slate-200 flex items-center justify-center text-slate-500 transition-colors">
-                    <i class="fa-solid fa-xmark text-xl"></i>
-                </button>
-            </div>
-
-            <!-- Modal Body -->
-            <div class="flex-1 overflow-y-auto p-6 bg-slate-50/30">
-                <form id="bookingForm" class="grid grid-cols-12 gap-6">
-                    <input type="hidden" id="bookingId">
-
-                    <!-- Left Column: Primary Info -->
-                    <div class="col-span-12 md:col-span-4 space-y-4">
-                        <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-                            <h4 class="text-xs font-bold text-slate-400 uppercase mb-3">Información General</h4>
-
-                            <div class="space-y-3">
-                                <div>
-                                    <label class="block text-xs font-semibold text-slate-600 mb-1">Cliente</label>
-                                    <input type="text" id="clientName"
-                                        class="w-full px-3 py-2 rounded-lg border-slate-200 bg-slate-50 focus:bg-white text-sm font-medium focus:ring-2 ring-blue-500 outline-none transition-all"
-                                        placeholder="Ej: Supermercado X">
+                        <div class="flex items-center gap-4">
+                            <!-- Date Picker -->
+                                <div class="flex items-center bg-slate-800/50 rounded-lg p-1 border border-white/5">
+                                    <button id="prevDayBtn"
+                                        class="p-2 hover:bg-slate-700 rounded-md text-slate-400 hover:text-white transition-colors"><i
+                                            class="fa-solid fa-chevron-left"></i></button><input type="date"
+                                        id="currentDate"
+                                        class="bg-transparent border-0 focus:ring-0 text-sm font-bold text-slate-200 w-32 text-center cursor-pointer appearance-none color-scheme-dark"><button
+                                        id="nextDayBtn"
+                                        class="p-2 hover:bg-slate-700 rounded-md text-slate-400 hover:text-white transition-colors"><i
+                                            class="fa-solid fa-chevron-right"></i></button>
                                 </div>
-                                <div class="grid grid-cols-2 gap-2">
-                                    <div>
-                                        <label class="block text-xs font-semibold text-slate-600 mb-1">Cód.</label>
-                                        <input type="text" id="clientCode"
-                                            class="w-full px-3 py-2 rounded-lg border-slate-200 bg-slate-50 text-sm">
-                                    </div>
-                                    <div>
-                                        <label class="block text-xs font-semibold text-slate-600 mb-1">N° Pedido</label>
-                                        <input type="text" id="orderNumber"
-                                            class="w-full px-3 py-2 rounded-lg border-slate-200 bg-slate-50 text-sm">
-                                    </div>
-                                </div>
-                                <div>
-                                    <label class="block text-xs font-semibold text-slate-600 mb-1">Prioridad</label>
-                                    <select id="priority"
-                                        class="w-full px-3 py-2 rounded-lg border-slate-200 bg-white text-sm">
-                                        <option value="Normal">Normal 🟦</option>
-                                        <option value="Urgente">Urgente 🟥</option>
-                                        <option value="Lista">Lista 🟩</option>
-                                        <option value="Espera">Espera 🟧</option>
-                                    </select>
-                                </div>
-                            </div>
+                                <!-- Navigation Links (Restored) -->
+                                    <nav
+                                        class="hidden lg:flex items-center gap-1 bg-slate-800/30 p-1 rounded-lg border border-white/5">
+                                        <a href="comparativo.html"
+                                            class="px-3 py-1.5 text-xs font-bold text-slate-400 hover:text-white hover:bg-slate-700 rounded-md transition-colors flex items-center gap-2"><i
+                                                class="fa-solid fa-chart-line"></i>Comparativo </a><a
+                                            href="cliente-360.html"
+                                            class="px-3 py-1.5 text-xs font-bold text-slate-400 hover:text-white hover:bg-slate-700 rounded-md transition-colors flex items-center gap-2"><i
+                                                class="fa-solid fa-users-viewfinder"></i>Cliente 360 </a>
+                                    </nav>
                         </div>
-
-                        <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-                            <h4 class="text-xs font-bold text-slate-400 uppercase mb-3">Logística</h4>
-                            <div class="space-y-3">
-                                <div>
-                                    <label class="block text-xs font-semibold text-slate-600 mb-1">Recurso
-                                        (Puerta)</label>
-                                    <select id="resourceSelect"
-                                        class="w-full px-3 py-2 rounded-lg border-slate-200 bg-white text-sm font-medium">
-                                        <!-- Options JS -->
-                                    </select>
-                                </div>
-                                <div class="grid grid-cols-2 gap-2">
-                                    <div>
-                                        <label class="block text-xs font-semibold text-slate-600 mb-1">Hora
-                                            Inicio</label>
-                                        <input type="time" id="startTime"
-                                            class="w-full px-3 py-2 rounded-lg border-slate-200 text-sm font-bold">
-                                    </div>
-                                    <div class="relative">
-                                        <label class="block text-xs font-semibold text-slate-600 mb-1">Duración
-                                            (min)</label>
-                                        <input type="number" id="duration" readonly
-                                            class="w-full px-3 py-2 rounded-lg border-slate-200 bg-slate-100 text-slate-500 text-sm font-bold cursor-not-allowed"
-                                            title="Auto-calculado">
-                                        <i
-                                            class="fa-solid fa-calculator absolute right-3 top-8 text-slate-400 text-xs"></i>
-                                    </div>
-                                </div>
-                                <div>
-                                    <label class="block text-xs font-semibold text-slate-600 mb-1">Observaciones</label>
-                                    <textarea id="observations" rows="2"
-                                        class="w-full px-3 py-2 rounded-lg border-slate-200 text-xs resize-none"></textarea>
-                                </div>
-                            </div>
+                        <div class="flex items-center gap-4">
+                            <!-- DB Reset Button (Added) --><button onclick="resetDatabase()"
+                                    class="w-8 h-8 rounded-full bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white border border-red-500/20 flex items-center justify-center transition-all"
+                                    title="Vaciar Base de Datos"><i class="fa-solid fa-trash-can text-xs"></i></button>
+                                <!-- Refresh Button -->
+                                    <!-- KPI Rápido -->
+                                        <div class="hidden md:flex gap-4 mr-4 text-xs font-semibold text-slate-400">
+                                            <div class="flex items-center gap-1">
+                                                <div
+                                                    class="w-2 h-2 bg-purple-500 rounded-full shadow-[0_0_10px_rgba(168,85,247,0.5)]">
+                                                </div>Sampi
+                                            </div>
+                                            <div class="flex items-center gap-1">
+                                                <div
+                                                    class="w-2 h-2 bg-blue-500 rounded-full shadow-[0_0_10px_rgba(59,130,246,0.5)]">
+                                                </div>Normal
+                                            </div>
+                                        </div>
+                                        <div class="flex items-center gap-2"><button onclick="openModal()"
+                                                class="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg text-sm font-bold shadow-lg shadow-blue-600/20 transition-all active:scale-95 flex items-center gap-2 border border-blue-500"><i
+                                                    class="fa-solid fa-plus"></i>Manual </button>
+                                            <!-- PDF Upload (Native) --><input type="file" id="pdfUploadInput"
+                                                    class="hidden" accept=".pdf" onchange="uploadPDF(this)"><button
+                                                    onclick="document.getElementById('pdfUploadInput').click()"
+                                                    class="bg-slate-800 hover:bg-slate-700 text-slate-200 px-4 py-2 rounded-lg text-sm font-bold border border-slate-700 transition-all active:scale-95 flex items-center gap-2 hover:text-white"
+                                                    title="Subir Pedido PDF"><i
+                                                        class="fa-solid fa-cloud-arrow-up"></i>PDF </button>
+                                                <!-- Bulk Upload --><input type="file" id="bulkUploadInput"
+                                                        class="hidden" accept=".xlsx, .xls, .csv"
+                                                        onchange="uploadMassiveExcel(this)"><button
+                                                        onclick="document.getElementById('bulkUploadInput').click()"
+                                                        class="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-lg text-sm font-bold shadow-lg shadow-emerald-600/20 transition-all active:scale-95 flex items-center gap-2 border border-emerald-500"
+                                                        title="Carga Masiva de Pedidos"><i
+                                                            class="fa-solid fa-file-csv"></i>Masivo </button>
+                                                    <!-- Admin Menu -->
+                                                        <div class="relative group"><button
+                                                                class="bg-slate-800 border border-slate-700 hover:bg-slate-700 text-slate-300 w-10 h-10 rounded-full shadow-sm flex items-center justify-center transition-all"><i
+                                                                    class="fa-solid fa-gear"></i></button>
+                                                            <div
+                                                                class="absolute right-0 mt-2 w-48 bg-slate-800 rounded-xl shadow-2xl py-2 hidden group-hover:block border border-slate-700 ring-1 ring-black ring-opacity-5 z-50">
+                                                                <div class="px-4 py-2 border-b border-slate-700">
+                                                                    <p class="text-xs text-slate-500">Logueado
+                                                                        como</p>
+                                                                    <p class="font-bold text-slate-200 truncate"
+                                                                        id="userInfo">User</p>
+                                                                </div><a href="admin-users.html"
+                                                                    class="block px-4 py-2 text-sm text-slate-300 hover:bg-slate-700 hover:text-white"><i
+                                                                        class="fa-solid fa-users mr-2 text-blue-500"></i>Usuarios</a><a
+                                                                    href="admin-products.html"
+                                                                    class="block px-4 py-2 text-sm text-slate-300 hover:bg-slate-700 hover:text-white"><i
+                                                                        class="fa-solid fa-boxes-stacked mr-2 text-purple-500"></i>Productos</a><a
+                                                                    href="#" onclick="logout()"
+                                                                    class="block px-4 py-2 text-sm text-red-400 hover:bg-slate-700 hover:text-red-300"><i
+                                                                        class="fa-solid fa-sign-out-alt mr-2"></i>Salir</a>
+                                                            </div>
+                                                        </div>
+                                        </div>
                         </div>
-                    </div>
-
-                    <!-- Right Column: Calculation & Items -->
-                    <div class="col-span-12 md:col-span-8 flex flex-col gap-4">
-
-                        <!-- Calculations Panel -->
-                        <div class="bg-slate-800 text-white p-4 rounded-xl shadow-lg flex justify-between items-center">
-                            <div class="text-center">
-                                <p class="text-xs text-slate-400 uppercase tracking-wide">Total Kg</p>
-                                <p class="text-2xl font-black text-blue-400" id="calcTotalKg">0.00</p>
-                            </div>
-                            <div class="h-8 w-px bg-slate-600"></div>
-                            <div class="text-center">
-                                <p class="text-xs text-slate-400 uppercase tracking-wide">Estimado</p>
-                                <p class="text-xl font-bold" id="calcDuration">0 min</p>
-                            </div>
-                            <div class="h-8 w-px bg-slate-600"></div>
-                            <div class="text-center">
-                                <p class="text-xs text-slate-400 uppercase tracking-wide">Sampi Kg</p>
-                                <p class="text-xl font-bold text-purple-400" id="calcSampiKg">0.00</p>
-                            </div>
-                            <div class="text-center">
-                                <span id="sampiBadge"
-                                    class="px-3 py-1 rounded-full text-xs font-bold bg-slate-700 text-slate-500">SAMPI
-                                    OFF</span>
-                            </div>
+                </header>
+                <!-- Main Board -->
+                    <main class="flex-1 overflow-x-auto overflow-y-hidden p-6 perspective-container">
+                        <div class="h-full flex gap-6 min-w-max pb-4" id="boardContainer">
+                            <!-- Columns injected here -->
                         </div>
-
-                        <!-- Items Table -->
-                        <div
-                            class="bg-white rounded-xl border border-slate-200 shadow-sm flex-1 flex flex-col overflow-hidden">
-                            <div class="p-3 border-b border-slate-100 bg-slate-50 flex justify-between items-center">
-                                <h4 class="text-xs font-bold text-slate-500 uppercase">Detalle de Productos</h4>
-                                <button type="button" onclick="addItemRow()"
-                                    class="text-xs bg-blue-100 text-blue-700 hover:bg-blue-200 px-3 py-1 rounded font-bold transition-colors">
-                                    <i class="fa-solid fa-plus mr-1"></i> Agregar Item
-                                </button>
-                            </div>
-                            <div class="overflow-y-auto flex-1 p-0">
-                                <table class="w-full text-left text-sm">
-                                    <thead class="bg-slate-50 text-slate-500 text-xs uppercase sticky top-0 z-10">
-                                        <tr>
-                                            <th class="px-4 py-2 font-semibold">Cód.</th>
-                                            <th class="px-4 py-2 font-semibold">Cant.</th>
-                                            <th class="px-4 py-2 font-semibold text-right">Peso (Kg)</th>
-                                            <th class="px-4 py-2 text-center w-10"></th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="itemsTableBody" class="divide-y divide-slate-100">
-                                        <!-- Rows JS -->
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-
-                        <!-- Real Time Tracking (Solo visual por ahora) -->
-                        <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex gap-4 items-center">
-                            <i class="fa-solid fa-stopwatch text-slate-400 text-2xl"></i>
-                            <div class="flex-1 grid grid-cols-2 gap-4">
-                                <div>
-                                    <label class="block text-xs font-semibold text-slate-500">Inicio Real</label>
-                                    <input type="time" id="realStartTime"
-                                        class="w-full bg-slate-50 border-0 border-b-2 border-slate-200 focus:border-blue-500 text-sm px-0 py-1">
-                                </div>
-                                <div>
-                                    <label class="block text-xs font-semibold text-slate-500">Fin Real</label>
-                                    <input type="time" id="realEndTime"
-                                        class="w-full bg-slate-50 border-0 border-b-2 border-slate-200 focus:border-blue-500 text-sm px-0 py-1">
-                                </div>
-                            </div>
-                        </div>
-
-                    </div>
-                </form>
-            </div>
-
-            <!-- Modal Footer -->
-            <div class="px-6 py-4 bg-white border-t border-slate-100 flex justify-between items-center">
-                <button type="button" id="deleteBtn" onclick="deleteBooking()"
-                    class="text-red-500 hover:bg-red-50 px-4 py-2 rounded-lg text-sm font-bold transition-colors">
-                    <i class="fa-solid fa-trash-can mr-2"></i>Eliminar
-                </button>
-                <div class="flex gap-3">
-                    <button onclick="closeModal()"
-                        class="px-6 py-2 rounded-lg text-sm font-bold text-slate-600 hover:bg-slate-100 transition-colors">Cancelar</button>
-                    <button onclick="saveBooking()"
-                        class="bg-blue-600 hover:bg-blue-700 text-white px-8 py-2 rounded-lg text-sm font-bold shadow-lg shadow-blue-500/30 transition-all transform active:scale-95">
-                        <i class="fa-solid fa-save mr-2"></i>Guardar Carga
-                    </button>
-                </div>
-            </div>
+                    </main>
         </div>
-    </div>
+        <!-- MODAL AVANZADO (Edición Completa) -->
+            <div id="bookingModal"
+                class="fixed inset-0 bg-black/80 hidden z-50 flex items-center justify-center backdrop-blur-sm transition-opacity opacity-0">
+                <div class="bg-[#1e293b] rounded-2xl shadow-2xl w-full max-w-4xl mx-4 flex flex-col max-h-[95vh] overflow-hidden transform scale-95 transition-transform border border-slate-700"
+                    id="modalContent">
+                    <!-- Modal Header -->
+                        <div class="px-6 py-4 bg-[#0f172a] border-b border-slate-700 flex justify-between items-center">
+                            <div>
+                                <h3 class="text-xl font-black text-slate-100 flex items-center gap-2"><i
+                                        class="fa-solid fa-clipboard-list text-blue-500"></i><span
+                                        id="modalTitle">Detalle de Carga</span></h3>
+                                <p class="text-xs text-slate-400 mt-1">Gestión completa de pedido y cálculo de
+                                    tiempos.</p>
+                            </div><button onclick="closeModal()"
+                                class="w-8 h-8 rounded-full hover:bg-slate-700 flex items-center justify-center text-slate-400 hover:text-white transition-colors"><i
+                                    class="fa-solid fa-xmark text-xl"></i></button>
+                        </div>
+                        <!-- Modal Body -->
+                            <div class="flex-1 overflow-y-auto p-6 bg-[#0f172a]/50">
+                                <form id="bookingForm" class="grid grid-cols-12 gap-6"><input type="hidden"
+                                        id="bookingId">
+                                    <!-- Left Column: Primary Info -->
+                                        <div class="col-span-12 md:col-span-4 space-y-4">
+                                            <div class="bg-[#1e293b] p-4 rounded-xl border border-slate-700 shadow-sm">
+                                                <h4 class="text-xs font-bold text-slate-500 uppercase mb-3">
+                                                    Información General</h4>
+                                                <div class="space-y-3">
+                                                    <div><label
+                                                            class="block text-xs font-semibold text-slate-400 mb-1">Cliente</label><input
+                                                            type="text" id="clientName"
+                                                            class="w-full px-3 py-2 rounded-lg border-slate-700 bg-[#0f172a] text-slate-200 text-sm font-medium focus:ring-2 ring-blue-500 outline-none transition-all placeholder-slate-400"
+                                                            placeholder="Ej: Supermercado X"></div>
+                                                    <div class="grid grid-cols-2 gap-2">
+                                                        <div><label
+                                                                class="block text-xs font-semibold text-slate-400 mb-1">Cód.</label><input
+                                                                type="text" id="clientCode"
+                                                                class="w-full px-3 py-2 rounded-lg border-slate-700 bg-[#0f172a] text-slate-200 text-sm">
+                                                        </div>
+                                                        <div><label
+                                                                class="block text-xs font-semibold text-slate-400 mb-1">N°
+                                                                Pedido</label><input type="text" id="orderNumber"
+                                                                class="w-full px-3 py-2 rounded-lg border-slate-700 bg-[#0f172a] text-slate-200 text-sm">
+                                                        </div>
+                                                    </div>
+                                                    <div><label
+                                                            class="block text-xs font-semibold text-slate-400 mb-1">Prioridad</label><select
+                                                            id="priority"
+                                                            class="w-full px-3 py-2 rounded-lg border-slate-700 bg-[#0f172a] text-slate-200 text-sm focus:ring-2 ring-blue-500 outline-none">
+                                                            <option value="Normal">Normal 🟦</option>
+                                                            <option value="Urgente">Urgente 🟥</option>
+                                                            <option value="Lista">Lista 🟩</option>
+                                                            <option value="Espera">Espera 🟧</option>
+                                                        </select></div>
+                                                </div>
+                                            </div>
+                                            <div class="bg-[#1e293b] p-4 rounded-xl border border-slate-700 shadow-sm">
+                                                <h4 class="text-xs font-bold text-slate-500 uppercase mb-3">
+                                                    Logística</h4>
+                                                <div class="space-y-3">
+                                                    <div><label
+                                                            class="block text-xs font-semibold text-slate-400 mb-1">Recurso
+                                                            (Puerta)</label><select id="resourceSelect"
+                                                            class="w-full px-3 py-2 rounded-lg border-slate-700 bg-[#0f172a] text-slate-200 text-sm font-medium focus:ring-2 ring-blue-500 outline-none">
+                                                            <!-- Options JS -->
+                                                        </select></div>
+                                                    <div class="grid grid-cols-2 gap-2">
+                                                        <div><label
+                                                                class="block text-xs font-semibold text-slate-400 mb-1">Hora
+                                                                Inicio</label><input type="time" id="startTime"
+                                                                class="w-full px-3 py-2 rounded-lg border-slate-700 bg-[#0f172a] text-slate-200 text-sm font-bold color-scheme-dark">
+                                                        </div>
+                                                        <div class="relative"><label
+                                                                class="block text-xs font-semibold text-slate-400 mb-1">Duración
+                                                                (min)</label><input type="number" id="duration" readonly
+                                                                class="w-full px-3 py-2 rounded-lg border-slate-700 bg-slate-800 text-slate-500 text-sm font-bold cursor-not-allowed"
+                                                                title="Auto-calculado"><i
+                                                                class="fa-solid fa-calculator absolute right-3 top-8 text-slate-600 text-xs"></i>
+                                                        </div>
+                                                    </div>
+                                                    <div><label
+                                                            class="block text-xs font-semibold text-slate-400 mb-1">Observaciones</label><textarea
+                                                            id="observations" rows="2"
+                                                            class="w-full px-3 py-2 rounded-lg border-slate-700 bg-[#0f172a] text-slate-200 text-xs resize-none placeholder-slate-400"></textarea>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <!-- Right Column: Calculation & Items -->
+                                            <div class="col-span-12 md:col-span-8 flex flex-col gap-4">
+                                                <!-- Calculations Panel -->
+                                                    <div
+                                                        class="bg-slate-800 text-white p-4 rounded-xl shadow-lg border border-slate-700 flex justify-between items-center">
+                                                        <div class="text-center">
+                                                            <p class="text-xs text-slate-400 uppercase tracking-wide">
+                                                                Total Kg</p>
+                                                            <p class="text-2xl font-black text-blue-400"
+                                                                id="calcTotalKg">0.00</p>
+                                                        </div>
+                                                        <div class="h-8 w-px bg-slate-600"></div>
+                                                        <div class="text-center">
+                                                            <p class="text-xs text-slate-400 uppercase tracking-wide">
+                                                                Estimado</p>
+                                                            <p class="text-xl font-bold" id="calcDuration">0 min
+                                                            </p>
+                                                        </div>
+                                                        <div class="h-8 w-px bg-slate-600"></div>
+                                                        <div class="text-center">
+                                                            <p class="text-xs text-slate-400 uppercase tracking-wide">
+                                                                Sampi Kg</p>
+                                                            <p class="text-xl font-bold text-purple-400"
+                                                                id="calcSampiKg">0.00</p>
+                                                        </div>
+                                                        <div class="text-center"><span id="sampiBadge"
+                                                                class="px-3 py-1 rounded-full text-xs font-bold bg-slate-700 text-slate-500">SAMPI
+                                                                OFF</span></div>
+                                                    </div>
+                                                    <!-- Items Table -->
+                                                        <div
+                                                            class="bg-[#1e293b] rounded-xl border border-slate-700 shadow-sm flex-1 flex flex-col overflow-hidden">
+                                                            <div
+                                                                class="p-3 border-b border-slate-700 bg-[#0f172a] flex justify-between items-center">
+                                                                <h4 class="text-xs font-bold text-slate-500 uppercase">
+                                                                    Detalle de Productos</h4><button type="button"
+                                                                    onclick="addItemRow()"
+                                                                    class="text-xs bg-blue-900/30 text-blue-400 hover:bg-blue-900/50 px-3 py-1 rounded font-bold transition-colors border border-blue-500/30"><i
+                                                                        class="fa-solid fa-plus mr-1"></i>Agregar
+                                                                    Item </button>
+                                                            </div>
+                                                            <div class="overflow-y-auto flex-1 p-0">
+                                                                <table class="w-full text-left text-sm">
+                                                                    <thead
+                                                                        class="bg-slate-800 text-slate-400 text-xs uppercase sticky top-0 z-10">
+                                                                        <tr>
+                                                                            <th class="px-4 py-2 font-semibold">
+                                                                                Cód.</th>
+                                                                            <th class="px-4 py-2 font-semibold">
+                                                                                Cant.</th>
+                                                                            <th
+                                                                                class="px-4 py-2 font-semibold text-right">
+                                                                                Peso (Kg)</th>
+                                                                            <th class="px-4 py-2 text-center w-10">
+                                                                            </th>
+                                                                        </tr>
+                                                                    </thead>
+                                                                    <tbody id="itemsTableBody"
+                                                                        class="divide-y divide-slate-700 text-slate-300">
+                                                                        <!-- Rows JS -->
+                                                                    </tbody>
+                                                                </table>
+                                                            </div>
+                                                        </div>
+                                                        <!-- Real Time Tracking (Solo visual por ahora) -->
+                                                            <div
+                                                                class="bg-[#1e293b] p-4 rounded-xl border border-slate-700 shadow-sm flex gap-4 items-center opacity-70 hover:opacity-100 transition-opacity">
+                                                                <i
+                                                                    class="fa-solid fa-stopwatch text-slate-500 text-2xl"></i>
+                                                                <div class="flex-1 grid grid-cols-2 gap-4">
+                                                                    <div><label
+                                                                            class="block text-xs font-semibold text-slate-500">Inicio
+                                                                            Real</label><input type="time"
+                                                                            id="realStartTime"
+                                                                            class="w-full bg-transparent border-0 border-b-2 border-slate-700 focus:border-blue-500 text-sm px-0 py-1 text-slate-200 color-scheme-dark">
+                                                                    </div>
+                                                                    <div><label
+                                                                            class="block text-xs font-semibold text-slate-500">Fin
+                                                                            Real</label><input type="time"
+                                                                            id="realEndTime"
+                                                                            class="w-full bg-transparent border-0 border-b-2 border-slate-700 focus:border-blue-500 text-sm px-0 py-1 text-slate-200 color-scheme-dark">
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                            </div>
+                                </form>
+                            </div>
+                            <!-- Modal Footer -->
+                                <div
+                                    class="px-6 py-4 bg-[#0f172a] border-t border-slate-700 flex justify-between items-center">
+                                    <button type="button" id="deleteBtn" onclick="deleteBooking()"
+                                        class="text-red-400 hover:bg-red-900/20 px-4 py-2 rounded-lg text-sm font-bold transition-colors"><i
+                                            class="fa-solid fa-trash-can mr-2"></i>Eliminar </button>
+                                    <div class="flex gap-3"><button onclick="closeModal()"
+                                            class="px-6 py-2 rounded-lg text-sm font-bold text-slate-400 hover:text-white hover:bg-slate-800 transition-colors">Cancelar</button><button
+                                            onclick="saveBooking()"
+                                            class="bg-blue-600 hover:bg-blue-500 text-white px-8 py-2 rounded-lg text-sm font-bold shadow-lg shadow-blue-500/30 transition-all transform active:scale-95 border border-blue-500"><i
+                                                class="fa-solid fa-save mr-2"></i>Guardar Carga </button></div>
+                                </div>
+                </div>
+            </div>
+            <!-- JS Logic -->
+                <script> // --- CONSTANTES & SETUP ---
 
-    <!-- JS Logic -->
-    <script>
-        // --- CONSTANTES & SETUP ---
-        const { API_URL, SAMPI, COEFFICIENTS, START_HOUR, END_HOUR, SLOT_DURATION } = AppConfig;
-        const KG_PER_BLOCK = 1500;
-        const ORDER_GUARD = { maxPlaceholders: 50 };
-
-        let currentUser = null;
-        let currentDate = new Date().toISOString().split('T')[0];
-        let bookings = [];
-        let pendingBookings = [];
-        let currentModalBookingId = null; // For Edit Mode
-        let itemsList = []; // Helper for Modal Items
-        let orderDiagnostics = { duplicates: [], missing: [] };
-        const ignoredPendingIds = new Set();
-
-        function calculateDurationFromKg(kg) {
-            if (!kg || kg <= 0) return SLOT_DURATION;
-            const blocks = Math.max(1, Math.ceil(kg / KG_PER_BLOCK));
-            return blocks * SLOT_DURATION;
-        }
-
-        /**
-         * Calculate Sampi time based on pallets (NEW LOGIC V2)
-         * Returns: { totalMinutes, totalPallets, detail: {...}, hasSampi }
-         */
-        function calculateSampiTime(items = []) {
-            const MINUTES_PER_PALLET = SAMPI.MINUTES_PER_PALLET || 4;
-            let totalPallets = 0;
-            const detail = {};
-
-            items.forEach(item => {
-                const code = (item.code || '').toUpperCase();
-                const qty = parseInt(item.qty || 0);
-
-                if (!SAMPI.UNITS_PER_PALLET[code] || qty <= 0) {
-                    return;
-                }
-
-                const unitsPerPallet = SAMPI.UNITS_PER_PALLET[code];
-                const pallets = Math.max(1, Math.ceil(qty / unitsPerPallet));
-                const minutes = pallets * MINUTES_PER_PALLET;
-
-                totalPallets += pallets;
-
-                detail[code] = {
-                    units: qty,
-                    units_per_pallet: unitsPerPallet,
-                    pallets: pallets,
-                    minutes: minutes
-                };
-            });
-
-            const totalMinutes = totalPallets * MINUTES_PER_PALLET;
-
-            return {
-                totalMinutes: totalMinutes,
-                totalPallets: totalPallets,
-                detail: detail,
-                hasSampi: totalPallets > 0
-            };
-        }
-
-        function getMetricsFromItems(items = [], fallbackKg = 0) {
-            let totalKg = 0;
-            let sampiKg = 0;
-            let regularKg = 0;
-
-            // Separate Sampi and regular products
-            const sampiProducts = [];
-            const regularProducts = [];
-
-            items.forEach(item => {
-                const code = (item.code || '').toUpperCase();
-                const kg = Number(item.kg ?? (item.qty * (item.coef || 1))) || 0;
-                totalKg += kg;
-
-                if (SAMPI.CODES.includes(code)) {
-                    sampiKg += kg;
-                    sampiProducts.push(item);
-                } else {
-                    regularKg += kg;
-                    regularProducts.push(item);
-                }
-            });
-
-            if (totalKg === 0 && fallbackKg > 0) {
-                totalKg = fallbackKg;
-            }
-
-            // Calculate Sampi time using NEW pallet logic
-            const sampiCalc = calculateSampiTime(sampiProducts);
-
-            // Calculate regular duration using KG logic
-            const regularDuration = regularKg > 0 ? calculateDurationFromKg(regularKg) : 0;
-
-            return {
-                totalKg,
-                sampiKg,
-                regularKg,
-                totalDuration: regularDuration + sampiCalc.totalMinutes,
-                sampiDuration: sampiCalc.totalMinutes,
-                sampiPallets: sampiCalc.totalPallets,
-                sampiDetail: sampiCalc.detail,
-                regularDuration: regularDuration,
-                requiresSampi: sampiCalc.hasSampi
-            };
-        }
-
-        function extractNumericOrder(orderNumber) {
-            if (orderNumber === null || orderNumber === undefined) return null;
-            const match = String(orderNumber).match(/\d+/g);
-            if (!match) return null;
-            const numeric = parseInt(match.join(''), 10);
-            return Number.isNaN(numeric) ? null : numeric;
-        }
-
-        function createMissingCard(orderNumber) {
-            const numeric = extractNumericOrder(orderNumber);
-            return {
-                id: `missing-${orderNumber}`,
-                client: 'PEDIDO FALTANTE',
-                clientCode: null,
-                orderNumber: String(orderNumber),
-                orderNumeric: numeric,
-                description: 'Sin registro detectado (verificar CSV/ERP)',
-                priority: 'Urgente',
-                kg: 0,
-                duration: SLOT_DURATION,
-                status: 'MISSING',
-                items: [],
-                metrics: {
-                    totalKg: 0,
-                    sampiKg: 0,
-                    regularKg: 0,
-                    totalDuration: SLOT_DURATION,
-                    sampiDuration: 0,
-                    regularDuration: SLOT_DURATION,
-                    requiresSampi: false
-                },
-                flags: { missing: true }
-            };
-        }
-
-        function applyOrderGuards(pendingList, scheduledList) {
-            const counts = {};
-            const scheduledNumbers = new Set();
-            const numericUniverse = new Set();
-
-            pendingList.forEach(b => {
-                const num = extractNumericOrder(b.orderNumber);
-                b.orderNumeric = num;
-                b.flags = b.flags || {};
-                if (num !== null) {
-                    counts[num] = (counts[num] || 0) + 1;
-                    numericUniverse.add(num);
-                }
-            });
-
-            (scheduledList || []).forEach(b => {
-                const num = extractNumericOrder(b.orderNumber);
-                if (num !== null) {
-                    scheduledNumbers.add(num);
-                    numericUniverse.add(num);
-                }
-            });
-
-            const duplicates = new Set();
-            pendingList.forEach(b => {
-                if (b.orderNumeric !== null) {
-                    const isDuplicate = counts[b.orderNumeric] > 1;
-                    const alreadyScheduled = scheduledNumbers.has(b.orderNumeric);
-                    b.flags.duplicate = Boolean(isDuplicate);
-                    b.flags.alreadyScheduled = Boolean(alreadyScheduled);
-                    if (isDuplicate || alreadyScheduled) {
-                        duplicates.add(b.orderNumber || b.orderNumeric);
+                    const {
+                        API_URL,
+                        SAMPI,
+                        COEFFICIENTS,
+                        START_HOUR,
+                        END_HOUR,
+                        SLOT_DURATION
                     }
-                }
-            });
 
-            const sortedNumbers = Array.from(numericUniverse).sort((a, b) => a - b);
-            const missingNumbers = [];
-            const placeholders = [];
+                        = AppConfig;
+                    const KG_PER_BLOCK = 1500;
 
-            for (let i = 0; i < sortedNumbers.length - 1; i++) {
-                const current = sortedNumbers[i];
-                const next = sortedNumbers[i + 1];
-                if (next - current <= 1) continue;
-                for (let candidate = current + 1; candidate < next; candidate++) {
-                    if (placeholders.length >= ORDER_GUARD.maxPlaceholders) break;
-                    missingNumbers.push(candidate);
-                    placeholders.push(createMissingCard(candidate));
-                }
-            }
+                    const ORDER_GUARD = {
+                        maxPlaceholders: 50
+                    };
 
-            const pendingWithGuards = pendingList.concat(placeholders);
+                    let currentUser = null;
+                    let currentDate = new Date().toISOString().split('T')[0];
+                    let bookings = [];
+                    let pendingBookings = [];
+                    let currentModalBookingId = null; // For Edit Mode
+                    let itemsList = []; // Helper for Modal Items
 
-            return {
-                pending: pendingWithGuards,
-                diagnostics: {
-                    duplicates: Array.from(duplicates),
-                    missing: missingNumbers
-                }
-            };
-        }
+                    let orderDiagnostics = {
+                        duplicates: [], missing: []
+                    };
+                    const ignoredPendingIds = new Set();
 
-        function splitItemsBySampi(items = []) {
-            const sampiItems = [];
-            const regularItems = [];
-            items.forEach(item => {
-                const code = (item.code || '').toUpperCase();
-                if (SAMPI.CODES.includes(code)) {
-                    sampiItems.push(item);
-                } else {
-                    regularItems.push(item);
-                }
-            });
-            return { sampiItems, regularItems };
-        }
+                    function calculateDurationFromKg(kg) {
+                        if (!kg || kg <= 0) return SLOT_DURATION;
+                        const blocks = Math.max(1, Math.ceil(kg / KG_PER_BLOCK));
+                        return blocks * SLOT_DURATION;
+                    }
 
-        // --- AUTH ---
-        async function checkAuth() {
-            const token = localStorage.getItem('token');
-            const isDev = true; // FORCE DEV MODE FOR NOW as requested by context history
+                    /**
+                     * Calculate Sampi time based on pallets (NEW LOGIC V2)
+                     * Returns: { totalMinutes, totalPallets, detail: {...}, hasSampi }
+                     */
+                    function calculateSampiTime(items = []) {
+                        const MINUTES_PER_PALLET = SAMPI.MINUTES_PER_PALLET || 4;
+                        let totalPallets = 0;
 
-            if (!token) {
-                if (isDev) return;
-                window.location.href = 'index.html';
-            }
+                        const detail = {};
 
-            try {
-                if (token === 'DEV_TOKEN_BYPASS' || token && token.includes('dummy_signature') || isDev) {
-                    currentUser = { id: 1, username: 'System (Dev)', role: 'ADMIN' };
-                    if (!token) localStorage.setItem('token', 'DEV_TOKEN_BYPASS');
-                } else {
-                    const payload = JSON.parse(atob(token.split('.')[1]));
-                    currentUser = payload;
-                }
-                document.getElementById('userInfo').textContent = currentUser.username;
-            } catch (e) { window.location.href = 'index.html'; }
-        }
+                        items.forEach(item => {
+                            const code = (item.code || '').toUpperCase();
+                            const qty = parseInt(item.qty || 0);
 
-        // --- INIT ---
-        document.addEventListener('DOMContentLoaded', async () => {
-            await checkAuth();
-            setupDateControl();
-            setupDrawer();
-            initBoardLayout();
-            fetchData();
-        });
+                            if (!SAMPI.UNITS_PER_PALLET[code] || qty <= 0) {
+                                return;
+                            }
 
-        function setupDateControl() {
-            const dateInput = document.getElementById('currentDate');
-            dateInput.value = currentDate;
-            dateInput.addEventListener('change', (e) => {
-                currentDate = e.target.value;
-                fetchData();
-            });
-            document.getElementById('prevDayBtn').onclick = () => changeDate(-1);
-            document.getElementById('nextDayBtn').onclick = () => changeDate(1);
-        }
+                            const unitsPerPallet = SAMPI.UNITS_PER_PALLET[code];
+                            const pallets = Math.max(1, Math.ceil(qty / unitsPerPallet));
+                            const minutes = pallets * MINUTES_PER_PALLET;
 
-        function changeDate(days) {
-            const d = new Date(currentDate);
-            d.setDate(d.getDate() + days);
-            currentDate = d.toISOString().split('T')[0];
-            document.getElementById('currentDate').value = currentDate;
-            fetchData();
-        }
+                            totalPallets += pallets;
 
-        // --- DATA FETCH ---
-        async function fetchData() {
-            try {
-                const token = localStorage.getItem('token');
-                const [pendingRes, boardRes] = await Promise.all([
-                    fetch(AppConfig.API.PENDING, {
-                        headers: token ? { 'Authorization': `Bearer ${token}` } : undefined
-                    }),
-                    fetch(`${API_URL}/index.php?date=${currentDate}`, {
-                        headers: token ? { 'Authorization': `Bearer ${token}` } : undefined
-                    })
-                ]);
+                            detail[code] = {
+                                units: qty,
+                                units_per_pallet: unitsPerPallet,
+                                pallets: pallets,
+                                minutes: minutes
+                            };
+                        });
 
-                let normalizedPending = [];
-                if (pendingRes.ok) {
-                    const data = await pendingRes.json();
-                    // New format from pending.php: {success, count, bookings}
-                    const bookings = data.bookings || data.data || data;
+                        const totalMinutes = totalPallets * MINUTES_PER_PALLET;
 
-                    if (Array.isArray(bookings)) {
-                        // Bookings from DB are already in correct format, just ensure items are parsed
-                        normalizedPending = bookings.map(b => {
-                            // Parse items if it's a JSON string
-                            if (typeof b.items === 'string') {
-                                try {
-                                    b.items = JSON.parse(b.items);
-                                } catch (e) {
-                                    b.items = [];
+                        return {
+                            totalMinutes: totalMinutes,
+                            totalPallets: totalPallets,
+                            detail: detail,
+                            hasSampi: totalPallets > 0
+                        };
+                    }
+
+                    function getMetricsFromItems(items = [], fallbackKg = 0) {
+                        let totalKg = 0;
+                        let sampiKg = 0;
+                        let regularKg = 0;
+
+                        // Separate Sampi and regular products
+                        const sampiProducts = [];
+                        const regularProducts = [];
+
+                        items.forEach(item => {
+                            const code = (item.code || '').toUpperCase();
+                            const kg = Number(item.kg ?? (item.qty * (item.coef || 1))) || 0;
+                            totalKg += kg;
+
+                            if (SAMPI.CODES.includes(code)) {
+                                sampiKg += kg;
+                                sampiProducts.push(item);
+                            }
+
+                            else {
+                                regularKg += kg;
+                                regularProducts.push(item);
+                            }
+                        });
+
+                        if (totalKg === 0 && fallbackKg > 0) {
+                            totalKg = fallbackKg;
+                        }
+
+                        // Calculate Sampi time using NEW pallet logic
+                        const sampiCalc = calculateSampiTime(sampiProducts);
+
+                        // Calculate regular duration using KG logic
+                        const regularDuration = regularKg > 0 ? calculateDurationFromKg(regularKg) : 0;
+
+                        return {
+                            totalKg,
+                            sampiKg,
+                            regularKg,
+                            totalDuration: regularDuration + sampiCalc.totalMinutes,
+                            sampiDuration: sampiCalc.totalMinutes,
+                            sampiPallets: sampiCalc.totalPallets,
+                            sampiDetail: sampiCalc.detail,
+                            regularDuration: regularDuration,
+                            requiresSampi: sampiCalc.hasSampi
+                        };
+                    }
+
+                    function extractNumericOrder(orderNumber) {
+                        if (orderNumber === null || orderNumber === undefined) return null;
+                        const match = String(orderNumber).match(/\d+/g);
+                        if (!match) return null;
+                        const numeric = parseInt(match.join(''), 10);
+                        return Number.isNaN(numeric) ? null : numeric;
+                    }
+
+                    function createMissingCard(orderNumber) {
+                        const numeric = extractNumericOrder(orderNumber);
+
+                        return {
+                            id: `missing-${orderNumber}`,
+                            client: 'PEDIDO FALTANTE',
+                            clientCode: null,
+                            orderNumber: String(orderNumber),
+                            orderNumeric: numeric,
+                            description: 'Sin registro detectado (verificar CSV/ERP)',
+                            priority: 'Urgente',
+                            kg: 0,
+                            duration: SLOT_DURATION,
+                            status: 'MISSING',
+                            items: [],
+                            metrics: {
+                                totalKg: 0,
+                                sampiKg: 0,
+                                regularKg: 0,
+                                totalDuration: SLOT_DURATION,
+                                sampiDuration: 0,
+                                regularDuration: SLOT_DURATION,
+                                requiresSampi: false
+                            }
+
+                            ,
+                            flags: {
+                                missing: true
+                            }
+                        };
+                    }
+
+                    function applyOrderGuards(pendingList, scheduledList) {
+                        const counts = {};
+                        const scheduledNumbers = new Set();
+                        const numericUniverse = new Set();
+
+                        pendingList.forEach(b => {
+                            const num = extractNumericOrder(b.orderNumber);
+                            b.orderNumeric = num;
+
+                            b.flags = b.flags || {};
+
+                            if (num !== null) {
+                                counts[num] = (counts[num] || 0) + 1;
+                                numericUniverse.add(num);
+                            }
+                        });
+
+                        (scheduledList || []).forEach(b => {
+                            // Fix: Ignore PENDING items that might be returned by the board API
+                            if (b.status === 'PENDING') return;
+
+                            const num = extractNumericOrder(b.orderNumber);
+
+                            if (num !== null) {
+                                scheduledNumbers.add(num);
+                                numericUniverse.add(num);
+                            }
+                        });
+
+                        const duplicates = new Set();
+
+                        pendingList.forEach(b => {
+                            if (b.orderNumeric !== null) {
+                                const isDuplicate = counts[b.orderNumeric] > 1;
+                                const alreadyScheduled = scheduledNumbers.has(b.orderNumeric);
+                                b.flags.duplicate = Boolean(isDuplicate);
+                                b.flags.alreadyScheduled = Boolean(alreadyScheduled);
+
+                                if (isDuplicate || alreadyScheduled) {
+                                    duplicates.add(b.orderNumber || b.orderNumeric);
                                 }
                             }
-                            // Calculate metrics from items
-                            if (!b.metrics && Array.isArray(b.items)) {
-                                b.metrics = getMetricsFromItems(b.items, b.kg || 0);
-                            }
-                            return b;
                         });
+
+                        const sortedNumbers = Array.from(numericUniverse).sort((a, b) => a - b);
+                        const missingNumbers = [];
+                        const placeholders = [];
+
+                        for (let i = 0; i < sortedNumbers.length - 1; i++) {
+                            const current = sortedNumbers[i];
+                            const next = sortedNumbers[i + 1];
+                            if (next - current <= 1) continue;
+
+                            for (let candidate = current + 1; candidate < next; candidate++) {
+                                if (placeholders.length >= ORDER_GUARD.maxPlaceholders) break;
+                                missingNumbers.push(candidate);
+                                placeholders.push(createMissingCard(candidate));
+                            }
+                        }
+
+                        const pendingWithGuards = pendingList.concat(placeholders);
+
+                        return {
+
+                            pending: pendingWithGuards,
+                            diagnostics: {
+                                duplicates: Array.from(duplicates),
+                                missing: missingNumbers
+                            }
+                        };
                     }
-                }
 
-                if (boardRes.ok) {
-                    bookings = await boardRes.json();
-                } else {
-                    bookings = [];
-                }
+                    function splitItemsBySampi(items = []) {
+                        const sampiItems = [];
+                        const regularItems = [];
 
-                const guardResult = applyOrderGuards(normalizedPending, bookings);
-                pendingBookings = guardResult.pending;
-                orderDiagnostics = guardResult.diagnostics;
+                        items.forEach(item => {
+                            const code = (item.code || '').toUpperCase();
 
-                renderBoard();
-                renderPending();
-            } catch (e) {
-                console.error('Error fetching data:', e);
-            }
-        }
+                            if (SAMPI.CODES.includes(code)) {
+                                sampiItems.push(item);
+                            }
 
-        function parseKgFromDetail(detailStr) {
-            // Helper to extract total kg if n8n returns a string like "1003(400kg), 1011(20kg)"
-            if (!detailStr) return 0;
-            // Regex to find (number kg)
-            const regex = /\((\d+(?:\.\d+)?)kg\)/gi;
-            let total = 0;
-            let match;
-            while ((match = regex.exec(detailStr)) !== null) {
-                total += parseFloat(match[1]);
-            }
-            return total > 0 ? total : 0;
-        }
+                            else {
+                                regularItems.push(item);
+                            }
+                        });
 
-        function parseDetailToItems(detailPedido, detailPedidoKg) {
-            // Parse DETALLE_PEDIDO "** 1011 (768). ** 1014 (120)." to items array
-            // Also uses DETALLE_PEDIDO_KG "1011(768kg), 1014(120kg)" for KG values
-            if (!detailPedido) return [];
+                        return {
+                            sampiItems,
+                            regularItems
+                        };
+                    }
 
-            const items = [];
-            // Regex: ** CODE (QTY).
-            const regex = /\*\*\s*(\d{4}[A-Z]?)\s*\((\d+(?:\.\d+)?)\)/gi;
-            let match;
+                    // --- AUTH ---
+                    async function checkAuth() {
+                        const token = localStorage.getItem('token');
+                        const isDev = true; // FORCE DEV MODE FOR NOW as requested by context history
 
-            // Build KG lookup from DETALLE_PEDIDO_KG
-            const kgLookup = {};
-            if (detailPedidoKg) {
-                const kgRegex = /(\d{4}[A-Z]?)\((\d+(?:\.\d+)?)kg\)/gi;
-                let kgMatch;
-                while ((kgMatch = kgRegex.exec(detailPedidoKg)) !== null) {
-                    kgLookup[kgMatch[1].toUpperCase()] = parseFloat(kgMatch[2]);
-                }
-            }
+                        if (!token) {
+                            if (isDev) return;
+                            window.location.href = 'index.html';
+                        }
 
-            while ((match = regex.exec(detailPedido)) !== null) {
-                const code = match[1].toUpperCase();
-                const qty = parseFloat(match[2]);
-                const coef = COEFFICIENTS[code] || 1.0;
-                // Use KG from lookup if available, otherwise calculate
-                const kg = kgLookup[code] || (qty * coef);
+                        try {
+                            if (token === 'DEV_TOKEN_BYPASS' || token && token.includes('dummy_signature') || isDev) {
+                                currentUser = {
+                                    id: 1, username: 'System (Dev)', role: 'ADMIN'
+                                };
+                                if (!token) localStorage.setItem('token', 'DEV_TOKEN_BYPASS');
+                            }
 
-                items.push({
-                    code: code,
-                    qty: qty,
-                    coef: coef,
-                    kg: kg
-                });
-            }
+                            else {
+                                const payload = JSON.parse(atob(token.split('.')[1]));
+                                currentUser = payload;
+                            }
 
-            return items;
-        }
+                            document.getElementById('userInfo').textContent = currentUser.username;
+                        }
 
-        function normalizePendingPayload(raw) {
-            if (!Array.isArray(raw)) {
-                if (raw?.data && Array.isArray(raw.data)) {
-                    raw = raw.data;
-                } else if (raw?.items && Array.isArray(raw.items)) {
-                    raw = raw.items;
-                } else if (raw && typeof raw === 'object' && (raw.N_PEDIDO || raw.RAZON_SOCIAL)) {
-                    raw = [raw];
-                } else {
-                    console.warn('Formato inesperado desde n8n', raw);
-                    return [];
-                }
-            }
-
-            const mapped = raw.map(item => {
-                const parsedItems = parseDetailToItems(item.DETALLE_PEDIDO, item.DETALLE_PEDIDO_KG);
-                const fallbackKg = Number(item.TOTAL_KG) || parseKgFromDetail(item.DETALLE_PEDIDO_KG) || 0;
-                const metrics = getMetricsFromItems(parsedItems, fallbackKg);
-
-                return {
-                    id: item.id || `n8n-${item.N_PEDIDO || Date.now()}`,
-                    client: item.RAZON_SOCIAL || item.CLIENTE || 'Sin cliente',
-                    clientCode: item.CODIGO_CLIENTE || item.CLIENT_CODE || '',
-                    orderNumber: item.N_PEDIDO || item.PEDIDO || '',
-                    description: item.DETALLE_PEDIDO || '',
-                    rawDetail: item.DETALLE_PEDIDO_KG || '',
-                    kg: metrics.totalKg,
-                    duration: metrics.totalDuration,
-                    priority: item.PRIORIDAD || 'Normal',
-                    status: 'PENDING',
-                    items: parsedItems,
-                    metrics,
-                    sampiKg: metrics.sampiKg,
-                    regularKg: metrics.regularKg,
-                    flags: {}
-                };
-            });
-
-            return mapped.filter(item => !ignoredPendingIds.has(item.id));
-        }
-
-        async function uploadMassiveExcel(input) {
-            const file = input.files[0];
-            if (!file) return;
-
-            const formData = new FormData();
-            formData.append('csvFile', file); // bulk-upload.php expects 'csvFile'
-
-            // Show loading
-            Swal.fire({
-                title: 'Procesando...',
-                text: 'Subiendo y procesando archivo Excel/CSV',
-                allowOutsideClick: false,
-                didOpen: () => { Swal.showLoading(); }
-            });
-
-            try {
-                const token = localStorage.getItem('token');
-                const res = await fetch(AppConfig.API.BULK_UPLOAD, {
-                    method: 'POST',
-                    headers: token ? { 'Authorization': `Bearer ${token}` } : undefined,
-                    body: formData
-                });
-
-                const data = await res.json();
-
-                if (res.ok && data.success) {
-                    Swal.fire({
-                        icon: 'success',
-                        title: 'Carga Completada',
-                        html: `<p>Procesados: <strong>${data.processed}</strong></p>
-                               <p>Errores: <strong>${data.errors}</strong></p>`,
-                        timer: 3000
-                    });
-                    // Refresh data
-                    fetchData();
-                } else {
-                    throw new Error('Error en la carga');
-                }
-            } catch (e) {
-                console.error(e);
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Error',
-                    text: 'No se pudo procesar el archivo. Verifique la conexión o el formato.'
-                });
-            } finally {
-                input.value = ''; // Reset
-            }
-        }
-
-        // --- RENDER BOARD (TIME GRID) ---
-        function initBoardLayout() {
-            const container = document.getElementById('boardContainer');
-            // Ensure container takes full height and handles overflow
-            container.className = "flex-1 h-full overflow-auto bg-slate-200/50 p-4";
-
-            // Generate Time Slots (04:00 to 20:00)
-            const timeSlots = [];
-            let currentH = 4; // 4 AM
-            let currentM = 0;
-            const endH = 20; // 8 PM
-
-            while (currentH < endH || (currentH === endH && currentM === 0)) {
-                timeSlots.push({ h: currentH, m: currentM, label: formatTime(currentH, currentM) });
-                currentM += 30;
-                if (currentM >= 60) { currentH++; currentM = 0; }
-            }
-
-            const resources = [
-                { id: 'Puerta 1', name: 'Puerta 1' },
-                { id: 'Puerta 2', name: 'Puerta 2' },
-                { id: 'Puerta 3', name: 'Puerta 3' },
-                { id: 'Puerta 4', name: 'Puerta 4' },
-                { id: 'Sampi', name: 'Sampi' }
-            ];
-
-            // Build Grid HTML
-            // Header Row
-            let html = `
-                <div class="inline-block min-w-full">
-                    <div class="flex sticky top-0 z-20 shadow-xl bg-slate-300 rounded-t-lg">
-                        <div class="w-16 bg-slate-400 border-r border-slate-500 p-2 font-bold text-center text-xs flex items-center justify-center flex-none">Hora</div>
-                        ${resources.map(r => `
-                            <div class="w-64 bg-slate-800 text-white p-2 border-r border-slate-700 font-bold text-center text-sm flex-none shadow-sm">
-                                ${r.name}
-                            </div>
-                        `).join('')}
-                    </div>
-            `;
-
-            // Time Function: isSampiTime? 
-            // We'll calculate it later.
-
-            // Rows
-            timeSlots.forEach(slot => {
-                const timeLabel = slot.label;
-                const isHalfHour = slot.m === 30;
-
-                // Row Container
-                html += `<div class="flex border-b border-slate-300 ${isHalfHour ? 'bg-slate-100/50' : 'bg-white'} hover:bg-slate-200 transition-colors group/row">`;
-
-                // Time Cell
-                html += `<div class="w-16 bg-slate-200 border-r border-slate-300 p-1 text-[10px] font-bold text-slate-500 text-center sticky left-0 z-10 flex items-center justify-center group-hover/row:bg-slate-300 group-hover/row:text-slate-800 transition-colors flex-none shadow-md">
-                    ${timeLabel}
-                </div>`;
-
-                // Resource Cells (Drop Zones)
-                resources.forEach(res => {
-                    // ID for the cell: "cell-RESOURCE-TIME" (e.g., "cell-Puerta-1-08:00")
-                    // Note: ID must be friendly.
-                    const cellId = `cell-${res.id.replace(/\s+/g, '-')}-${String(slot.h).padStart(2, '0')}-${String(slot.m).padStart(2, '0')}`;
-
-                    html += `
-                        <div id="${cellId}" 
-                             class="w-64 border-r border-slate-300 min-h-[100px] p-2 relative grid-cell-dropzone transition-colors flex-none"
-                             data-resource="${res.id}" 
-                             data-h="${slot.h}" 
-                             data-m="${slot.m}">
-                             <!-- Cards injected here -->
-                        </div>
-                    `;
-                });
-
-                html += `</div>`; // End Row
-            });
-
-            html += `</div>`; // End Main Wrapper
-            container.innerHTML = html;
-
-            // Init Sortable on ALL cells
-            document.querySelectorAll('.grid-cell-dropzone').forEach(cell => {
-                new Sortable(cell, {
-                    group: 'shared',
-                    sort: true,
-                    animation: 150,
-                    ghostClass: 'opacity-50',
-                    onEnd: function (evt) {
-                        const itemEl = evt.item;
-                        const newCell = evt.to;
-                        const newRes = newCell.getAttribute('data-resource');
-                        const newH = newCell.getAttribute('data-h');
-                        const newM = newCell.getAttribute('data-m');
-                        const bookingId = itemEl.dataset.id;
-
-                        if (newRes) {
-                            // Update booking Time AND Resource
-                            updateBookingSlot(bookingId, newRes, parseInt(newH), parseInt(newM));
-                        } else {
-                            // Dragged out? Back to pending?
-                            // If dropped in Drawer
-                            updateBookingStatus(bookingId, 'PENDING');
+                        catch (e) {
+                            window.location.href = 'index.html';
                         }
                     }
-                });
-            });
-        }
 
-        function renderBoard() {
-            // Clear all cells first? No, innerHTML rewrite clears them.
-            // But if we want to preserve drag state, full re-render is safest for sync.
-            // Let's just re-run init usually or just clear cells? 
-            // Clearing 100+ cells is fast.
-            document.querySelectorAll('.grid-cell-dropzone').forEach(c => c.innerHTML = '');
-
-            bookings.forEach(b => {
-                if ((b.status || '').toUpperCase() === 'PENDING') return;
-
-                // Find target cell
-                // Format: cell-Resource-HH-MM
-                // We need to map actual time to the slot. 
-                // If booking is 8:15, it goes to 8:00 slot? Or exact? 
-                // Specs say 30 min blocks. We map to nearest previous block.
-
-                // Normalize time to 00 or 30
-                const startHour = Number(b.startTimeHour ?? 0);
-                const startMinute = Number(b.startTimeMinute ?? 0);
-                let m = startMinute >= 30 ? 30 : 0;
-                let h = startHour;
-
-                // Sanity check range
-                if (h < 4 || h > 20) return; // Hide out of range or put in special place?
-
-                const cellId = `cell-${b.resourceId.replace(/\s+/g, '-')}-${String(h).padStart(2, '0')}-${String(m).padStart(2, '0')}`;
-                const cell = document.getElementById(cellId);
-
-                if (cell) {
-                    const card = createCardElement(b);
-                    const durationMinutes = Number(b.duration ?? SLOT_DURATION);
-                    const slots = Math.max(1, Math.ceil(durationMinutes / SLOT_DURATION));
-                    const slotHeight = cell.getBoundingClientRect().height || 100;
-                    const cardHeight = Math.max(slotHeight - 8, (slotHeight * slots) - 8);
-
-                    card.style.position = 'absolute';
-                    card.style.top = '4px';
-                    card.style.left = '4px';
-                    card.style.right = '4px';
-                    card.style.height = `${cardHeight}px`;
-                    card.style.zIndex = 5 + slots;
-                    card.dataset.slots = slots;
-
-                    cell.appendChild(card);
-                }
-            });
-        }
-
-        function createCardElement(b) {
-            const el = document.createElement('div');
-            el.className = `card-3d bg-white p-2 rounded-lg shadow-sm border border-slate-100 cursor-pointer relative overflow-hidden group hover:shadow-md transition-all h-full`;
-            el.setAttribute('data-id', b.id);
-            el.setAttribute('data-resource', b.resourceId);
-            el.onclick = (e) => { e.stopPropagation(); openEditModal(b); };
-
-            // Priority Border
-            const priorityColors = { 'Urgente': '!border-l-4 !border-l-red-500', 'Lista': '!border-l-4 !border-l-green-500', 'Espera': '!border-l-4 !border-l-orange-500', 'Normal': '!border-l-4 !border-l-blue-500' };
-            const priorityClass = priorityColors[b.priority] || priorityColors['Normal'];
-
-            // Apply priority class safely
-            priorityClass.split(' ').forEach(c => el.classList.add(c.replace('!', ''))); // remove ! for classList
-
-            // Sampi Strip
-            let sampiBar = '';
-            const isSampiResource = (b.resourceId || '').toLowerCase() === 'sampi';
-            const isSampi = Number(b.sampi_on) === 1 || isSampiResource;
-            if (isSampi) {
-                el.classList.add('bg-purple-50');
-                sampiBar = `<div class="absolute top-0 right-0 p-1"><i class="fa-solid fa-bolt text-purple-500 animate-pulse" title="Sampi Activo"></i></div>`;
-            }
-
-            const startHour = Number(b.startTimeHour ?? 0);
-            const startMinute = Number(b.startTimeMinute ?? 0);
-            const duration = Number(b.duration ?? SLOT_DURATION);
-            const startLabel = formatTime(startHour, startMinute);
-            const endTotal = startHour * 60 + startMinute + duration;
-            const endHour = Math.floor(endTotal / 60);
-            const endMinute = endTotal % 60;
-            const endLabel = formatTime(endHour % 24, endMinute);
-            const weight = Number(b.kg ?? b.totalKg ?? 0);
-
-            el.innerHTML = `
-                <div class="flex justify-between items-start leading-tight mb-1">
-                    <span class="font-bold text-slate-800 text-xs truncate w-[85%]">${b.client}</span>
-                </div>
-                <div class="text-[10px] text-slate-500 truncate leading-tight">${b.description || '-'}</div>
-                <div class="text-[10px] text-slate-400">${startLabel} - ${endLabel}</div>
-                
-                <div class="flex justify-between items-end mt-1">
-                    <div class="text-[10px] font-bold text-slate-600 bg-slate-100 px-1 rounded">${weight.toFixed(0)} kg</div>
-                    <div class="text-[10px] text-slate-400">
-                        ${b.duration}m
-                    </div>
-                </div>
-                ${sampiBar}
-            `;
-            return el;
-        }
-
-        function formatTime(h, m) {
-            return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
-        }
-
-        // --- DRAWER PENDING ---
-        function setupDrawer() {
-            const drawer = document.getElementById('drawer');
-            const mainContent = document.getElementById('mainContent');
-            const list = document.getElementById('pendingList');
-
-            window.openDrawer = () => { drawer.classList.add('open'); mainContent.style.marginLeft = '320px'; };
-            window.closeDrawer = () => { drawer.classList.remove('open'); mainContent.style.marginLeft = '0'; };
-            window.toggleDrawer = () => drawer.classList.contains('open') ? closeDrawer() : openDrawer();
-
-            drawer.addEventListener('mouseleave', () => setTimeout(() => { if (!drawer.matches(':hover')) closeDrawer(); }, 800));
-
-            new Sortable(list, {
-                group: 'shared',
-                sort: false,
-                animation: 150,
-                ghostClass: 'bg-blue-50',
-                onEnd: async function (evt) {
-                    const itemEl = evt.item;
-                    const targetCell = evt.to;
-                    const newResourceId = targetCell.getAttribute('data-resource');
-
-                    if (newResourceId) {
-                        const id = itemEl.getAttribute('data-id');
-                        const h = Number(targetCell.getAttribute('data-h') ?? START_HOUR);
-                        const m = Number(targetCell.getAttribute('data-m') ?? 0);
-                        const booking = pendingBookings.find(b => b.id === id);
-                        await schedulePendingBooking(booking, newResourceId, h, m);
-                        itemEl.remove();
-                    }
-                }
-            });
-        }
-
-        function renderPending() {
-            const list = document.getElementById('pendingList');
-            const countBadge = document.getElementById('pendingCount');
-            const alertsBox = document.getElementById('pendingAlerts');
-            const filter = window.currentPendingFilter || 'ALL';
-
-            list.innerHTML = '';
-
-            const filtered = pendingBookings.filter(b => {
-                if (filter === 'SAMPI') {
-                    return b.metrics?.requiresSampi;
-                }
-                return true;
-            });
-
-            countBadge.textContent = filtered.length;
-
-            if (alertsBox) {
-                const messages = [];
-                if (orderDiagnostics?.duplicates?.length) {
-                    const dupSample = orderDiagnostics.duplicates.slice(0, 5).join(', ');
-                    const suffix = orderDiagnostics.duplicates.length > 5 ? '…' : '';
-                    messages.push(`⚠️ Duplicados: ${dupSample}${suffix}`);
-                }
-                if (orderDiagnostics?.missing?.length) {
-                    messages.push(`🚨 Pedidos faltantes detectados (${orderDiagnostics.missing.length})`);
-                }
-                if (messages.length) {
-                    alertsBox.innerHTML = messages.map(m => `<span>${m}</span>`).join('');
-                    alertsBox.classList.remove('hidden');
-                } else {
-                    alertsBox.classList.add('hidden');
-                    alertsBox.innerHTML = '';
-                }
-            }
-
-            if (filtered.length === 0) {
-                list.innerHTML = '<div class="text-center text-slate-400 text-sm mt-10">No hay pedidos pendientes.</div>';
-                return;
-            }
-
-            filtered.forEach(b => {
-                const flags = b.flags || {};
-                const isMissing = Boolean(flags.missing);
-                const isDuplicate = Boolean(flags.duplicate || flags.alreadyScheduled);
-
-                const card = document.createElement('div');
-                let cardClass = "p-3 rounded-lg border shadow-sm text-sm cursor-grab mb-2 relative group";
-                if (isMissing) {
-                    cardClass += " bg-red-50 border-red-200 border-l-4 border-l-red-500 text-red-700";
-                } else if (isDuplicate) {
-                    cardClass += " bg-orange-50 border-orange-200 border-l-4 border-l-orange-500";
-                } else {
-                    cardClass += " bg-white border-slate-200 border-l-4 border-l-yellow-400";
-                }
-                card.className = cardClass;
-                card.setAttribute('data-id', b.id);
-                card.onclick = () => {
-                    if (isMissing) {
-                        Swal.fire('Pedido faltante', `Esperando ingreso del pedido ${b.orderNumber || ''}.`, 'warning');
-                        return;
-                    }
-                    if (isDuplicate) {
-                        Swal.fire('Pedido duplicado', `El pedido ${b.orderNumber || 'sin número'} ya existe registrado.`, 'info');
-                        return;
-                    }
-                    openEditModal(b);
-                };
-                const metrics = b.metrics || { sampiKg: 0 };
-                const badge = isMissing
-                    ? '<span class="text-[10px] font-bold text-red-600 bg-red-100 px-2 py-0.5 rounded-full">SIN PEDIDO</span>'
-                    : isDuplicate
-                        ? '<span class="text-[10px] font-bold text-orange-600 bg-orange-100 px-2 py-0.5 rounded-full">DUPLICADO</span>'
-                        : '';
-
-                card.innerHTML = `
-                    <div class="font-bold text-slate-700">${b.client}</div>
-                    <div class="text-xs text-slate-500 mb-1">Ped: ${b.orderNumber || '-'} </div>
-                    ${badge}
-                    <div class="flex justify-between text-xs font-semibold text-slate-600 mt-2">
-                        <span>${Number(b.kg).toFixed(0)} kg</span>
-                        <div class="text-right">
-                             <div>${b.duration} min</div>
-                             ${metrics.requiresSampi ? '<span class="text-purple-600 text-[10px]">SAMPI</span>' : ''}
-                        </div>
-                    </div>
-                `;
-                list.appendChild(card);
-                        });
-        }
-
-        async function schedulePendingBooking(booking, resourceId, hour, minute) {
-            if (!booking || !resourceId) return;
-
-            if (booking.flags?.missing) {
-                Swal.fire('Pedido faltante', 'No se puede planificar un pedido que aún no fue generado.', 'warning');
-                return;
-            }
-            if (booking.flags?.duplicate || booking.flags?.alreadyScheduled) {
-                Swal.fire('Pedido duplicado', 'Este número de pedido ya está registrado. Verifica en el tablero.', 'info');
-                return;
-            }
-
-            const payloads = buildSchedulePayloads(booking, resourceId, hour, minute);
-            if (payloads.length === 0) {
-                Swal.fire('Sin datos', 'No hay productos para planificar.', 'info');
-                return;
-            }
-
-            const token = localStorage.getItem('token');
-            try {
-                for (const payload of payloads) {
-                    const res = await fetch(`${API_URL}/manage.php`, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-                        },
-                        body: JSON.stringify(payload)
-                    });
-
-                    if (!res.ok) {
-                        const errorBody = await res.json().catch(() => ({}));
-                        throw new Error(errorBody.error || 'No se pudo agendar la carga');
-                    }
-                }
-
-                ignoredPendingIds.add(booking.id);
-                pendingBookings = pendingBookings.filter(b => b.id !== booking.id);
-                renderPending();
-                Swal.fire({
-                    icon: 'success',
-                    title: 'Carga planificada',
-                    toast: true,
-                    timer: 1500,
-                    showConfirmButton: false,
-                    position: 'top-end'
-                });
-                fetchData();
-            } catch (error) {
-                console.error(error);
-                Swal.fire('Error', error.message || 'No se pudo planificar la carga', 'error');
-            }
-        }
-
-        function buildSchedulePayloads(booking, resourceId, hour, minute) {
-            const metrics = booking.metrics || getMetricsFromItems(booking.items, booking.kg);
-            const { sampiItems, regularItems } = splitItemsBySampi(booking.items || []);
-            const basePayload = {
-                client: booking.client,
-                clientCode: booking.clientCode || null,
-                orderNumber: booking.orderNumber || null,
-                description: booking.description || '',
-                priority: booking.priority || 'Normal',
-                date: currentDate,
-                startTimeHour: hour,
-                startTimeMinute: minute,
-                observations: booking.observations || '',
-                status: 'PLANNED',
-                color: 'blue'
-            };
-
-            const payloads = [];
-            const requiresAutoSampi = metrics.requiresSampi && metrics.sampiKg > 0 && resourceId !== 'Sampi';
-
-            if (requiresAutoSampi) {
-                if (metrics.regularKg > 0) {
-                    payloads.push({
-                        ...basePayload,
-                        resourceId,
-                        kg: Number(metrics.regularKg),
-                        duration: metrics.regularDuration || SLOT_DURATION,
-                        items: regularItems,
-                        sampi_on: 0
-                    });
-                }
-                payloads.push({
-                    ...basePayload,
-                    resourceId: 'Sampi',
-                    kg: Number(metrics.sampiKg),
-                    duration: metrics.sampiDuration || SLOT_DURATION,
-                    items: sampiItems,
-                    sampi_on: 1,
-                    description: `${booking.description || booking.client} [Sampi]`
-                });
-            } else {
-                payloads.push({
-                    ...basePayload,
-                    resourceId,
-                    kg: Number(metrics.totalKg),
-                    duration: metrics.totalDuration || SLOT_DURATION,
-                    items: booking.items,
-                    sampi_on: metrics.requiresSampi ? 1 : 0
-                });
-            }
-
-            return payloads;
-        }
-
-        window.filterPending = (type) => {
-            window.currentPendingFilter = type;
-            renderPending();
-        };
-
-        // --- MODAL LOGIC (ADVANCED) ---
-        window.openModal = () => {
-            resetModal();
-            document.getElementById('bookingModal').classList.remove('hidden');
-            setTimeout(() => document.getElementById('bookingModal').classList.remove('opacity-0'), 10);
-        };
-
-        window.openEditModal = (booking) => {
-            openModal();
-            currentModalBookingId = booking.id;
-            document.getElementById('modalTitle').textContent = `Editar Carga #${booking.id}`;
-            document.getElementById('deleteBtn').classList.remove('hidden');
-
-            // Populate Fields
-            document.getElementById('clientName').value = booking.client;
-            document.getElementById('clientCode').value = booking.clientCode || '';
-            document.getElementById('orderNumber').value = booking.orderNumber || '';
-            document.getElementById('priority').value = booking.priority || 'Normal';
-            document.getElementById('resourceSelect').value = booking.resourceId;
-            document.getElementById('startTime').value = formatTime(booking.startTimeHour, booking.startTimeMinute);
-            document.getElementById('duration').value = booking.duration;
-            document.getElementById('calcDuration').textContent = `${booking.duration} min`;
-            document.getElementById('observations').value = booking.observations || '';
-            document.getElementById('realStartTime').value = booking.realStartTime || '';
-            document.getElementById('realEndTime').value = booking.realEndTime || '';
-
-            // Populate Items - use the calculated items if available
-            try {
-                itemsList = booking.items && booking.items.length > 0 ?
-                    (typeof booking.items === 'string' ? JSON.parse(booking.items) : booking.items) :
-                    (booking.items || []);
-            } catch (e) { itemsList = []; }
-
-            if (!itemsList || itemsList.length === 0) {
-                // Dummy load fallback
-                itemsList = [{ code: 'GENERIC', qty: 1, coef: 1, kg: Number(booking.kg) }];
-            }
-
-            renderItemsTable();
-            recalculateTotals();
-        };
-
-        window.closeModal = () => {
-            document.getElementById('bookingModal').classList.add('opacity-0');
-            setTimeout(() => document.getElementById('bookingModal').classList.add('hidden'), 300);
-        };
-
-        function resetModal() {
-            currentModalBookingId = null;
-            itemsList = [];
-            document.getElementById('bookingForm').reset();
-            document.getElementById('modalTitle').textContent = 'Nueva Carga';
-            document.getElementById('deleteBtn').classList.add('hidden');
-            document.getElementById('itemsTableBody').innerHTML = '';
-            document.getElementById('calcTotalKg').textContent = '0.00';
-            document.getElementById('calcDuration').textContent = '0 min';
-            document.getElementById('calcSampiKg').textContent = '0.00';
-            document.getElementById('sampiBadge').className = 'px-3 py-1 rounded-full text-xs font-bold bg-slate-700 text-slate-500';
-            document.getElementById('sampiBadge').textContent = 'SAMPI OFF';
-        }
-
-        // ITEMS TABLE LOGIC
-        window.addItemRow = () => {
-            itemsList.push({ code: '', qty: 0, coef: 1.0, kg: 0 });
-            renderItemsTable();
-        };
-
-        function renderItemsTable() {
-            const tbody = document.getElementById('itemsTableBody');
-            tbody.innerHTML = '';
-            itemsList.forEach((item, index) => {
-                const tr = document.createElement('tr');
-                tr.innerHTML = `
-                    <td class="px-2 py-1"><input type="text" value="${item.code}" onchange="updateItem(${index}, 'code', this.value)" class="w-full text-xs border-b border-slate-200 focus:border-blue-500 outline-none uppercase" placeholder="Código"></td>
-                    <td class="px-2 py-1"><input type="number" value="${item.qty}" onchange="updateItem(${index}, 'qty', this.value)" class="w-full text-xs border-slate-200 rounded p-1 bg-slate-50"></td>
-                    <td class="px-2 py-1 text-right font-mono font-bold text-slate-600">${Number(item.kg).toFixed(2)}</td>
-                    <td class="px-2 py-1 text-center"><button type="button" onclick="removeItem(${index})" class="text-red-400 hover:text-red-600"><i class="fa-solid fa-times"></i></button></td>
-                `;
-                tbody.appendChild(tr);
-            });
-        }
-
-        window.updateItem = (index, field, value) => {
-            const item = itemsList[index];
-            if (field === 'code') {
-                item.code = value.toUpperCase();
-                // Lookup coefficient
-                if (COEFFICIENTS[item.code]) {
-                    item.coef = COEFFICIENTS[item.code];
-                } else {
-                    item.coef = 1.0;
-                }
-            } else if (field === 'qty') {
-                item.qty = Number(value);
-            }
-            // Recalc line KG
-            item.kg = item.qty * item.coef;
-            renderItemsTable();
-            recalculateTotals();
-        };
-
-        window.removeItem = (index) => {
-            itemsList.splice(index, 1);
-            renderItemsTable();
-            recalculateTotals();
-        };
-
-        function recalculateTotals() {
-            const metrics = getMetricsFromItems(itemsList);
-
-            document.getElementById('calcTotalKg').textContent = metrics.totalKg.toFixed(2);
-            document.getElementById('calcSampiKg').textContent = metrics.sampiKg.toFixed(2);
-
-            document.getElementById('duration').value = metrics.totalDuration;
-            document.getElementById('calcDuration').textContent = `${metrics.totalDuration} min`;
-
-            const badge = document.getElementById('sampiBadge');
-            if (metrics.requiresSampi) {
-                badge.className = 'px-3 py-1 rounded-full text-xs font-bold bg-purple-100 text-purple-600 animate-pulse border border-purple-200';
-                badge.textContent = 'SAMPI ON';
-            } else {
-                badge.className = 'px-3 py-1 rounded-full text-xs font-bold bg-slate-200 text-slate-500';
-                badge.textContent = 'SAMPI OFF';
-            }
-        }
-
-        // SAVE
-        window.saveBooking = async () => {
-            const startTimeVal = document.getElementById('startTime').value;
-            const resourceId = document.getElementById('resourceSelect').value;
-
-            const [h, m] = startTimeVal ? startTimeVal.split(':').map(Number) : [8, 0];
-            const sampiOn = Number(document.getElementById('calcSampiKg').textContent) > SAMPI.THRESHOLD_KG;
-
-            const payload = {
-                id: currentModalBookingId,
-                client: document.getElementById('clientName').value,
-                clientCode: document.getElementById('clientCode').value,
-                orderNumber: document.getElementById('orderNumber').value,
-                priority: document.getElementById('priority').value,
-                resourceId: resourceId,
-                date: currentDate,
-                startTimeHour: h,
-                startTimeMinute: m,
-                duration: Number(document.getElementById('duration').value),
-                observations: document.getElementById('observations').value,
-                realStartTime: document.getElementById('realStartTime').value,
-                realEndTime: document.getElementById('realEndTime').value,
-                items: itemsList,
-                kg: Number(document.getElementById('calcTotalKg').textContent),
-                sampi_on: sampiOn ? 1 : 0
-            };
-
-            // If resource is "PENDIENTE" (if we add that to select) or we want to force explicit status
-            // If resource is NOT Pending, Status -> PLANNED
-            if (resourceId !== 'PENDIENTE') {
-                payload.status = 'PLANNED';
-            } else {
-                payload.status = 'PENDING';
-            }
-
-            try {
-                const realMethod = payload.id ? 'PUT' : 'POST';
-                const res = await fetch(`${API_URL}/manage.php`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${localStorage.getItem('token')}`,
-                        'X-HTTP-Method-Override': realMethod
-                    },
-                    body: JSON.stringify(payload)
-                });
-
-                if (res.ok) {
-                    closeModal();
-                    fetchData();
-                    Swal.fire({ icon: 'success', title: 'Guardado', toast: true, position: 'top-end', showConfirmButton: false, timer: 1500 });
-                } else {
-                    Swal.fire('Error', 'No se pudo guardar', 'error');
-                }
-            } catch (e) { console.error(e); }
-        };
-
-        window.deleteBooking = async () => {
-            if (!currentModalBookingId) return;
-            const res = await Swal.fire({ title: '¿Eliminar?', icon: 'warning', showCancelButton: true, confirmButtonColor: '#ef4444' });
-            if (res.isConfirmed) {
-                await fetch(`${API_URL}/manage.php?id=${currentModalBookingId}`, {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${localStorage.getItem('token')}`,
-                        'X-HTTP-Method-Override': 'DELETE'
-                    }
-                });
-                closeModal();
-                fetchData();
-            }
-        };
-
-        // --- UTILS UPDATE ---
-        async function updateBookingStatus(id, status, resourceId = null) {
-            const body = { id, status };
-            if (resourceId) body.resourceId = resourceId;
-
-            await fetch(`${API_URL}/manage.php`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`,
-                    'X-HTTP-Method-Override': 'PUT'
-                },
-                body: JSON.stringify(body)
-            });
-
-            // After updating, refetch data to ensure calculations are correct
-            fetchData();
-        }
-
-        async function updateBookingPosition(id, resourceId) {
-            // Deprecated in favor of Slot
-            await updateBookingStatus(id, 'PLANNED', resourceId);
-        }
-
-        async function updateBookingSlot(id, resourceId, h, m) {
-            const body = {
-                id,
-                status: 'PLANNED',
-                resourceId: resourceId,
-                startTimeHour: h,
-                startTimeMinute: m
-            };
-
-            await fetch(`${API_URL}/manage.php`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`,
-                    'X-HTTP-Method-Override': 'PUT'
-                },
-                body: JSON.stringify(body)
-            });
-            // Improve UX: Maybe local update before fetch? For now fetch is safe.
-            fetchData();
-        }
-
-        window.logout = () => {
-            localStorage.removeItem('token');
-            window.location.href = 'index.html';
-        };
-
-        // --- NATIVE PDF UPLOAD ---
-        window.uploadPDF = async (input) => {
-            if (input.files && input.files[0]) {
-                const file = input.files[0];
-                const formData = new FormData();
-                formData.append('pdfFile', file);
-
-                // Show Loading
-                Swal.fire({
-                    title: 'Procesando PDF...',
-                    text: 'Extrayendo datos con IA (esto puede tardar unos segundos)',
-                    allowOutsideClick: false,
-                    didOpen: () => { Swal.showLoading(); }
-                });
-
-                try {
-                    const res = await fetch(`${API_URL}/bookings/upload-pdf.php`, { // Adjusted path check if needed
-                        method: 'POST',
-                        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` },
-                        body: formData
-                    });
-
-                    const data = await res.json();
-
-                    if (res.ok) {
-                        Swal.fire({
-                            icon: 'success',
-                            title: '¡Pedido Procesado!',
-                            text: `Cliente: ${data.data.client} - Items: ${data.data.items.length}`,
-                            timer: 3000
-                        });
-                        // Refresh Pending List
+                    // --- INIT ---
+                    document.addEventListener('DOMContentLoaded', async () => {
+                        await checkAuth();
+                        setupDateControl();
+                        setupDrawer();
+                        initBoardLayout();
                         fetchData();
-                    } else {
-                        throw new Error(data.error || 'Error desconocido');
+                    });
+
+                    function setupDateControl() {
+                        const dateInput = document.getElementById('currentDate');
+                        dateInput.value = currentDate;
+
+                        dateInput.addEventListener('change', (e) => {
+                            currentDate = e.target.value;
+                            fetchData();
+                        });
+                        document.getElementById('prevDayBtn').onclick = () => changeDate(-1);
+                        document.getElementById('nextDayBtn').onclick = () => changeDate(1);
                     }
-                } catch (e) {
-                    Swal.fire('Error', e.message, 'error');
-                }
 
-                // Clear input
-                input.value = '';
-            }
-        };
+                    function changeDate(days) {
+                        const d = new Date(currentDate);
+                        d.setDate(d.getDate() + days);
+                        currentDate = d.toISOString().split('T')[0];
+                        document.getElementById('currentDate').value = currentDate;
+                        fetchData();
+                    }
 
-    </script>
+                    // --- DATA FETCH ---
+                    async function fetchData() {
+                        try {
+                            const token = localStorage.getItem('token');
+
+                            const [pendingRes,
+                                boardRes] = await Promise.all([fetch(AppConfig.API.PENDING, {
+                                    headers: token ? {
+                                        'Authorization': `Bearer ${token}`
+                                    }
+
+                                        : undefined
+
+                                }),
+                                fetch(`${API_URL}/index.php?date=${currentDate}`, {
+                                    headers: token ? {
+                                        'Authorization': `Bearer ${token}`
+                                    }
+
+                                        : undefined
+                                })]);
+
+                            let normalizedPending = [];
+
+                            if (pendingRes.ok) {
+                                const data = await pendingRes.json();
+                                // New format from pending.php: {success, count, bookings}
+                                const bookings = data.bookings || data.data || data;
+
+                                if (Array.isArray(bookings)) {
+
+                                    // Bookings from DB are already in correct format, just ensure items are parsed
+                                    normalizedPending = bookings.map(b => {
+
+                                        // Parse items if it's a JSON string
+                                        if (typeof b.items === 'string') {
+                                            try {
+                                                b.items = JSON.parse(b.items);
+                                            }
+
+                                            catch (e) {
+                                                b.items = [];
+                                            }
+                                        }
+
+                                        // Calculate metrics from items
+                                        if (!b.metrics && Array.isArray(b.items)) {
+                                            b.metrics = getMetricsFromItems(b.items, b.kg || 0);
+                                        }
+
+                                        return b;
+                                    });
+                                }
+                            }
+
+                            if (boardRes.ok) {
+                                bookings = await boardRes.json();
+                            }
+
+                            else {
+                                bookings = [];
+                            }
+
+                            const guardResult = applyOrderGuards(normalizedPending, bookings);
+                            pendingBookings = guardResult.pending;
+                            orderDiagnostics = guardResult.diagnostics;
+
+                            renderBoard();
+                            renderPending();
+                        }
+
+                        catch (e) {
+                            console.error('Error fetching data:', e);
+                        }
+                    }
+
+                    function parseKgFromDetail(detailStr) {
+                        // Helper to extract total kg if n8n returns a string like "1003(400kg), 1011(20kg)"
+                        if (!detailStr) return 0;
+                        // Regex to find (number kg)
+                        const regex = /\((\d+(?:\.\d+)?)kg\)/gi;
+                        let total = 0;
+                        let match;
+
+                        while ((match = regex.exec(detailStr)) !== null) {
+                            total += parseFloat(match[1]);
+                        }
+
+                        return total > 0 ? total : 0;
+                    }
+
+                    function parseDetailToItems(detailPedido, detailPedidoKg) {
+                        // Parse DETALLE_PEDIDO "** 1011 (768). ** 1014 (120)." to items array
+                        // Also uses DETALLE_PEDIDO_KG "1011(768kg), 1014(120kg)" for KG values
+                        if (!detailPedido) return [];
+
+                        const items = [];
+
+                        // Regex: ** CODE (QTY).
+                        const regex = /\*\*\s*(\d{4}[A-Z]?)\s*\((\d+(?:\.\d+)?)\)/gi;
+                        let match;
+
+                        // Build KG lookup from DETALLE_PEDIDO_KG
+                        const kgLookup = {};
+
+                        if (detailPedidoKg) {
+                            const kgRegex = /(\d{4}[A-Z]?)\((\d+(?:\.\d+)?)kg\)/gi;
+                            let kgMatch;
+
+                            while ((kgMatch = kgRegex.exec(detailPedidoKg)) !== null) {
+                                kgLookup[kgMatch[1].toUpperCase()] = parseFloat(kgMatch[2]);
+                            }
+                        }
+
+                        while ((match = regex.exec(detailPedido)) !== null) {
+                        const code = match[1].toUpperCase();
+                        const qty = parseFloat(match[2]);
+                        const coef = COEFFICIENTS[code] || 1.0;
+                        // Use KG from lookup if available, otherwise calculate
+                        const kg = kgLookup[code] || (qty * coef);
+
+                        items.push({
+                            code: code,
+                            qty: qty,
+                            coef: coef,
+                            kg: kg
+                        });
+                    }
+
+                    return items;
+        }
+
+                    function normalizePendingPayload(raw) {
+                        if (!Array.isArray(raw)) {
+                            if (raw?.data && Array.isArray(raw.data)) {
+                                raw = raw.data;
+                            }
+
+                            else if (raw?.items && Array.isArray(raw.items)) {
+                                raw = raw.items;
+                            }
+
+                            else if (raw && typeof raw === 'object' && (raw.N_PEDIDO || raw.RAZON_SOCIAL)) {
+                                raw = [raw];
+                            }
+
+                            else {
+                                console.warn('Formato inesperado desde n8n', raw);
+                                return [];
+                            }
+                        }
+
+                        const mapped = raw.map(item => {
+                            const parsedItems = parseDetailToItems(item.DETALLE_PEDIDO, item.DETALLE_PEDIDO_KG);
+                            const fallbackKg = Number(item.TOTAL_KG) || parseKgFromDetail(item.DETALLE_PEDIDO_KG) || 0;
+                            const metrics = getMetricsFromItems(parsedItems, fallbackKg);
+
+                            return {
+                                id: item.id || `n8n-${item.N_PEDIDO || Date.now()}`,
+                                client: item.RAZON_SOCIAL || item.CLIENTE || 'Sin cliente',
+                                clientCode: item.CODIGO_CLIENTE || item.CLIENT_CODE || '',
+                                orderNumber: item.N_PEDIDO || item.PEDIDO || '',
+                                description: item.DETALLE_PEDIDO || '',
+                                rawDetail: item.DETALLE_PEDIDO_KG || '',
+                                kg: metrics.totalKg,
+                                duration: metrics.totalDuration,
+                                priority: item.PRIORIDAD || 'Normal',
+                                status: 'PENDING',
+                                items: parsedItems,
+                                metrics,
+                                sampiKg: metrics.sampiKg,
+                                regularKg: metrics.regularKg,
+                                flags: {}
+                            };
+                        });
+
+                        return mapped.filter(item => !ignoredPendingIds.has(item.id));
+                    }
+
+                    async function uploadMassiveExcel(input) {
+                        const file = input.files[0];
+                        if (!file) return;
+
+                        const formData = new FormData();
+                        formData.append('csvFile', file); // bulk-upload.php expects 'csvFile'
+
+                        // Show loading
+                        Swal.fire({
+
+                            title: 'Procesando...',
+                            text: 'Subiendo y procesando archivo Excel/CSV',
+                            allowOutsideClick: false,
+                            didOpen: () => {
+                                Swal.showLoading();
+                            }
+                        });
+
+                        try {
+                            const token = localStorage.getItem('token');
+
+                            const res = await fetch(AppConfig.API.BULK_UPLOAD, {
+
+                                method: 'POST',
+                                headers: token ? {
+                                    'Authorization': `Bearer ${token}`
+                                }
+
+                                    : undefined,
+                                body: formData
+                            });
+
+                            const data = await res.json();
+
+                            if (res.ok && data.success) {
+                                Swal.fire({
+
+                                    icon: 'success',
+                                    title: 'Carga Completada',
+                                    html: `<p>Procesados: <strong>${data.processed}</strong></p><p>Errores: <strong>${data.errors}</strong></p>`,
+                                    timer: 3000
+                                });
+                                // Refresh data
+                                fetchData();
+                            }
+
+                            else {
+                                throw new Error('Error en la carga');
+                            }
+                        }
+
+                        catch (e) {
+                            console.error(e);
+
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Error',
+                                text: 'No se pudo procesar el archivo. Verifique la conexión o el formato.'
+                            });
+                        }
+
+                        finally {
+                            input.value = ''; // Reset
+                        }
+                    }
+
+                    // --- RENDER BOARD (TIME GRID) ---
+                    function initBoardLayout() {
+                        const container = document.getElementById('boardContainer');
+                        // Ensure container takes full height and handles overflow
+                        container.className = "flex-1 h-full overflow-auto bg-slate-200/50 p-4";
+
+                        // Generate Time Slots (04:00 to 20:00)
+                        const timeSlots = [];
+                        let currentH = 4; // 4 AM
+                        let currentM = 0;
+                        const endH = 20; // 8 PM
+
+                        while (currentH < endH || (currentH === endH && currentM === 0)) {
+                            timeSlots.push({
+                                h: currentH, m: currentM, label: formatTime(currentH, currentM)
+                            });
+                            currentM += 30;
+
+                            if (currentM >= 60) {
+                                currentH++;
+                                currentM = 0;
+                            }
+                        }
+
+                        const resources = [{
+                            id: 'Puerta 1', name: 'Puerta 1'
+                        }
+
+                            ,
+                        {
+                            id: 'Puerta 2', name: 'Puerta 2'
+                        }
+
+                            ,
+                        {
+                            id: 'Puerta 3', name: 'Puerta 3'
+                        }
+
+                            ,
+                        {
+                            id: 'Puerta 4', name: 'Puerta 4'
+                        }
+
+                            ,
+                        {
+                            id: 'Sampi', name: 'Sampi'
+                        }
+
+                        ];
+
+                        // Build Grid HTML
+                        // Header Row
+                        let html = `<div class="inline-block min-w-full"><div class="flex sticky top-0 z-20 shadow-xl bg-slate-800/90 backdrop-blur border-b border-indigo-500/30 rounded-t-lg"><div class="w-16 bg-slate-900/90 border-r border-slate-700 p-2 font-bold text-center text-xs flex items-center justify-center flex-none text-indigo-400">Hora</div>${resources.map(r=>`<div class="w-64 bg-slate-800/80 text-indigo-100 p-2 border-r border-slate-700 font-bold text-center text-sm flex-none shadow-sm tracking-wide">${r.name}</div>`).join('')}</div>`;
+
+                        // Time Function: isSampiTime? 
+                        // We'll calculate it later.
+
+                        // Rows
+                        timeSlots.forEach(slot => {
+                            const timeLabel = slot.label;
+                            const isHalfHour = slot.m === 30;
+
+                            // Row Container - Alternating backgrounds for rows (very subtle)
+                            const rowBg = isHalfHour ? 'bg-slate-800/30' : 'bg-transparent';
+
+                            html += `<div class="flex border-b border-slate-700/50 ${rowBg} hover:bg-slate-700/40 transition-colors group/row" >`;
+
+                            // Time Cell
+                            html += `<div class="w-16 bg-slate-900/80 border-r border-slate-700 p-1 text-[10px] font-bold text-slate-500 text-center sticky left-0 z-10 flex items-center justify-center group-hover/row:bg-slate-800 group-hover/row:text-indigo-300 transition-colors flex-none backdrop-blur-sm">${timeLabel}</div>`;
+
+                            // Resource Cells (Drop Zones)
+                            resources.forEach(res => {
+                                // ID for the cell: "cell-RESOURCE-TIME"
+                                const cellId = `cell-${res.id.replace(/\s+/g, '-')}-${String(slot.h).padStart(2, '0')}-${String(slot.m).padStart(2, '0')}`;
+
+                                html += `<div id="${cellId}" class="w-64 border-r border-slate-700/50 min-h-[100px] p-2 relative grid-cell-dropzone transition-colors flex-none hover:bg-white/5" data-resource="${res.id}" data-h="${slot.h}" data-m="${slot.m}"></div>`;
+                            });
+
+                            html += `</div>`; // End Row
+                        });
+
+                        html += `</div>`; // End Main Wrapper
+                        container.innerHTML = html;
+
+                        // Init Sortable on ALL cells
+                        document.querySelectorAll('.grid-cell-dropzone').forEach(cell => {
+                            new Sortable(cell, {
+
+                                group: 'shared',
+                                sort: true,
+                                animation: 150,
+                                ghostClass: 'sortable-ghost',
+                                dragClass: 'sortable-drag',
+                                swapThreshold: 0.65,
+                                onMove: function (evt) {
+                                    // Highlight drop target
+                                    document.querySelectorAll('.drop-target-active').forEach(el => el.classList.remove('drop-target-active'));
+                                    const target = evt.to.closest('.time-slot') || evt.to;
+                                    if (target) target.classList.add('drop-target-active');
+                                }
+
+                                ,
+                                onEnd: function (evt) {
+                                    document.querySelectorAll('.drop-target-active').forEach(el => el.classList.remove('drop-target-active'));
+
+                                    const itemEl = evt.item;
+                                    const newCell = evt.to.closest('.time-slot') || evt.to;
+                                    const newRes = newCell.getAttribute('data-resource');
+                                    const newH = newCell.getAttribute('data-h');
+                                    const newM = newCell.getAttribute('data-m');
+                                    const bookingId = itemEl.dataset.id;
+
+                                    if (newRes) {
+                                        // Update booking Time AND Resource
+                                        updateBookingSlot(bookingId, newRes, parseInt(newH), parseInt(newM));
+                                    }
+
+                                    else {
+                                        // Dragged out? Back to pending?
+                                        updateBookingStatus(bookingId, 'PENDING');
+                                    }
+                                }
+                            });
+                        });
+                    }
+
+                    function renderBoard() {
+                        // Clear all cells first? No, innerHTML rewrite clears them.
+                        // But if we want to preserve drag state, full re-render is safest for sync.
+                        // Let's just re-run init usually or just clear cells? 
+                        // Clearing 100+ cells is fast.
+                        document.querySelectorAll('.grid-cell-dropzone').forEach(c => c.innerHTML = '');
+
+                        bookings.forEach(b => {
+                            if ((b.status || '').toUpperCase() === 'PENDING') return;
+
+                            // Find target cell
+                            // Format: cell-Resource-HH-MM
+                            // We need to map actual time to the slot. 
+                            // If booking is 8:15, it goes to 8:00 slot? Or exact? 
+                            // Specs say 30 min blocks. We map to nearest previous block.
+
+                            // Normalize time to 00 or 30
+                            const startHour = Number(b.startTimeHour ?? 0);
+                            const startMinute = Number(b.startTimeMinute ?? 0);
+                            let m = startMinute >= 30 ? 30 : 0;
+                            let h = startHour;
+
+                            // Sanity check range
+                            if (h < 4 || h > 20) return; // Hide out of range or put in special place?
+
+                            const cellId = `cell-${b.resourceId.replace(/\s+/g, '-')}-${String(h).padStart(2, '0')}-${String(m).padStart(2, '0')}`;
+                            const cell = document.getElementById(cellId);
+
+                            if (cell) {
+                                const card = createCardElement(b);
+                                const durationMinutes = Number(b.duration ?? SLOT_DURATION);
+                                const slots = Math.max(1, Math.ceil(durationMinutes / SLOT_DURATION));
+                                const slotHeight = cell.getBoundingClientRect().height || 100;
+                                const cardHeight = Math.max(slotHeight - 8, (slotHeight * slots) - 8);
+
+                                card.style.position = 'absolute';
+                                card.style.top = '4px';
+                                card.style.left = '4px';
+                                card.style.right = '4px';
+                                card.style.height = `${cardHeight}px`;
+                                card.style.zIndex = 5 + slots;
+                                card.dataset.slots = slots;
+
+                                cell.appendChild(card);
+                            }
+                        });
+                    }
+
+                    function createCardElement(b) {
+                        const el = document.createElement('div');
+                        // Modern Dark Card Style
+                        el.className = `card-3d bg-slate-800/90 backdrop-blur-md p-2 rounded-lg shadow-lg border border-slate-600/50 cursor-pointer relative overflow-hidden group hover: shadow-cyan-500/20 hover:border-cyan-500/50 transition-all h-full`;
+                        el.setAttribute('data-id', b.id);
+                        el.setAttribute('data-resource', b.resourceId);
+
+                        el.onclick = (e) => {
+                            e.stopPropagation();
+                            openEditModal(b);
+                        };
+
+                        // Priority Border
+                        const priorityColors = {
+                            'Urgente': '!border-l-4 !border-l-red-500',
+                            'Lista': '!border-l-4 !border-l-emerald-500',
+                            'Espera': '!border-l-4 !border-l-amber-500',
+                            'Normal': '!border-l-4 !border-l-blue-500'
+                        };
+                        const priorityClass = priorityColors[b.priority] || priorityColors['Normal'];
+
+                        // Apply priority class safely
+                        priorityClass.split(' ').forEach(c => el.classList.add(c.replace('!', '')));
+
+                        // Sampi Strip
+                        let sampiBar = '';
+                        const isSampiResource = (b.resourceId || '').toLowerCase() === 'sampi';
+                        const isSampi = Number(b.sampi_on) === 1 || isSampiResource;
+
+                        if (isSampi) {
+                            el.classList.add('bg-purple-900/20');
+                            // Diagonal stripes for Sampi
+                            el.style.backgroundImage = "repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(168, 85, 247, 0.1) 10px, rgba(168, 85, 247, 0.1) 20px)";
+                            sampiBar = `<div class="absolute top-0 right-0 p-1"><i class="fa-solid fa-bolt text-purple-400 animate-pulse drop-shadow-[0_0_5px_rgba(168,85,247,0.8)]" title="Sampi Activo"></i></div>`;
+                        }
+
+                        const startHour = Number(b.startTimeHour ?? 0);
+                        const startMinute = Number(b.startTimeMinute ?? 0);
+                        const duration = Number(b.duration ?? SLOT_DURATION);
+                        const startLabel = formatTime(startHour, startMinute);
+                        const endTotal = startHour * 60 + startMinute + duration;
+                        const endHour = Math.floor(endTotal / 60);
+                        const endMinute = endTotal % 60;
+                        const endLabel = formatTime(endHour % 24, endMinute);
+                        const weight = Number(b.kg ?? b.totalKg ?? 0);
+
+                        el.innerHTML = `<div class="flex justify-between items-start leading-tight mb-1"><span class="font-bold text-slate-100 text-xs truncate w-[85%] group-hover:text-cyan-300 transition-colors shadow-black drop-shadow-sm">${b.client}</span></div><div class="text-[10px] text-slate-400 truncate leading-tight mb-1">${b.description || '-'}</div><div class="text-[10px] text-slate-500 font-mono">${startLabel} - ${endLabel}</div><div class="flex justify-between items-end mt-2 border-t border-slate-700/50 pt-1"><div class="text-[10px] font-bold text-slate-300 bg-slate-700/50 px-1.5 py-0.5 rounded border border-slate-600">${weight.toFixed(0)} kg</div><div class="text-[10px] text-slate-400 flex items-center gap-1"><i class="fa-regular fa-clock text-[9px]"></i>${b.duration}m</div></div>${sampiBar}`;
+                        return el;
+                    }
+
+                    function formatTime(h, m) {
+                        return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+                    }
+
+                    // --- DRAWER PENDING ---
+                    function setupDrawer() {
+                        const drawer = document.getElementById('drawer');
+                        const mainContent = document.getElementById('mainContent');
+                        const list = document.getElementById('pendingList');
+
+                        window.openDrawer = () => {
+                            drawer.classList.add('open');
+                            mainContent.style.marginLeft = '320px';
+                        };
+
+                        window.closeDrawer = () => {
+                            drawer.classList.remove('open');
+                            mainContent.style.marginLeft = '0';
+                        };
+                        window.toggleDrawer = () => drawer.classList.contains('open') ? closeDrawer() : openDrawer();
+
+                        drawer.addEventListener('mouseleave', () => setTimeout(() => {
+                            if (!drawer.matches(':hover')) closeDrawer();
+                        }
+
+                            , 800));
+
+                        new Sortable(list, {
+
+                            group: 'shared',
+                            animation: 150,
+                            ghostClass: 'sortable-ghost',
+                            dragClass: 'sortable-drag',
+                            fallbackOnBody: true,
+                            swapThreshold: 0.65,
+                            onMove: function (evt) {
+                                // Highlight drop target
+                                document.querySelectorAll('.drop-target-active').forEach(el => el.classList.remove('drop-target-active'));
+                                const target = evt.to.closest('.time-slot');
+                                if (target) target.classList.add('drop-target-active');
+                            }
+
+                            ,
+                            onEnd: async function (evt) {
+                                // Cleanup highlights
+                                document.querySelectorAll('.drop-target-active').forEach(el => el.classList.remove('drop-target-active'));
+
+                                const itemEl = evt.item;
+                                const targetCell = evt.to.closest('.time-slot') || evt.to; // robust target check
+                                const newResourceId = targetCell.getAttribute('data-resource');
+
+                                if (newResourceId) {
+                                    const id = itemEl.getAttribute('data-id');
+                                    const h = Number(targetCell.getAttribute('data-h'));
+                                    const m = Number(targetCell.getAttribute('data-m'));
+
+                                    // Check if valid move (from drawer to board)
+                                    const booking = pendingBookings.find(b => b.id === id);
+
+                                    if (booking) {
+                                        await schedulePendingBooking(booking, newResourceId, h, m);
+                                        itemEl.remove(); // Visual removal handled by renderPending usually, but safe here
+                                    }
+                                }
+                            }
+                        });
+                    }
+
+                    window.setPendingFilter = (type) => {
+                        window.currentPendingFilter = type;
+                        const btnAll = document.getElementById('btnFilterAll');
+                        const btnSampi = document.getElementById('btnFilterSampi');
+
+                        if (btnAll && btnSampi) {
+                            if (type === 'ALL') {
+                                btnAll.className = 'px-2 py-0.5 text-[10px] bg-slate-700 text-slate-200 rounded transition-all';
+                                btnSampi.className = 'px-2 py-0.5 text-[10px] text-purple-400 hover:bg-white/5 rounded transition-all';
+                            }
+
+                            else {
+                                btnAll.className = 'px-2 py-0.5 text-[10px] text-slate-400 hover:bg-white/5 rounded transition-all';
+                                btnSampi.className = 'px-2 py-0.5 text-[10px] bg-purple-900/30 text-purple-300 rounded border border-purple-500/30 transition-all';
+                            }
+                        }
+
+                        renderPending();
+                    };
+
+                    function renderPending() {
+                        const list = document.getElementById('pendingList');
+                        const countBadge = document.getElementById('pendingCount');
+                        const alertsBox = document.getElementById('pendingAlerts');
+
+                        const filterType = window.currentPendingFilter || 'ALL';
+                        const filterClient = (document.getElementById('pendingFilterClient')?.value || '').toLowerCase();
+                        const filterDate = document.getElementById('pendingFilterDate')?.value;
+                        const sortMode = document.getElementById('pendingSort')?.value || 'ID_DESC';
+
+                        list.innerHTML = '';
+
+                        let filtered = pendingBookings.filter(b => {
+                            if (filterType === 'SAMPI' && !b.metrics?.requiresSampi) return false;
+                            if (filterClient && !b.client.toLowerCase().includes(filterClient) && !String(b.orderNumber || '').includes(filterClient)) return false;
+
+                            if (filterDate) {
+                                const bDate = b.date ? b.date.substring(0, 10) : '';
+                                if (bDate !== filterDate) return false;
+                            }
+
+                            return true;
+                        });
+
+                        filtered.sort((a, b) => {
+                            if (sortMode === 'ID_DESC') return b.id - a.id;
+                            if (sortMode === 'ID_ASC') return a.id - b.id;
+                            if (sortMode === 'CLIENT_ASC') return a.client.localeCompare(b.client);
+                            if (sortMode === 'CLIENT_DESC') return b.client.localeCompare(a.client);
+                            if (sortMode === 'ORDER_ASC') return String(a.orderNumber || '').localeCompare(String(b.orderNumber || ''));
+                            return 0;
+                        });
+
+                        countBadge.textContent = filtered.length;
+
+                        if (alertsBox) {
+                            const messages = [];
+
+                            // Only show alerts if filters are somewhat clear
+                            if (!filterClient && !filterDate && filterType === 'ALL') {
+                                if (orderDiagnostics?.duplicates?.length) {
+                                    const dupSample = orderDiagnostics.duplicates.slice(0, 3).join(', ');
+                                    const suffix = orderDiagnostics.duplicates.length > 3 ? '…' : '';
+
+                                    messages.push(`Duplicados recientes: ${dupSample}${suffix}`);
+                                }
+                            }
+
+                            if (messages.length) {
+                                alertsBox.innerHTML = messages.map(m => `<span>${m}</span>`).join('');
+                                alertsBox.classList.remove('hidden');
+                            }
+
+                            else {
+                                alertsBox.classList.add('hidden');
+                            }
+                        }
+
+                        if (filtered.length === 0) {
+                            list.innerHTML = '<div class="text-center text-slate-400 text-sm mt-10">No hay pedidos que coincidan.</div>';
+                            return;
+                        }
+
+                        filtered.forEach(b => {
+                            const flags = b.flags || {};
+                            const isMissing = Boolean(flags.missing);
+                            // Flag duplicates but allow them to be seen clearly
+                            const isDuplicate = Boolean(flags.duplicate || flags.alreadyScheduled);
+
+                            const card = document.createElement('div');
+                            let cardClass = "p-3 rounded-lg border shadow-sm text-sm cursor-grab mb-2 relative group transition-all hover:scale-[1.02] ";
+
+                            if (isMissing) {
+                                cardClass += " bg-red-900/20 border-red-500/50 border-l-4 border-l-red-500 text-red-200";
+                            }
+
+                            else if (isDuplicate) {
+                                cardClass += " bg-orange-900/10 border-orange-500/30 border-l-4 border-l-orange-500 text-slate-300 opacity-90";
+                            }
+
+                            else {
+                                cardClass += " bg-slate-800/80 backdrop-blur border-slate-600 border-l-4 border-l-yellow-500 text-slate-200 hover:border-blue-400 hover:bg-slate-700";
+                            }
+
+                            card.className = cardClass;
+                            card.setAttribute('data-id', b.id);
+
+                            card.onclick = () => {
+                                if (isMissing) return Swal.fire('Faltante', `Esperando: ${b.orderNumber}`, 'warning');
+                                // Duplicate doesn't block opening anymore, just visual warning
+                                openEditModal(b);
+                            };
+
+                            const metrics = b.metrics || { sampiKg: 0 };
+                            let badgeHtml = '';
+                            if (isMissing) badgeHtml = '<span class="ml-2 text-[9px] font-bold text-red-100 bg-red-600 px-1.5 py-0.5 rounded shadow-sm">SIN PEDIDO</span>';
+                            else if (isDuplicate) badgeHtml = '<span class="ml-2 text-[9px] font-bold text-orange-100 bg-orange-600/80 px-1.5 py-0.5 rounded shadow-sm">DUPLICADO</span>';
+
+                            card.innerHTML = `<div class="flex justify-between items-start"><div class="font-bold text-slate-100 truncate w-[70%]">${b.client}</div>${badgeHtml}</div><div class="text-xs text-slate-400 mb-1 flex items-center gap-1"><i class="fa-solid fa-hashtag text-[10px]"></i> ${b.orderNumber || '-'}</div><div class="flex justify-between text-xs font-semibold text-slate-500 mt-2 pt-2 border-t border-white/5"><span class="text-slate-300 bg-slate-900/50 px-1.5 rounded">${Number(b.kg).toFixed(0)} kg</span><div class="text-right"><div>${b.duration} min</div>${metrics.requiresSampi ? '<span class="text-purple-400 text-[10px] animate-pulse">SAMPI</span>' : ''}</div></div>`;
+                            list.appendChild(card);
+                        });
+                    }
+
+                    async function schedulePendingBooking(booking, resourceId, hour, minute) {
+                        if (!booking || !resourceId) return;
+
+                        if (booking.flags?.missing) {
+                            Swal.fire('Pedido faltante', 'No se puede planificar un pedido que aún no fue generado.', 'warning');
+                            return;
+                        }
+
+                        // Allow scheduling duplicate with confirmation
+                        if (booking.flags?.duplicate || booking.flags?.alreadyScheduled) {
+                            const res = await Swal.fire({
+                                title: '¿Pedido Duplicado?',
+                                text: 'Este pedido ya parece estar en el tablero. ¿Quieres planificarlo de todas formas?',
+                                icon: 'question',
+                                showCancelButton: true,
+                                confirmButtonText: 'Sí, planificar',
+                                cancelButtonText: 'Cancelar',
+                                confirmButtonColor: '#f97316'
+                            });
+                            if (!res.isConfirmed) return;
+                        }
+
+                        const payloads = buildSchedulePayloads(booking, resourceId, hour, minute);
+
+                        if (payloads.length === 0) {
+                            Swal.fire('Sin datos', 'No hay productos para planificar.', 'info');
+                            return;
+                        }
+
+                        const token = localStorage.getItem('token');
+
+                        try {
+                            for (const payload of payloads) {
+                                const res = await fetch(`${API_URL}/manage.php`, {
+                                    method: 'POST',
+                                    headers: {
+
+                                        'Content-Type': 'application/json',
+                                        ...(token ? {
+                                            'Authorization': `Bearer ${token}`
+                                        }
+
+                                            : {})
+                                    }
+
+                                    ,
+                                    body: JSON.stringify(payload)
+                                });
+
+                                if (!res.ok) {
+                                    const errorBody = await res.json().catch(() => ({}));
+                                    throw new Error(errorBody.error || 'No se pudo agendar la carga');
+                                }
+                            }
+
+                            ignoredPendingIds.add(booking.id);
+                            pendingBookings = pendingBookings.filter(b => b.id !== booking.id);
+                            renderPending();
+
+                            Swal.fire({
+                                icon: 'success',
+                                title: 'Carga planificada',
+                                toast: true,
+                                timer: 1500,
+                                showConfirmButton: false,
+                                position: 'top-end'
+                            });
+                            fetchData();
+                        }
+
+                        catch (error) {
+                            console.error(error);
+                            Swal.fire('Error', error.message || 'No se pudo planificar la carga', 'error');
+                        }
+                    }
+
+                    function buildSchedulePayloads(booking, resourceId, hour, minute) {
+                        const metrics = booking.metrics || getMetricsFromItems(booking.items, booking.kg);
+
+                        const {
+                            sampiItems,
+                            regularItems
+                        }
+
+                            = splitItemsBySampi(booking.items || []);
+
+                        const basePayload = {
+                            client: booking.client,
+                            clientCode: booking.clientCode || null,
+                            orderNumber: booking.orderNumber || null,
+                            description: booking.description || '',
+                            priority: booking.priority || 'Normal',
+                            date: currentDate,
+                            startTimeHour: hour,
+                            startTimeMinute: minute,
+                            observations: booking.observations || '',
+                            status: 'PLANNED',
+                            color: 'blue'
+                        };
+
+                        const payloads = [];
+                        const requiresAutoSampi = metrics.requiresSampi && metrics.sampiKg > 0 && resourceId !== 'Sampi';
+
+                        if (requiresAutoSampi) {
+                            if (metrics.regularKg > 0) {
+                                payloads.push({
+                                    ...basePayload,
+                                    resourceId,
+                                    kg: Number(metrics.regularKg),
+                                    duration: metrics.regularDuration || SLOT_DURATION,
+                                    items: regularItems,
+                                    sampi_on: 0
+                                });
+                            }
+
+                            payloads.push({
+
+                                ...basePayload,
+                                resourceId: 'Sampi',
+                                kg: Number(metrics.sampiKg),
+                                duration: metrics.sampiDuration || SLOT_DURATION,
+                                items: sampiItems,
+                                sampi_on: 1,
+                                description: `${booking.description || booking.client}
+
+                [Sampi]`
+                            });
+                        }
+
+                        else {
+                            payloads.push({
+                                ...basePayload,
+                                resourceId,
+                                kg: Number(metrics.totalKg),
+                                duration: metrics.totalDuration || SLOT_DURATION,
+                                items: booking.items,
+                                sampi_on: metrics.requiresSampi ? 1 : 0
+                            });
+                        }
+
+                        return payloads;
+                    }
+
+                    // window.filterPending replaced by setPendingFilter
+
+                    // --- MODAL LOGIC (ADVANCED) ---
+                    window.openModal = () => {
+                        resetModal();
+                        document.getElementById('bookingModal').classList.remove('hidden');
+                        setTimeout(() => document.getElementById('bookingModal').classList.remove('opacity-0'), 10);
+                    };
+
+                    window.openEditModal = (booking) => {
+                        openModal();
+                        currentModalBookingId = booking.id;
+
+                        document.getElementById('modalTitle').textContent = `Editar Carga #${booking.id}`;
+                        document.getElementById('deleteBtn').classList.remove('hidden');
+
+                        // Populate Fields
+                        document.getElementById('clientName').value = booking.client;
+                        document.getElementById('clientCode').value = booking.clientCode || '';
+                        document.getElementById('orderNumber').value = booking.orderNumber || '';
+                        document.getElementById('priority').value = booking.priority || 'Normal';
+                        document.getElementById('resourceSelect').value = booking.resourceId;
+                        document.getElementById('startTime').value = formatTime(booking.startTimeHour, booking.startTimeMinute);
+                        document.getElementById('duration').value = booking.duration;
+                        document.getElementById('calcDuration').textContent = `${booking.duration} min`;
+                        document.getElementById('observations').value = booking.observations || '';
+                        document.getElementById('realStartTime').value = booking.realStartTime || '';
+                        document.getElementById('realEndTime').value = booking.realEndTime || '';
+
+                        // Populate Items - use the calculated items if available
+                        try {
+                            itemsList = booking.items && booking.items.length > 0 ? (typeof booking.items === 'string' ? JSON.parse(booking.items) : booking.items) :
+                                (booking.items || []);
+                        }
+
+                        catch (e) {
+                            itemsList = [];
+                        }
+
+                        if (!itemsList || itemsList.length === 0) {
+
+                            // Dummy load fallback
+                            itemsList = [{
+                                code: 'GENERIC', qty: 1, coef: 1, kg: Number(booking.kg)
+                            }
+
+                            ];
+                        }
+
+                        renderItemsTable();
+                        recalculateTotals();
+                    };
+
+                    window.closeModal = () => {
+                        document.getElementById('bookingModal').classList.add('opacity-0');
+                        setTimeout(() => document.getElementById('bookingModal').classList.add('hidden'), 300);
+                    };
+
+                    function resetModal() {
+                        currentModalBookingId = null;
+                        itemsList = [];
+                        document.getElementById('bookingForm').reset();
+                        document.getElementById('modalTitle').textContent = 'Nueva Carga';
+                        document.getElementById('deleteBtn').classList.add('hidden');
+                        document.getElementById('itemsTableBody').innerHTML = '';
+                        document.getElementById('calcTotalKg').textContent = '0.00';
+                        document.getElementById('calcDuration').textContent = '0 min';
+                        document.getElementById('calcSampiKg').textContent = '0.00';
+                        document.getElementById('sampiBadge').className = 'px-3 py-1 rounded-full text-xs font-bold bg-slate-700 text-slate-500';
+                        document.getElementById('sampiBadge').textContent = 'SAMPI OFF';
+                    }
+
+                    // ITEMS TABLE LOGIC
+                    window.addItemRow = () => {
+                        itemsList.push({
+                            code: '', qty: 0, coef: 1.0, kg: 0
+                        });
+                        renderItemsTable();
+                    };
+
+                    function renderItemsTable() {
+                        const tbody = document.getElementById('itemsTableBody');
+                        tbody.innerHTML = '';
+
+                        itemsList.forEach((item, index) => {
+                            const tr = document.createElement('tr');
+
+                            tr.innerHTML = `<td class="px-2 py-1"><input type="text" value="${item.code}" onchange="updateItem(${index}, 'code', this.value)" class="w-full text-xs bg-slate-800 text-slate-200 border-b border-slate-600 focus:border-blue-500 outline-none uppercase px-2 py-1 rounded" placeholder="Código"></td><td class="px-2 py-1"><input type="number" value="${item.qty}" onchange="updateItem(${index}, 'qty', this.value)" class="w-full text-xs bg-slate-800 text-slate-200 border border-slate-600 rounded px-2 py-1 focus:border-blue-500 outline-none"></td><td class="px-2 py-1 text-right font-mono font-bold text-slate-300">${Number(item.kg).toFixed(2)}</td><td class="px-2 py-1 text-center"><button type="button" onclick="removeItem(${index})" class="text-red-400 hover:text-red-600"><i class="fa-solid fa-times"></i></button></td>`;
+                            tbody.appendChild(tr);
+                        });
+                    }
+
+                    window.updateItem = (index, field, value) => {
+                        const item = itemsList[index];
+
+                        if (field === 'code') {
+                            item.code = value.toUpperCase();
+
+                            // Lookup coefficient
+                            if (COEFFICIENTS[item.code]) {
+                                item.coef = COEFFICIENTS[item.code];
+                            }
+
+                            else {
+                                item.coef = 1.0;
+                            }
+                        }
+
+                        else if (field === 'qty') {
+                            item.qty = Number(value);
+                        }
+
+                        // Recalc line KG
+                        item.kg = item.qty * item.coef;
+                        renderItemsTable();
+                        recalculateTotals();
+                    };
+
+                    window.removeItem = (index) => {
+                        itemsList.splice(index, 1);
+                        renderItemsTable();
+                        recalculateTotals();
+                    };
+
+                    function recalculateTotals() {
+                        const metrics = getMetricsFromItems(itemsList);
+
+                        document.getElementById('calcTotalKg').textContent = metrics.totalKg.toFixed(2);
+                        document.getElementById('calcSampiKg').textContent = metrics.sampiKg.toFixed(2);
+
+                        document.getElementById('duration').value = metrics.totalDuration;
+
+                        document.getElementById('calcDuration').textContent = `${metrics.totalDuration} min`;
+
+                        const badge = document.getElementById('sampiBadge');
+
+                        if (metrics.requiresSampi) {
+                            badge.className = 'px-3 py-1 rounded-full text-xs font-bold bg-purple-100 text-purple-600 animate-pulse border border-purple-200';
+                            badge.textContent = 'SAMPI ON';
+                        }
+
+                        else {
+                            badge.className = 'px-3 py-1 rounded-full text-xs font-bold bg-slate-200 text-slate-500';
+                            badge.textContent = 'SAMPI OFF';
+                        }
+                    }
+
+                    // SAVE
+                    window.saveBooking = async () => {
+                        const startTimeVal = document.getElementById('startTime').value;
+                        const resourceId = document.getElementById('resourceSelect').value;
+
+                        const [h,
+                            m] = startTimeVal ? startTimeVal.split(':').map(Number) : [8, 0];
+                        const sampiOn = Number(document.getElementById('calcSampiKg').textContent) > 0;
+
+                        const payload = {
+                            id: currentModalBookingId,
+                            client: document.getElementById('clientName').value,
+                            clientCode: document.getElementById('clientCode').value,
+                            orderNumber: document.getElementById('orderNumber').value,
+                            priority: document.getElementById('priority').value,
+                            resourceId: resourceId,
+                            date: currentDate,
+                            startTimeHour: h,
+                            startTimeMinute: m,
+                            duration: Number(document.getElementById('duration').value),
+                            observations: document.getElementById('observations').value,
+                            realStartTime: document.getElementById('realStartTime').value,
+                            realEndTime: document.getElementById('realEndTime').value,
+                            items: itemsList,
+                            kg: Number(document.getElementById('calcTotalKg').textContent),
+                            sampi_on: sampiOn ? 1 : 0
+                        };
+
+                        // If resource is "PENDIENTE" (if we add that to select) or we want to force explicit status
+                        // If resource is NOT Pending, Status -> PLANNED
+                        if (resourceId !== 'PENDIENTE') {
+                            payload.status = 'PLANNED';
+                        }
+
+                        else {
+                            payload.status = 'PENDING';
+                        }
+
+                        try {
+                            const realMethod = payload.id ? 'PUT' : 'POST';
+
+                            const res = await fetch(`${API_URL}/manage.php`, {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                                    'X-HTTP-Method-Override': realMethod
+                                },
+                                body: JSON.stringify(payload)
+                            });
+
+                            if (res.ok) {
+                                closeModal();
+                                fetchData();
+
+                                Swal.fire({
+                                    icon: 'success', title: 'Guardado', toast: true, position: 'top-end', showConfirmButton: false, timer: 1500
+                                });
+                            }
+
+                            else {
+                                Swal.fire('Error', 'No se pudo guardar', 'error');
+                            }
+                        }
+
+                        catch (e) {
+                            console.error(e);
+                        }
+                    };
+
+                    window.deleteBooking = async () => {
+                        if (!currentModalBookingId) return;
+
+                        const res = await Swal.fire({
+                            title: '¿Eliminar?', icon: 'warning', showCancelButton: true, confirmButtonColor: '#ef4444'
+                        });
+
+                        if (res.isConfirmed) {
+                            await fetch(`${API_URL}/manage.php?id=${currentModalBookingId}`, {
+                                method: 'POST',
+                                headers: {
+                                    'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                                    'X-HTTP-Method-Override': 'DELETE'
+                                }
+                            });
+                            closeModal();
+                            fetchData();
+                        }
+                    };
+
+                    // --- UTILS UPDATE ---
+                    async function updateBookingStatus(id, status, resourceId = null) {
+                        const body = { id, status };
+                        if (resourceId) body.resourceId = resourceId;
+
+                        await fetch(`${API_URL}/manage.php`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                                'X-HTTP-Method-Override': 'PUT'
+                            },
+                            body: JSON.stringify(body)
+                        });
+
+                        // After updating, refetch data to ensure calculations are correct
+                        fetchData();
+                    }
+
+                    async function updateBookingPosition(id, resourceId) {
+                        // Deprecated in favor of Slot
+                        await updateBookingStatus(id, 'PLANNED', resourceId);
+                    }
+
+                    async function updateBookingSlot(id, resourceId, h, m) {
+                        const body = {
+                            id,
+                            status: 'PLANNED',
+                            resourceId: resourceId,
+                            startTimeHour: h,
+                            startTimeMinute: m
+                        };
+
+                        await fetch(`${API_URL}/manage.php`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                                'X-HTTP-Method-Override': 'PUT'
+                            },
+                            body: JSON.stringify(body)
+                        });
+                        // Improve UX: Maybe local update before fetch? For now fetch is safe.
+                        fetchData();
+                    }
+
+                    window.logout = () => {
+                        localStorage.removeItem('token');
+                        window.location.href = 'index.html';
+                    };
+
+                    // --- NATIVE PDF UPLOAD ---
+                    window.uploadPDF = async (input) => {
+                        if (input.files && input.files[0]) {
+                            const file = input.files[0];
+                            const formData = new FormData();
+                            formData.append('pdfFile', file);
+
+                            // Show Loading
+                            Swal.fire({
+                                title: 'Procesando PDF...',
+                                text: 'Extrayendo datos con IA (esto puede tardar unos segundos)',
+                                allowOutsideClick: false,
+                                didOpen: () => {
+                                    Swal.showLoading();
+                                }
+                            });
+
+                            try {
+                                const res = await fetch(`${API_URL}/bookings/upload-pdf.php`, {
+                                    method: 'POST',
+                                    headers: {
+                                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                                    },
+                                    body: formData
+                                });
+
+                                const data = await res.json();
+
+                                if (res.ok) {
+                                    Swal.fire({
+                                        icon: 'success',
+                                        title: '¡Pedido Procesado!',
+                                        text: `Cliente: ${data.data.client} - Items: ${data.data.items.length}`,
+                                        timer: 3000
+                                    });
+                                    // Refresh Pending List
+                                    fetchData();
+                                }
+
+                                else {
+                                    throw new Error(data.error || 'Error desconocido');
+                                }
+                            }
+
+                            catch (e) {
+                                Swal.fire('Error', e.message, 'error');
+                            }
+
+                            // Clear input
+                            input.value = '';
+                        }
+                    };
+
+                    window.uploadMassiveExcel = async (input) => {
+                        if (input.files && input.files[0]) {
+                            const originalFile = input.files[0];
+                            const fileName = originalFile.name.toLowerCase();
+                            const formData = new FormData();
+
+                            // Show Loading
+                            Swal.fire({
+                                title: 'Procesando Archivo...',
+                                text: 'Analizando formato y contenido...',
+                                allowOutsideClick: false,
+                                didOpen: () => {
+                                    Swal.showLoading();
+                                }
+                            });
+
+                            try {
+                                let fileToUpload = originalFile;
+
+                                // SMART CONVERSION: If Excel, convert to CSV client-side
+                                if (fileName.endsWith('.xlsx') || fileName.endsWith('.xls')) {
+                                    Swal.update({
+                                        text: 'Convirtiendo Excel a formato procesable...'
+                                    });
+
+                                    // Read file
+                                    const data = await originalFile.arrayBuffer();
+                                    const workbook = XLSX.read(data);
+
+                                    // Get first sheet
+                                    const firstSheetName = workbook.SheetNames[0];
+                                    const worksheet = workbook.Sheets[firstSheetName];
+
+                                    // SMART HEADER DETECTION
+                                    // Convert to array of arrays to find the real header row (e.g., Row 9)
+                                    const rows = XLSX.utils.sheet_to_json(worksheet, {
+                                        header: 1
+                                    });
+                                    let headerRowIndex = 0;
+
+                                    // Look for the row that contains "N° Pedido" or "N° pedido" or "OrderNumber"
+                                    for (let i = 0; i < Math.min(rows.length, 20); i++) {
+                                        const rowStr = (rows[i] || []).join(' ').toLowerCase();
+
+                                        if (rowStr.includes('n° pedido') || rowStr.includes('nº pedido') || rowStr.includes('codigo tango')) {
+                                            headerRowIndex = i;
+                                            break;
+                                        }
+                                    }
+
+                                    // Update the sheet range to start from the detected header row
+                                    if (headerRowIndex > 0) {
+                                        const range = XLSX.utils.decode_range(worksheet['!ref']);
+                                        range.s.r = headerRowIndex; // Start row matches header
+                                        worksheet['!ref'] = XLSX.utils.encode_range(range);
+                                    }
+
+                                    // Convert to CSV
+                                    const csvContent = XLSX.utils.sheet_to_csv(worksheet);
+
+                                    // Create Blob
+                                    fileToUpload = new File([csvContent], "converted_upload.csv", {
+                                        type: "text/csv",
+                                    });
+                                }
+
+                                // Always send as 'csvFile' because we verified/converted it
+                                formData.append('csvFile', fileToUpload);
+
+                                const res = await fetch(AppConfig.API.BULK_UPLOAD, {
+                                    method: 'POST',
+                                    headers: {
+                                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                                    },
+                                    body: formData
+                                });
+                                const data = await res.json();
+
+                                if (res.ok) {
+                                    let msg = `Procesados: ${data.processed || 0}`;
+
+                                    if (data.errors > 0 || (Array.isArray(data.errors) && data.errors.length > 0)) {
+                                        const errCount = Array.isArray(data.errors) ? data.errors.length : data.errors;
+
+                                        msg += ` | Omitidos/Duplicados: ${errCount}`;
+                                    }
+
+                                    Swal.fire({
+                                        icon: 'success',
+                                        title: 'Carga Masiva Completa',
+                                        text: msg,
+                                        timer: 3000
+                                    });
+                                    fetchData();
+                                }
+
+                                else if (res.status === 400 && data.error && data.error.includes('Excel library')) {
+                                    // Fallback message just in case client conversion failed silently
+                                    throw new Error('Hubo un problema con la conversión del Excel. Por favor intenta guardar como CSV.');
+                                }
+
+                                else {
+                                    throw new Error(data.error || 'Error en carga masiva');
+                                }
+                            }
+
+                            catch (e) {
+                                console.error(e);
+                                const errorMsg = e.message || '';
+
+                                if (errorMsg.includes('XLSX is not defined')) {
+                                    Swal.fire('Error de Librería', 'No se cargó el convertidor de Excel. Recarga la página.', 'error');
+                                }
+
+                                else {
+                                    Swal.fire('Error', e.message, 'error');
+                                }
+                            }
+
+                            // Don't clear immediately if error keeps user from retrying same file easily, but standard is clear.
+                            input.value = '';
+                        }
+                    };
+
+                    // Database Reset Function
+                    window.resetDatabase = async () => {
+                        const {
+                            isConfirmed
+                        }
+
+                            = await Swal.fire({
+                                title: '¿Estás seguro?',
+                                text: "Esto borrará TODOS los pedidos, historial de demanda y desvíos. No se puede deshacer.",
+                                icon: 'warning',
+                                showCancelButton: true,
+                                confirmButtonColor: '#d33',
+                                cancelButtonColor: '#3085d6',
+                                confirmButtonText: 'Sí, vaciar todo',
+                                cancelButtonText: 'Cancelar',
+                                background: '#1e293b',
+                                color: '#fff'
+                            });
+
+                        if (isConfirmed) {
+                            try {
+                                Swal.fire({
+                                    title: 'Limpiando...',
+                                    text: 'Vaciando tablas de datos...',
+                                    allowOutsideClick: false,
+                                    didOpen: () => Swal.showLoading(),
+                                    background: '#1e293b',
+                                    color: '#fff'
+                                });
+
+                                const res = await fetch('/api/reset_data.php', {
+                                    method: 'POST',
+                                    headers: {
+                                        'Content-Type': 'application/json',
+                                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                                    }
+                                });
+
+                                const data = await res.json();
+
+                                if (res.ok && data.success) {
+                                    await Swal.fire({
+                                        title: '¡Limpio!',
+                                        text: 'La base de datos ha sido vaciada correctamente.',
+                                        icon: 'success',
+                                        background: '#1e293b',
+                                        color: '#fff'
+                                    });
+                                    location.reload();
+                                }
+
+                                else {
+                                    throw new Error(data.error || 'Error desconocido al limpiar');
+                                }
+                            }
+
+                            catch (e) {
+                                Swal.fire({
+                                    title: 'Error',
+                                    text: e.message,
+                                    icon: 'error',
+                                    background: '#1e293b',
+                                    color: '#fff'
+                                });
+                            }
+                        }
+                    };
+
+                </script>
 </body>
 
 </html>

@@ -60,6 +60,11 @@ try {
     if ($fileExtension === 'csv') {
         $bookings = parseCSVFile($tempPath);
     } elseif (in_array($fileExtension, ['xlsx', 'xls'])) {
+        if (!class_exists('\PhpOffice\PhpSpreadsheet\IOFactory')) {
+            http_response_code(400);
+            echo json_encode(['error' => 'La librería Excel no está instalada en el servidor. Por favor guarda tu archivo como .CSV e inténtalo de nuevo.']);
+            exit;
+        }
         $bookings = parseExcelFile($tempPath);
     } else {
         throw new Exception('Unsupported file format. Please upload CSV or Excel file.');
@@ -198,12 +203,12 @@ function processBulkUpload($bookings, $pdo, $user) {
                 $regularDuration = $blocks * 30;
             }
 
-            // Prepare booking data
+            // Prepare booking data - Enhanced Mapping
             $bookingData = [
-                'client' => $booking['cliente'] ?? $booking['client'] ?? 'Sin cliente',
-                'orderNumber' => $booking['ordernumber'] ?? $booking['order_number'] ?? $booking['n° pedido'] ?? '',
-                'clientCode' => $booking['clientcode'] ?? $booking['client_code'] ?? '',
-                'description' => $booking['descripcion'] ?? $booking['description'] ?? '',
+                'client' => $booking['cliente'] ?? $booking['client'] ?? $booking['razon_social'] ?? 'Sin cliente',
+                'orderNumber' => $booking['ordernumber'] ?? $booking['order_number'] ?? $booking['n° pedido'] ?? $booking['n_pedido'] ?? $booking['nº pedido'] ?? '',
+                'clientCode' => $booking['clientcode'] ?? $booking['client_code'] ?? $booking['código tango cliente'] ?? $booking['codigo tango cliente'] ?? '',
+                'description' => $booking['descripcion'] ?? $booking['description'] ?? $booking['detalle de lo solicitado'] ?? '',
                 'kg' => $totalKg,
                 'duration' => $regularDuration + $sampiCalc['totalMinutes'],
                 'sampi_on' => $sampiCalc['hasSampi'] ? 1 : 0,
@@ -215,6 +220,21 @@ function processBulkUpload($bookings, $pdo, $user) {
                 'createdAt' => date('Y-m-d H:i:s'),
                 'updatedAt' => date('Y-m-d H:i:s')
             ];
+
+            // Duplicate Check: Verify if orderNumber already exists
+            if (!empty($bookingData['orderNumber'])) {
+                $checkStmt = $pdo->prepare("SELECT id FROM Bookings WHERE orderNumber = :orderNumber LIMIT 1");
+                $checkStmt->execute([':orderNumber' => $bookingData['orderNumber']]);
+                if ($checkStmt->fetch()) {
+                    // Duplicate found: Skip insertion
+                    $errors++; // Count as skipped/error
+                    $results[] = [
+                        'booking' => $booking,
+                        'error' => "Pedido duplicado: {$bookingData['orderNumber']} ya existe. Omitido."
+                    ];
+                    continue; 
+                }
+            }
 
             // Insert into database
             $stmt = $pdo->prepare("
@@ -250,7 +270,7 @@ function parseItemsFromBooking($booking, $pdo) {
         }
     }
 
-    $itemsField = $booking['items'] ?? $booking['productos'] ?? '';
+    $itemsField = $booking['items'] ?? $booking['productos'] ?? $booking['detalle de lo solicitado'] ?? '';
 
     if (!$itemsField) {
         return [];
@@ -258,8 +278,34 @@ function parseItemsFromBooking($booking, $pdo) {
 
     $items = [];
 
-    if (strpos($itemsField, ';') !== false) {
-        // Format: code;qty;coef
+    // Regex Pattern from n8n: /(\d{4}[A-Z]?)\s*\((\d+(?:\.\d+)?)\)/gi
+    // Format: CODE (QTY) e.g., "1027V (90) - 1018F (180)"
+    if (preg_match_all('/(\d{4}[A-Z]?)\s*\((\d+(?:\.\d+)?)\)/i', $itemsField, $matches, PREG_SET_ORDER)) {
+        foreach ($matches as $match) {
+            $code = strtoupper(trim($match[1])); // Group 1: Code
+            $qty = floatval($match[2]);          // Group 2: Qty (in () brackets)
+            
+            // Check coef
+            $coef = $coefficients[$code] ?? 1.0;
+            // In the n8n logic, these (QTY) seem to be KG directly? 
+            // Checking n8n code: "const kg = cantidad * coef;" -> No, quantity * coef = kg. 
+            // Wait, looking at inspect_rows.py output: "1027V (90).00" 
+            // "1018F (180)"
+            // If the excel says (90), is that 90 items or 90 kg?
+            // N8N: const cantidad = parseFloat(match[2]); const kg = cantidad * coef;
+            // So brackets contain Quantity.
+            
+            $kg = $qty * $coef;
+
+            $items[] = [
+                'code' => $code,
+                'qty' => $qty,
+                'coef' => $coef,
+                'kg' => $kg
+            ];
+        }
+    } elseif (strpos($itemsField, ';') !== false) {
+        // Fallback: Legacy Semicolon Format
         $itemParts = explode(';', $itemsField);
         foreach ($itemParts as $itemPart) {
             $parts = explode(',', $itemPart);
@@ -277,8 +323,8 @@ function parseItemsFromBooking($booking, $pdo) {
                 ];
             }
         }
-    } elseif (strpos($itemsField, ',') !== false) {
-        // Format: code,qty,coef
+    } elseif (strpos($itemsField, ',') !== false && !strpos($itemsField, '(')) {
+         // Fallback: Comma, but only if no brackets (brackets imply regex format)
         $itemParts = explode(',', $itemsField);
         foreach ($itemParts as $itemPart) {
             $parts = explode(';', $itemPart);
@@ -297,18 +343,20 @@ function parseItemsFromBooking($booking, $pdo) {
             }
         }
     } else {
-        // Single item
-        $code = $booking['code'] ?? $booking['codigo'] ?? 'GENERIC';
-        $qty = floatval($booking['qty'] ?? $booking['cantidad'] ?? 1);
-        $coef = $coefficients[$code] ?? floatval($booking['coef'] ?? $booking['coeficiente'] ?? 1);
-        $kg = $qty * $coef;
-
-        $items[] = [
-            'code' => $code,
-            'qty' => $qty,
-            'coef' => $coef,
-            'kg' => $kg
-        ];
+        // Single item or different format
+        // Check if it matches single regex
+        if (preg_match('/^(\d{4}[A-Z]?)$/i', trim($itemsField), $m)) {
+             $code = strtoupper($m[1]);
+             $qty = 1;
+             $coef = $coefficients[$code] ?? 1.0;
+             $kg = $qty * $coef;
+             $items[] = ['code'=>$code, 'qty'=>$qty, 'coef'=>$coef, 'kg'=>$kg];
+        } else {
+            // Assume simple format or generic
+            $code = $booking['code'] ?? $booking['codigo'] ?? 'GENERIC';
+            // Only use if really single item structure exists...
+            // If we are here, regex failed.
+        }
     }
 
     return $items;
