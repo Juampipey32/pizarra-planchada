@@ -603,14 +603,16 @@
                         // Calculate Sampi time using NEW pallet logic
                         const sampiCalc = calculateSampiTime(sampiProducts);
 
-                        // Calculate regular duration using KG logic
-                        const regularDuration = regularKg > 0 ? calculateDurationFromKg(regularKg) : 0;
+                        // Calculate regular duration using KG logic (WITHOUT Sampi time)
+                        // Sampi time goes to the accumulated Sampi card, not to the order
+                        const regularDuration = regularKg > 0 ? calculateDurationFromKg(regularKg) : SLOT_DURATION;
 
                         return {
                             totalKg,
                             sampiKg,
                             regularKg,
-                            totalDuration: regularDuration + sampiCalc.totalMinutes,
+                            // totalDuration is ONLY regular products - Sampi time is separate
+                            totalDuration: regularDuration,
                             sampiDuration: sampiCalc.totalMinutes,
                             sampiPallets: sampiCalc.totalPallets,
                             sampiDetail: sampiCalc.detail,
