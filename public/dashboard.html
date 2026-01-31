@@ -1480,9 +1480,10 @@
                             if (!res.isConfirmed) return;
                         }
 
-                        const payloads = buildSchedulePayloads(booking, resourceId, hour, minute);
+                        const scheduleData = buildSchedulePayloads(booking, resourceId, hour, minute);
+                        const { mainPayload, sampiMinutesToAdd, requiresSampi } = scheduleData;
 
-                        if (payloads.length === 0) {
+                        if (!mainPayload) {
                             Swal.fire('Sin datos', 'No hay productos para planificar.', 'info');
                             return;
                         }
@@ -1490,30 +1491,31 @@
                         const token = localStorage.getItem('token');
 
                         try {
-                            for (const payload of payloads) {
-                                // If this is the main payload (not Sampi), update the existing booking
-                                const isMainPayload = payload.resourceId !== 'Sampi';
-                                const method = isMainPayload && booking.id ? 'PUT' : 'POST';
+                            // 1. Save/Update the main booking
+                            const method = booking.id ? 'PUT' : 'POST';
+                            if (booking.id) {
+                                mainPayload.id = booking.id;
+                            }
 
-                                if (isMainPayload && booking.id) {
-                                    payload.id = booking.id;
-                                }
+                            const res = await fetch(`${API_URL}/manage.php`, {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'X-HTTP-Method-Override': method,
+                                    ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+                                },
+                                body: JSON.stringify(mainPayload)
+                            });
 
-                                const res = await fetch(`${API_URL}/manage.php`, {
-                                    method: 'POST',
-                                    headers: {
-                                        'Content-Type': 'application/json',
-                                        'X-HTTP-Method-Override': method,
-                                        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-                                    },
-                                    body: JSON.stringify(payload)
-                                });
+                            if (!res.ok) {
+                                const errorBody = await res.json().catch(() => ({}));
+                                console.error('API Error:', errorBody);
+                                throw new Error(errorBody.error || 'No se pudo agendar la carga');
+                            }
 
-                                if (!res.ok) {
-                                    const errorBody = await res.json().catch(() => ({}));
-                                    console.error('API Error:', errorBody);
-                                    throw new Error(errorBody.error || 'No se pudo agendar la carga');
-                                }
+                            // 2. If has Sampi products, update the daily Sampi card
+                            if (requiresSampi && sampiMinutesToAdd > 0) {
+                                await updateDailySampiCard(sampiMinutesToAdd, scheduleData.sampiPallets, booking.orderNumber);
                             }
 
                             ignoredPendingIds.add(booking.id);
@@ -1522,9 +1524,9 @@
 
                             Swal.fire({
                                 icon: 'success',
-                                title: payloads.length > 1 ? 'Carga + Sampi planificados' : 'Carga planificada',
+                                title: requiresSampi ? `Planificado (+${sampiMinutesToAdd}min Sampi)` : 'Carga planificada',
                                 toast: true,
-                                timer: 1500,
+                                timer: 2000,
                                 showConfirmButton: false,
                                 position: 'top-end'
                             });
@@ -1540,14 +1542,9 @@
                     function buildSchedulePayloads(booking, resourceId, hour, minute) {
                         const metrics = booking.metrics || getMetricsFromItems(booking.items, booking.kg);
 
-                        const {
-                            sampiItems,
-                            regularItems
-                        }
-
-                            = splitItemsBySampi(booking.items || []);
-
-                        const basePayload = {
+                        // Single payload with ALL items, but duration only from regular products
+                        // Sampi time is accumulated separately in the daily Sampi card
+                        const payload = {
                             client: booking.client,
                             clientCode: booking.clientCode || null,
                             orderNumber: booking.orderNumber || null,
@@ -1558,50 +1555,80 @@
                             startTimeMinute: minute,
                             observations: booking.observations || '',
                             status: 'PLANNED',
-                            color: 'blue'
+                            color: 'blue',
+                            resourceId,
+                            kg: Number(metrics.totalKg),
+                            // Duration is ONLY regular products - Sampi time goes to daily card
+                            duration: metrics.totalDuration || SLOT_DURATION,
+                            items: booking.items,
+                            sampi_on: metrics.requiresSampi ? 1 : 0
                         };
 
-                        const payloads = [];
-                        const requiresAutoSampi = metrics.requiresSampi && metrics.sampiKg > 0 && resourceId !== 'Sampi';
+                        return {
+                            mainPayload: payload,
+                            sampiMinutesToAdd: metrics.sampiDuration || 0,
+                            sampiPallets: metrics.sampiPallets || 0,
+                            requiresSampi: metrics.requiresSampi
+                        };
+                    }
 
-                        if (requiresAutoSampi) {
-                            if (metrics.regularKg > 0) {
-                                payloads.push({
-                                    ...basePayload,
-                                    resourceId,
-                                    kg: Number(metrics.regularKg),
-                                    duration: metrics.regularDuration || SLOT_DURATION,
-                                    items: regularItems,
-                                    sampi_on: 0
-                                });
-                            }
+                    // Find or create the daily Sampi card and accumulate time
+                    async function updateDailySampiCard(sampiMinutes, sampiPallets, orderNumber) {
+                        if (sampiMinutes <= 0) return;
 
-                            payloads.push({
+                        const token = localStorage.getItem('token');
 
-                                ...basePayload,
-                                resourceId: 'Sampi',
-                                kg: Number(metrics.sampiKg),
-                                duration: metrics.sampiDuration || SLOT_DURATION,
-                                items: sampiItems,
-                                sampi_on: 1,
-                                description: `${booking.description || booking.client}
+                        // First, try to find existing Sampi card for today
+                        const existingSampi = bookings.find(b =>
+                            b.resourceId === 'Sampi' &&
+                            b.orderNumber === 'SAMPI-DIA'
+                        );
 
-                [Sampi]`
+                        if (existingSampi) {
+                            // Update existing card - add time
+                            const newDuration = Number(existingSampi.duration || 0) + sampiMinutes;
+                            const currentObs = existingSampi.observations || '';
+                            const newObs = currentObs + (currentObs ? '\n' : '') + `+${sampiMinutes}min (#${orderNumber})`;
+
+                            await fetch(`${API_URL}/manage.php`, {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'X-HTTP-Method-Override': 'PUT',
+                                    ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+                                },
+                                body: JSON.stringify({
+                                    id: existingSampi.id,
+                                    duration: newDuration,
+                                    observations: newObs
+                                })
+                            });
+                        } else {
+                            // Create new daily Sampi card
+                            await fetch(`${API_URL}/manage.php`, {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'X-HTTP-Method-Override': 'POST',
+                                    ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+                                },
+                                body: JSON.stringify({
+                                    client: 'SAMPI DEL DÍA',
+                                    orderNumber: 'SAMPI-DIA',
+                                    resourceId: 'Sampi',
+                                    date: currentDate,
+                                    startTimeHour: 4,
+                                    startTimeMinute: 0,
+                                    duration: sampiMinutes,
+                                    status: 'PLANNED',
+                                    priority: 'Normal',
+                                    observations: `+${sampiMinutes}min (#${orderNumber})`,
+                                    sampi_on: 1,
+                                    kg: 0,
+                                    items: []
+                                })
                             });
                         }
-
-                        else {
-                            payloads.push({
-                                ...basePayload,
-                                resourceId,
-                                kg: Number(metrics.totalKg),
-                                duration: metrics.totalDuration || SLOT_DURATION,
-                                items: booking.items,
-                                sampi_on: metrics.requiresSampi ? 1 : 0
-                            });
-                        }
-
-                        return payloads;
                     }
 
                     // window.filterPending replaced by setPendingFilter
