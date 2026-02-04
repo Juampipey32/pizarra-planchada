@@ -2383,6 +2383,16 @@
                 };
                 if (!isBlocked) {
                     body.blocked_debt_amount = payload.amount;
+                    // If booking has Sampi contribution, remove from daily card
+                    try {
+                        const rawItems = booking.items ? (typeof booking.items === 'string' ? JSON.parse(booking.items) : booking.items) : [];
+                        const m = getMetricsFromItems(rawItems, booking.kg || 0);
+                        if (m.requiresSampi && m.sampiDuration > 0) {
+                            await removeFromDailySampiCard(m.sampiDuration, booking.orderNumber);
+                        }
+                    } catch (e) {
+                        console.warn('Sampi removal skipped:', e);
+                    }
                 }
 
                 await fetch(`${API_URL}/${endpoint}`, {
