@@ -751,6 +751,7 @@
 
             (scheduledList || []).forEach(b => {
                 // Fix: Ignore PENDING items that might be returned by the board API
+                // But if BLOCKED, we want to process it so it counts effectively.
                 if (b.status === 'PENDING') return;
 
                 const num = extractNumericOrder(b.orderNumber);
@@ -1296,12 +1297,12 @@
             // Exact style from example: event-card-gradient (Blue/Purple), text-white, shadow-xl
             // Removed absolute positioning logic from here because Sortable controls layout in cell
             // Added h-full/w-full to fill cell
-            let bgClass = "event-card-gradient";
-            if (isBlocked) {
-                bgClass = "bg-red-600 border-2 border-red-800"; // Specific style for blocked in board
-            }
+            // Fix: If blocked, do NOT include event-card-gradient as it might override background-color
+            const finalClass = isBlocked
+                ? "bg-red-600 border-2 border-red-800"
+                : "event-card-gradient";
 
-            el.className = `${bgClass} text-white rounded-lg p-3 shadow-xl cursor-grab relative group hover:scale-[1.02] transition-transform w-full`;
+            el.className = `${finalClass} text-white rounded-lg p-3 shadow-xl cursor-grab relative group hover:scale-[1.02] transition-transform w-full`;
 
             // Blocked Visualization in Board
             if (isBlocked) {
@@ -1458,7 +1459,14 @@
                 if (filterType === 'SAMPI' && !b.metrics?.requiresSampi) return false;
                 if (filterClient && !b.client.toLowerCase().includes(filterClient) && !String(b.orderNumber || '').includes(filterClient)) return false;
 
-                if (filterDate) {
+                // Force show BLOCKED items regardless of date (unless specific date filter logic implies otherwise)
+                // User wants them visible. "en pendientes pone el rojo" implies visibility.
+                // But if date filter is active, maybe we should respect it? 
+                // If the blocked item has date=null, and filterDate is set, it hides. 
+                // Let's SHOW blocked items if they are blocked, or satisfy date.
+                // Or if status is 'BLOCKED', ignore date filter?
+
+                if (filterDate && b.status !== 'BLOCKED') {
                     const bDate = b.date ? b.date.substring(0, 10) : '';
                     if (bDate !== filterDate) return false;
                 }
