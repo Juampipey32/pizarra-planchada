@@ -524,6 +524,11 @@
                 <button type="button" id="deleteBtn" onclick="deleteBooking()"
                     class="text-red-400 hover:bg-red-900/20 px-4 py-2 rounded-lg text-sm font-bold transition-colors"><i
                         class="fa-solid fa-trash-can mr-2"></i>Eliminar </button>
+
+                <button type="button" id="blockBtn" onclick="toggleBlockBooking()"
+                    class="text-orange-400 hover:bg-orange-900/20 px-4 py-2 rounded-lg text-sm font-bold transition-colors hidden ml-2">
+                    <i class="fa-solid fa-lock mr-2"></i>Bloquear
+                </button>
                 <div class="flex gap-3"><button onclick="closeModal()"
                         class="px-6 py-2 rounded-lg text-sm font-bold text-slate-400 hover:text-white hover:bg-slate-800 transition-colors">Cancelar</button><button
                         onclick="saveBooking()"
@@ -1286,10 +1291,22 @@
 
         function createCardElement(b) {
             const el = document.createElement('div');
+            const isBlocked = b.status === 'BLOCKED';
+
             // Exact style from example: event-card-gradient (Blue/Purple), text-white, shadow-xl
             // Removed absolute positioning logic from here because Sortable controls layout in cell
             // Added h-full/w-full to fill cell
-            el.className = `event-card-gradient text-white rounded-lg p-3 shadow-xl cursor-grab relative group hover:scale-[1.02] transition-transform w-full`;
+            let bgClass = "event-card-gradient";
+            if (isBlocked) {
+                bgClass = "bg-red-600 border-2 border-red-800"; // Specific style for blocked in board
+            }
+
+            el.className = `${bgClass} text-white rounded-lg p-3 shadow-xl cursor-grab relative group hover:scale-[1.02] transition-transform w-full`;
+
+            // Blocked Visualization in Board
+            if (isBlocked) {
+                el.style.backgroundImage = "repeating-linear-gradient(45deg, #dc2626, #dc2626 10px, #b91c1c 10px, #b91c1c 20px)";
+            }
 
             // Check if height needs to correspond to duration relative to cell?
             // Current grid cell is min-h-[100px] (30 min). 
@@ -1493,18 +1510,26 @@
                 const isScheduled = Boolean(flags.alreadyScheduled);
                 const isMissing = Boolean(flags.missing);
                 const isDuplicate = Boolean(flags.duplicate) && !isScheduled;
+                const isBlocked = b.status === 'BLOCKED';
 
                 const card = document.createElement('div');
                 // Base Style from Example
                 let cardClass = "bg-white p-3 rounded-lg border border-gray-200 shadow-card hover:shadow-md transition-shadow cursor-pointer relative group mb-3";
 
                 // Conditional Borders/Accents instead of full background changes to maintain clean look
-                if (isMissing) cardClass += " border-l-4 !border-l-red-500";
+                if (isBlocked) {
+                    cardClass += " !bg-red-50 !border-red-500 border-2";
+                }
+                else if (isMissing) cardClass += " border-l-4 !border-l-red-500";
                 else if (isScheduled) cardClass += " border-l-4 !border-l-emerald-500";
                 else if (isDuplicate) cardClass += " border-l-4 !border-l-orange-500 bg-orange-50";
 
                 card.className = cardClass;
                 card.setAttribute('data-id', b.id);
+
+                // Disable click for blocked items? Or allow to unblock? 
+                // User said: "bloqueado para tratamiento hasta que algun bloqueador lo desbloquee"
+                // So we allow click to open modal and UNBLOCK.
 
                 card.onclick = () => {
                     if (isMissing) return Swal.fire('Faltante', `Esperando: ${b.orderNumber}`, 'warning');
@@ -1516,7 +1541,8 @@
 
                 // Status Badge Logic
                 let statusBadge = '';
-                if (isScheduled) statusBadge = '<span class="text-[10px] text-emerald-600 font-bold bg-emerald-50 px-1 rounded ml-auto">AGREGADO</span>';
+                if (isBlocked) statusBadge = '<span class="text-[10px] text-red-700 font-black bg-red-200 px-1.5 py-0.5 rounded ml-auto flex items-center gap-1"><i class="fa-solid fa-lock text-[9px]"></i> BLOQUEADO</span>';
+                else if (isScheduled) statusBadge = '<span class="text-[10px] text-emerald-600 font-bold bg-emerald-50 px-1 rounded ml-auto">AGREGADO</span>';
                 else if (isDuplicate) statusBadge = '<span class="text-[10px] text-orange-600 font-bold ml-auto">DUP</span>';
 
                 // Additional Sampi Tag logic from example (if needed in pending?) 
@@ -1766,6 +1792,26 @@
             document.getElementById('modalTitle').textContent = `Editar Carga #${booking.id}`;
             document.getElementById('deleteBtn').classList.remove('hidden');
 
+            // Block Button Logic
+            const blockBtn = document.getElementById('blockBtn');
+            blockBtn.classList.remove('hidden');
+            if (booking.status === 'BLOCKED') {
+                blockBtn.innerHTML = '<i class="fa-solid fa-unlock mr-2"></i>Desbloquear';
+                blockBtn.className = "text-emerald-400 hover:bg-emerald-900/20 px-4 py-2 rounded-lg text-sm font-bold transition-colors ml-2";
+
+                // Disable save if blocked? 
+                // "bloqueado para tratamiento hasta que algun bloqueador lo desbloquee"
+                // Lets disable the save button to enforce unblocking first
+                document.querySelector('button[onclick="saveBooking()"]').disabled = true;
+                document.querySelector('button[onclick="saveBooking()"]').classList.add('opacity-50', 'cursor-not-allowed');
+            } else {
+                blockBtn.innerHTML = '<i class="fa-solid fa-lock mr-2"></i>Bloquear';
+                blockBtn.className = "text-orange-400 hover:bg-orange-900/20 px-4 py-2 rounded-lg text-sm font-bold transition-colors ml-2";
+
+                document.querySelector('button[onclick="saveBooking()"]').disabled = false;
+                document.querySelector('button[onclick="saveBooking()"]').classList.remove('opacity-50', 'cursor-not-allowed');
+            }
+
             // Populate Fields
             document.getElementById('clientName').value = booking.client;
             document.getElementById('clientCode').value = booking.clientCode || '';
@@ -1852,6 +1898,15 @@
             document.getElementById('bookingForm').reset();
             document.getElementById('modalTitle').textContent = 'Nueva Carga';
             document.getElementById('deleteBtn').classList.add('hidden');
+            document.getElementById('blockBtn')?.classList.add('hidden');
+
+            // Enable save button (reset state)
+            const saveBtn = document.querySelector('button[onclick="saveBooking()"]');
+            if (saveBtn) {
+                saveBtn.disabled = false;
+                saveBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+            }
+
             document.getElementById('itemsTableBody').innerHTML = '';
             document.getElementById('calcTotalKg').textContent = '0.00';
             document.getElementById('calcDuration').textContent = '0 min';
@@ -2135,6 +2190,51 @@
             // After updating, refetch data to ensure calculations are correct
             fetchData();
         }
+
+        window.toggleBlockBooking = async () => {
+            if (!currentModalBookingId) return;
+
+            // Find current status to toggle
+            const booking = bookings.find(b => b.id == currentModalBookingId) || pendingBookings.find(b => b.id == currentModalBookingId);
+            if (!booking) return;
+
+            const isBlocked = booking.status === 'BLOCKED';
+            const newStatus = isBlocked
+                ? (booking.resourceId && booking.resourceId !== 'PENDIENTE' ? 'PLANNED' : 'PENDING')
+                : 'BLOCKED';
+
+            const actionVerb = isBlocked ? 'desbloquear' : 'bloquear';
+            const confirmColor = isBlocked ? '#10b981' : '#ef4444';
+
+            const res = await Swal.fire({
+                title: `¿${actionVerb.charAt(0).toUpperCase() + actionVerb.slice(1)} Pedido?`,
+                text: isBlocked ? "El pedido volverá a estar disponible." : "El pedido quedará inhabilitado para tratamiento.",
+                icon: isBlocked ? 'question' : 'warning',
+                showCancelButton: true,
+                confirmButtonColor: confirmColor,
+                confirmButtonText: `Sí, ${actionVerb}`
+            });
+
+            if (res.isConfirmed) {
+                await fetch(`${API_URL}/manage.php`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                        'X-HTTP-Method-Override': 'PUT'
+                    },
+                    body: JSON.stringify({
+                        id: currentModalBookingId,
+                        status: newStatus
+                    })
+                });
+
+                closeModal();
+                fetchData();
+                Swal.fire(isBlocked ? 'Desbloqueado' : 'Bloqueado', `El pedido ha sido ${isBlocked ? 'desbloqueado' : 'bloqueado'}.`, 'success');
+            }
+        };
+
 
         async function updateBookingPosition(id, resourceId) {
             // Deprecated in favor of Slot

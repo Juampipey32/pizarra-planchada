@@ -34,7 +34,7 @@ try {
             u.username as created_by_username
         FROM Bookings b
         LEFT JOIN Users u ON b.createdBy = u.id
-        WHERE (b.status = 'PENDING' OR b.resourceId = 'PENDIENTE')
+        WHERE (b.status IN ('PENDING', 'BLOCKED') OR b.resourceId = 'PENDIENTE')
         AND b.status != 'CANCELLED'
         ORDER BY b.createdAt DESC
     ");
