@@ -7,11 +7,34 @@
     <title>Centro de Comando Logístico</title>
     <!-- Favicon -->
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
-    <!-- Tailwind CSS (Local Modern Theme) -->
-    <link rel="stylesheet" href="css/tailwind-dashboard.css">
-    <!-- Fallback/Utility CDN (Low Priority) -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/js/all.min.js"></script>
+    <!-- FontAwesome for Icons -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet" />
+    <!-- Google Fonts: Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&amp;display=swap"
+        rel="stylesheet" />
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        'brand-blue': '#2563EB',
+                        'brand-dark': '#1F2937',
+                        'grid-header': '#F3F4F6',
+                        'sidebar-bg': '#FFFFFF',
+                        'main-bg': '#F9FAFB',
+                    },
+                    boxShadow: {
+                        'card': '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)',
+                        'event': '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+                    }
+                }
+            }
+        }
+    </script>
     <!-- SortableJS -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
     <!-- SweetAlert2 -->
@@ -131,150 +154,205 @@
             box-shadow: inset 0 0 0 2px rgba(59, 130, 246, 0.5);
             transition: all 0.2s ease;
         }
+
+        /* Custom scrollbar for sidebar list */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #d1d5db;
+            border-radius: 3px;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #9ca3af;
+        }
+
+        .event-card-gradient {
+            background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+        }
+
+        /* Legacy Classes mapped to new Layout */
+        .drawer.open {
+            transform: translateX(0);
+        }
+
+        /* DnD Visuals */
+        .sortable-ghost {
+            opacity: 0.4;
+            background-color: rgba(59, 130, 246, 0.2) !important;
+            border: 2px dashed #3b82f6 !important;
+        }
+
+        .sortable-drag {
+            cursor: grabbing;
+        }
     </style>
 </head>
 
-<body class="bg-slate-50 text-slate-700 h-screen flex overflow-hidden">
+<body class="bg-main-bg text-gray-800 font-sans h-screen flex overflow-hidden">
     <!-- DRAWER LATERAL (PENDIENTES) -->
     <!-- Se abre al pasar el mouse cerca del borde izquierdo o click en botón -->
+    <!-- BEGIN: Sidebar -->
     <aside id="drawer"
-        class="drawer fixed inset-y-0 left-0 w-80 bg-white border-r border-slate-200 z-50 flex flex-col shadow-2xl">
-        <div class="p-4 bg-white text-slate-800 flex justify-between items-center shrink-0 border-b border-slate-200">
-            <h2 class="font-bold text-lg tracking-wide"><i class="fa-solid fa-inbox mr-2 text-blue-600"></i>Pendientes
-            </h2><span id="pendingCount"
-                class="bg-blue-600 text-white text-xs px-2 py-1 rounded-full shadow-lg shadow-blue-500/50">0</span>
+        class="drawer fixed inset-y-0 left-0 w-80 bg-white border-r border-gray-200 flex flex-col flex-shrink-0 z-50 shadow-2xl transition-transform duration-300 transform -translate-x-full">
+        <!-- Sidebar Header -->
+        <div class="p-4 border-b border-gray-100 flex justify-between items-center">
+            <div class="flex items-center gap-2">
+                <i class="fa-solid fa-inbox text-gray-500"></i>
+                <h2 class="text-gray-800 text-2xl font-extrabold">Pendientes</h2>
+            </div>
+            <span id="pendingCount"
+                class="bg-blue-600 text-white text-xs font-bold w-6 h-6 flex items-center justify-center rounded-full">0</span>
         </div>
-        <!-- Filtro Sampi -->
-        <div class="p-3 bg-slate-50 border-b border-slate-200 flex flex-col gap-2">
-            <!-- Search & Date Row -->
+
+        <!-- Sidebar Controls -->
+        <div class="p-3 space-y-3 bg-white">
+            <!-- Search & Date Inputs -->
             <div class="flex gap-2">
-                <div class="relative flex-1"><i
-                        class="fa-solid fa-magnifying-glass absolute left-2 top-2 text-slate-400 text-xs"></i><input
-                        type="text" id="pendingFilterClient" onkeyup="renderPending()" placeholder="Cliente..."
-                        class="w-full bg-white border border-slate-300 rounded pl-7 pr-2 py-1 text-xs text-slate-700 focus:border-blue-500 focus:outline-none placeholder-slate-400 shadow-sm">
-                </div><input type="date" id="pendingFilterDate" onchange="renderPending()"
-                    class="bg-white border border-slate-300 rounded px-2 py-1 text-xs text-slate-600 focus:border-blue-500 focus:outline-none w-28 shadow-sm">
-            </div>
-            <!-- Sort & Quick Filters Row -->
-            <div class="flex justify-between items-center gap-2">
-                <!-- Quick Toggles -->
-                <div class="flex bg-slate-900 rounded p-0.5 border border-slate-700"><button
-                        onclick="setPendingFilter('ALL')" id="btnFilterAll"
-                        class="px-2 py-0.5 text-[10px] bg-slate-700 text-slate-200 rounded transition-all">Todos</button><button
-                        onclick="setPendingFilter('SAMPI')" id="btnFilterSampi"
-                        class="px-2 py-0.5 text-[10px] text-purple-400 hover:bg-white/5 rounded transition-all">Sampi</button>
+                <div class="relative flex-grow">
+                    <span class="absolute inset-y-0 left-0 flex items-center pl-2 text-gray-400">
+                        <i class="fa-solid fa-magnifying-glass text-xs"></i>
+                    </span>
+                    <input type="text" id="pendingFilterClient" onkeyup="renderPending()"
+                        class="w-full pl-7 pr-2 py-1.5 text-sm border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                        placeholder="Cliente..." />
                 </div>
-                <!-- Sort Select -->
-                <div class="relative flex-1"><select id="pendingSort" onchange="renderPending()"
-                        class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-[10px] text-slate-300 focus:border-blue-500 focus:outline-none appearance-none">
-                        <option value="ID_DESC">Más nuevos</option>
-                        <option value="ID_ASC">Más antiguos</option>
-                        <option value="CLIENT_ASC">Cliente A-Z</option>
-                        <option value="CLIENT_DESC">Cliente Z-A</option>
-                        <option value="ORDER_ASC">N° Pedido</option>
-                    </select></div>
+                <div class="w-1/3">
+                    <input type="date" id="pendingFilterDate" onchange="renderPending()"
+                        class="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 text-center" />
+                </div>
+            </div>
+
+            <!-- Filter Tabs -->
+            <div class="flex space-x-1 border-b border-gray-200 text-sm">
+                <button onclick="setPendingFilter('ALL')" id="btnFilterAll"
+                    class="px-3 py-1 bg-gray-100 text-gray-700 font-medium rounded-t-md border-t border-l border-r border-gray-200">Todos</button>
+                <button onclick="setPendingFilter('SAMPI')" id="btnFilterSampi"
+                    class="px-3 py-1 text-gray-500 hover:text-gray-700">Sampi</button>
+                <!-- Sort Select embedded in Tab style for space -->
+                <select id="pendingSort" onchange="renderPending()"
+                    class="bg-transparent border-0 text-gray-500 text-sm focus:ring-0 cursor-pointer">
+                    <option value="ID_DESC">Más nuevos</option>
+                    <option value="ID_ASC">Más antiguos</option>
+                    <option value="CLIENT_ASC">Cliente A-Z</option>
+                    <option value="ORDER_ASC">N° Pedido</option>
+                </select>
+            </div>
+
+            <div id="pendingAlerts"
+                class="px-3 py-2 text-xs text-yellow-700 bg-yellow-50 border-b border-yellow-200 hidden flex flex-col gap-1">
             </div>
         </div>
-        <div id="pendingAlerts"
-            class="px-3 py-2 text-xs text-yellow-700 bg-yellow-50 border-b border-yellow-200 hidden flex flex-col gap-1">
-        </div>
-        <div id="pendingList" class="flex-1 overflow-y-auto p-3 space-y-3 bg-transparent">
-            <!-- Tarjetas Pendientes Aquí -->
-            <div class="text-center mt-10 flex flex-col items-center gap-3 opacity-60"><i
-                    class="fa-solid fa-circle-notch fa-spin text-3xl text-blue-500"></i><span
-                    class="text-xs text-slate-500 font-medium tracking-wide">Cargando pedidos...</span>
+
+        <!-- Sidebar List Content -->
+        <div id="pendingList" class="flex-1 overflow-y-auto p-3 space-y-3 bg-gray-50 custom-scrollbar">
+            <!-- Cards injected here -->
+            <div class="text-center mt-10 opacity-60">
+                <i class="fa-solid fa-circle-notch fa-spin text-2xl text-blue-500"></i>
             </div>
         </div>
-        <!-- Trigger Area Invisible para abrir -->
-        <div class="absolute right-[-20px] top-0 bottom-0 w-5 cursor-pointer" onmouseenter="openDrawer()">
-        </div>
+
+        <!-- Trigger to Open (Invisible strip) -->
+        <div class="absolute right-[-20px] top-0 bottom-0 w-8 cursor-pointer z-50" onmouseenter="openDrawer()"></div>
     </aside>
     <!-- MAIN CONTENT -->
-    <div class="flex-1 flex flex-col h-full relative transition-all duration-300 ml-0" id="mainContent">
-        <!-- Header -->
+    <!-- BEGIN: Main Content -->
+    <div class="flex-1 flex flex-col h-full bg-main-bg relative overflow-hidden transition-all duration-300 ml-0"
+        id="mainContent">
+        <!-- BEGIN: Top Header -->
         <header
-            class="bg-slate-900/80 backdrop-blur-md border-b border-white/5 shadow-lg z-30 shrink-0 h-16 flex items-center justify-between px-6">
-            <div class="flex items-center gap-4"><button onclick="toggleDrawer()"
-                    class="text-slate-400 hover:text-white transition-colors focus:outline-none"><i
-                        class="fa-solid fa-bars text-2xl"></i></button>
-                <div class="flex items-center gap-2 text-white">
-                    <div class="bg-blue-600 p-1.5 rounded-lg shadow-lg shadow-blue-500/20"><i
-                            class="fa-solid fa-truck-fast text-xl"></i></div><span
-                        class="font-black text-xl tracking-tight hidden sm:block bg-gradient-to-r from-white to-slate-400 bg-clip-text text-transparent">LOGÍSTICA
-                        <span class="font-light">3.0</span></span>
+            class="bg-white border-b border-gray-200 px-4 py-2 flex items-center justify-between shadow-sm flex-shrink-0 z-10">
+            <!-- Left: Logo & Nav -->
+            <div class="flex items-center space-x-4">
+                <button onclick="toggleDrawer()" class="text-gray-500 hover:text-gray-700 focus:outline-none">
+                    <i class="fa-solid fa-bars text-lg"></i>
+                </button>
+                <div class="flex items-center text-blue-700 font-extrabold text-xl tracking-tight">
+                    <i class="fa-solid fa-truck-fast mr-2"></i>
+                    LOGÍSTICA 3.0
                 </div>
-                <div class="flex items-center gap-4">
-                    <!-- Date Picker -->
-                    <div class="flex items-center bg-slate-800/50 rounded-lg p-1 border border-white/5">
-                        <button id="prevDayBtn"
-                            class="p-2 hover:bg-slate-700 rounded-md text-slate-400 hover:text-white transition-colors"><i
-                                class="fa-solid fa-chevron-left"></i></button><input type="date" id="currentDate"
-                            class="bg-transparent border-0 focus:ring-0 text-sm font-bold text-slate-200 w-32 text-center cursor-pointer appearance-none color-scheme-dark"><button
-                            id="nextDayBtn"
-                            class="p-2 hover:bg-slate-700 rounded-md text-slate-400 hover:text-white transition-colors"><i
-                                class="fa-solid fa-chevron-right"></i></button>
-                    </div>
-                    <!-- Navigation Links (Restored) -->
-                    <nav class="hidden lg:flex items-center gap-1 bg-slate-800/30 p-1 rounded-lg border border-white/5">
-                        <a href="comparativo.html"
-                            class="px-3 py-1.5 text-xs font-bold text-slate-400 hover:text-white hover:bg-slate-700 rounded-md transition-colors flex items-center gap-2"><i
-                                class="fa-solid fa-chart-line"></i>Comparativo </a><a href="cliente-360.html"
-                            class="px-3 py-1.5 text-xs font-bold text-slate-400 hover:text-white hover:bg-slate-700 rounded-md transition-colors flex items-center gap-2"><i
-                                class="fa-solid fa-users-viewfinder"></i>Cliente 360 </a>
-                    </nav>
+            </div>
+
+            <!-- Center: Date Navigation -->
+            <div class="flex items-center bg-gray-100 rounded-md px-1 py-1">
+                <button id="prevDayBtn" class="px-2 py-1 text-gray-500 hover:text-gray-700 hover:bg-gray-200 rounded">
+                    <i class="fa-solid fa-chevron-left text-xs"></i>
+                </button>
+                <div class="relative">
+                    <input type="date" id="currentDate"
+                        class="bg-transparent border-0 p-0 text-sm font-semibold text-gray-700 w-32 text-center focus:ring-0 cursor-pointer" />
                 </div>
-                <div class="flex items-center gap-4">
-                    <!-- DB Reset Button (Added) --><button onclick="resetDatabase()"
-                        class="w-8 h-8 rounded-full bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white border border-red-500/20 flex items-center justify-center transition-all"
-                        title="Vaciar Base de Datos"><i class="fa-solid fa-trash-can text-xs"></i></button>
-                    <!-- Refresh Button -->
-                    <!-- KPI Rápido -->
-                    <div class="hidden md:flex gap-4 mr-4 text-xs font-semibold text-slate-500">
-                        <div class="flex items-center gap-1">
-                            <div class="w-2 h-2 bg-purple-500 rounded-full shadow-sm">
-                            </div>Sampi
+                <button id="nextDayBtn" class="px-2 py-1 text-gray-500 hover:text-gray-700 hover:bg-gray-200 rounded">
+                    <i class="fa-solid fa-chevron-right text-xs"></i>
+                </button>
+            </div>
+
+            <!-- Right: Actions & Tools -->
+            <div class="flex items-center gap-4">
+                <!-- View Toggles -->
+                <div class="hidden lg:flex space-x-2">
+                    <a href="comparativo.html"
+                        class="flex items-center px-3 py-1.5 text-xs font-medium text-gray-600 bg-white border border-gray-300 rounded hover:bg-gray-50">
+                        <i class="fa-solid fa-chart-line mr-1.5 text-gray-400"></i> Comparativo
+                    </a>
+                    <a href="cliente-360.html"
+                        class="flex items-center px-3 py-1.5 text-xs font-medium text-gray-600 bg-white border border-gray-300 rounded hover:bg-gray-50">
+                        <i class="fa-solid fa-users-viewfinder mr-1.5 text-gray-400"></i> Cliente 360
+                    </a>
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="flex items-center gap-2">
+                    <button onclick="openModal()"
+                        class="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded shadow-sm flex items-center transition-all active:scale-95">
+                        <i class="fa-solid fa-plus mr-1.5"></i> Manual
+                    </button>
+
+                    <input type="file" id="pdfUploadInput" class="hidden" accept=".pdf" onchange="uploadPDF(this)">
+                    <button onclick="document.getElementById('pdfUploadInput').click()"
+                        class="px-4 py-1.5 hover:bg-gray-800 text-white text-sm font-medium rounded shadow-sm flex items-center bg-gray-900 transition-all active:scale-95">
+                        <i class="fa-solid fa-cloud-arrow-down mr-1.5"></i> PDF
+                    </button>
+
+                    <input type="file" id="bulkUploadInput" class="hidden" accept=".xlsx, .xls, .csv"
+                        onchange="uploadMassiveExcel(this)">
+                    <button onclick="document.getElementById('bulkUploadInput').click()"
+                        class="px-4 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-medium rounded shadow-sm flex items-center transition-all active:scale-95">
+                        <i class="fa-solid fa-file-excel mr-1.5"></i> Masivo
+                    </button>
+                </div>
+
+                <!-- Admin Menu (Settings) -->
+                <div class="relative group">
+                    <button
+                        class="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 text-gray-600 text-sm">
+                        <i class="fa-solid fa-gear"></i>
+                    </button>
+                    <!-- Dropdown preserved -->
+                    <div
+                        class="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-2xl py-2 hidden group-hover:block border border-gray-100 ring-1 ring-black ring-opacity-5 z-50">
+                        <div class="px-4 py-2 border-b border-gray-100">
+                            <p class="text-xs text-gray-400">Logueado como</p>
+                            <p class="font-bold text-gray-700 truncate" id="userInfo">User</p>
                         </div>
-                        <div class="flex items-center gap-1">
-                            <div class="w-2 h-2 bg-blue-500 rounded-full shadow-sm">
-                            </div>Normal
-                        </div>
-                    </div>
-                    <div class="flex items-center gap-2"><button onclick="openModal()"
-                            class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-bold shadow-lg shadow-blue-500/20 transition-all active:scale-95 flex items-center gap-2 border border-blue-600"><i
-                                class="fa-solid fa-plus"></i>Manual </button>
-                        <!-- PDF Upload (Native) --><input type="file" id="pdfUploadInput" class="hidden" accept=".pdf"
-                            onchange="uploadPDF(this)"><button
-                            onclick="document.getElementById('pdfUploadInput').click()"
-                            class="bg-white hover:bg-slate-50 text-slate-700 px-4 py-2 rounded-lg text-sm font-bold border border-slate-300 transition-all active:scale-95 flex items-center gap-2 hover:text-blue-600 shadow-sm"
-                            title="Subir Pedido PDF"><i class="fa-solid fa-cloud-arrow-up"></i>PDF </button>
-                        <!-- Bulk Upload --><input type="file" id="bulkUploadInput" class="hidden"
-                            accept=".xlsx, .xls, .csv" onchange="uploadMassiveExcel(this)"><button
-                            onclick="document.getElementById('bulkUploadInput').click()"
-                            class="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-lg text-sm font-bold shadow-lg shadow-emerald-600/20 transition-all active:scale-95 flex items-center gap-2 border border-emerald-500"
-                            title="Carga Masiva de Pedidos"><i class="fa-solid fa-file-csv"></i>Masivo </button>
-                        <!-- Admin Menu -->
-                        <div class="relative group"><button
-                                class="bg-white border border-slate-200 hover:bg-slate-50 text-slate-500 w-10 h-10 rounded-full shadow-sm flex items-center justify-center transition-all"><i
-                                    class="fa-solid fa-gear"></i></button>
-                            <div
-                                class="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-2xl py-2 hidden group-hover:block border border-slate-100 ring-1 ring-black ring-opacity-5 z-50">
-                                <div class="px-4 py-2 border-b border-slate-100">
-                                    <p class="text-xs text-slate-400">Logueado
-                                        como</p>
-                                    <p class="font-bold text-slate-700 truncate" id="userInfo">User</p>
-                                </div><a href="admin-users.html"
-                                    class="block px-4 py-2 text-sm text-slate-600 hover:bg-slate-50 hover:text-blue-600"><i
-                                        class="fa-solid fa-users mr-2 text-blue-500"></i>Usuarios</a><a
-                                    href="admin-products.html"
-                                    class="block px-4 py-2 text-sm text-slate-600 hover:bg-slate-50 hover:text-blue-600"><i
-                                        class="fa-solid fa-boxes-stacked mr-2 text-purple-500"></i>Productos</a><a
-                                    href="#" onclick="logout()"
-                                    class="block px-4 py-2 text-sm text-red-500 hover:bg-red-50 hover:text-red-600"><i
-                                        class="fa-solid fa-sign-out-alt mr-2"></i>Salir</a>
-                            </div>
-                        </div>
+                        <a href="admin-users.html"
+                            class="block px-4 py-2 text-sm text-gray-600 hover:bg-gray-50 hover:text-blue-600"><i
+                                class="fa-solid fa-users mr-2 text-blue-500"></i>Usuarios</a>
+                        <a href="admin-products.html"
+                            class="block px-4 py-2 text-sm text-gray-600 hover:bg-gray-50 hover:text-blue-600"><i
+                                class="fa-solid fa-boxes-stacked mr-2 text-purple-500"></i>Productos</a>
+                        <a href="#" onclick="logout()"
+                            class="block px-4 py-2 text-sm text-red-500 hover:bg-red-50 hover:text-red-600"><i
+                                class="fa-solid fa-sign-out-alt mr-2"></i>Salir</a>
                     </div>
                 </div>
+            </div>
         </header>
         <!-- Main Board -->
         <main class="flex-1 overflow-x-auto overflow-y-hidden p-6 perspective-container">
