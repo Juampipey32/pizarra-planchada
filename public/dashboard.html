@@ -1380,8 +1380,8 @@
                         });
 
                         filtered.sort((a, b) => {
-                            if (sortMode === 'ID_DESC') return b.id - a.id;
-                            if (sortMode === 'ID_ASC') return a.id - b.id;
+                            if (sortMode === 'ID_DESC') return (b.orderNumeric || 0) - (a.orderNumeric || 0);
+                            if (sortMode === 'ID_ASC') return (a.orderNumeric || 0) - (b.orderNumeric || 0);
                             if (sortMode === 'CLIENT_ASC') return a.client.localeCompare(b.client);
                             if (sortMode === 'CLIENT_DESC') return b.client.localeCompare(a.client);
                             if (sortMode === 'ORDER_ASC') return String(a.orderNumber || '').localeCompare(String(b.orderNumber || ''));
