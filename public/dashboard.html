@@ -392,7 +392,7 @@
             <!-- Modal Header -->
             <div class="px-6 py-4 bg-white border-b border-gray-200 flex justify-between items-center">
                 <div>
-                    <h3 class="text-xl font-black text-gray-800 flex items-center gap-2"><i
+                    <h3 class="text-lg font-black text-gray-800 flex items-center gap-2"><i
                             class="fa-solid fa-clipboard-list text-blue-500"></i><span id="modalTitle">Detalle de
                             Carga</span></h3>
                     <p class="text-xs text-gray-500 mt-1">Gestión completa de pedido y cálculo de
@@ -412,17 +412,17 @@
                             <div class="space-y-3">
                                 <div><label class="block text-xs font-semibold text-gray-600 mb-1">Cliente</label><input
                                         type="text" id="clientName"
-                                        class="w-full px-3 py-2 rounded-lg border-gray-300 bg-white text-gray-800 text-sm font-medium focus:ring-2 ring-blue-500 outline-none transition-all placeholder-gray-400"
+                                        class="w-full px-3 py-2 rounded-lg border-gray-300 bg-white text-gray-800 text-sm font-medium focus:ring-2 ring-blue-500 outline-none transition-all placeholder-gray-400 placeholder:text-gray-400"
                                         placeholder="Ej: Supermercado X"></div>
                                 <div class="grid grid-cols-2 gap-2">
                                     <div><label
                                             class="block text-xs font-semibold text-gray-600 mb-1">Cód.</label><input
                                             type="text" id="clientCode"
-                                            class="w-full px-3 py-2 rounded-lg border-gray-300 bg-white text-gray-800 text-sm">
+                                            class="w-full px-3 py-2 rounded-lg border-gray-300 bg-white text-gray-800 text-sm placeholder:text-gray-400">
                                     </div>
                                     <div><label class="block text-xs font-semibold text-gray-600 mb-1">N°
                                             Pedido</label><input type="text" id="orderNumber"
-                                            class="w-full px-3 py-2 rounded-lg border-gray-300 bg-white text-gray-800 text-sm">
+                                            class="w-full px-3 py-2 rounded-lg border-gray-300 bg-white text-gray-800 text-sm placeholder:text-gray-400">
                                     </div>
                                 </div>
                                 <div><label
@@ -463,7 +463,7 @@
                                 <div><label
                                         class="block text-xs font-semibold text-gray-600 mb-1">Observaciones</label><textarea
                                         id="observations" rows="2"
-                                        class="w-full px-3 py-2 rounded-lg border-gray-300 bg-white text-gray-800 text-xs resize-none placeholder-gray-400"></textarea>
+                                        class="w-full px-3 py-2 rounded-lg border-gray-300 bg-white text-gray-800 text-xs resize-none placeholder:text-gray-400"></textarea>
                                 </div>
                             </div>
                         </div>
@@ -476,20 +476,20 @@
                             <div class="text-center">
                                 <p class="text-xs text-gray-500 uppercase tracking-wide">
                                     Total Kg</p>
-                                <p class="text-2xl font-black text-blue-600" id="calcTotalKg">0.00</p>
+                                <p class="text-xl font-black text-blue-600" id="calcTotalKg">0.00</p>
                             </div>
                             <div class="h-8 w-px bg-gray-200"></div>
                             <div class="text-center">
                                 <p class="text-xs text-gray-500 uppercase tracking-wide">
                                     Estimado</p>
-                                <p class="text-xl font-bold" id="calcDuration">0 min
+                                <p class="text-lg font-bold" id="calcDuration">0 min
                                 </p>
                             </div>
                             <div class="h-8 w-px bg-gray-200"></div>
                             <div class="text-center">
                                 <p class="text-xs text-gray-500 uppercase tracking-wide">
                                     Sampi Kg</p>
-                                <p class="text-xl font-bold text-purple-600" id="calcSampiKg">0.00</p>
+                                <p class="text-lg font-bold text-purple-600" id="calcSampiKg">0.00</p>
                             </div>
                             <div class="text-center"><span id="sampiBadge"
                                     class="px-3 py-1 rounded-full text-xs font-bold bg-gray-200 text-gray-500">SAMPI
@@ -2097,7 +2097,7 @@
             itemsList.forEach((item, index) => {
                 const tr = document.createElement('tr');
 
-                tr.innerHTML = `<td class="px-2 py-1"><input type="text" value="${item.code}" onchange="updateItem(${index}, 'code', this.value)" class="w-full text-xs bg-slate-800 text-slate-200 border-b border-slate-600 focus:border-blue-500 outline-none uppercase px-2 py-1 rounded" placeholder="Código"></td><td class="px-2 py-1"><input type="number" value="${item.qty}" onchange="updateItem(${index}, 'qty', this.value)" class="w-full text-xs bg-slate-800 text-slate-200 border border-slate-600 rounded px-2 py-1 focus:border-blue-500 outline-none"></td><td class="px-2 py-1 text-right font-mono font-bold text-slate-300">${Number(item.kg).toFixed(2)}</td><td class="px-2 py-1 text-center"><button type="button" onclick="removeItem(${index})" class="text-red-400 hover:text-red-600"><i class="fa-solid fa-times"></i></button></td>`;
+                tr.innerHTML = `<td class="px-2 py-1"><input type="text" value="${item.code}" onchange="updateItem(${index}, 'code', this.value)" class="w-full text-xs bg-white text-gray-800 border border-gray-300 focus:border-blue-500 outline-none uppercase px-2 py-1 rounded placeholder:text-gray-400" placeholder="Código"></td><td class="px-2 py-1"><input type="number" value="${item.qty}" onchange="updateItem(${index}, 'qty', this.value)" class="w-full text-xs bg-white text-gray-800 border border-gray-300 rounded px-2 py-1 focus:border-blue-500 outline-none placeholder:text-gray-400"></td><td class="px-2 py-1 text-right font-mono font-bold text-gray-600">${Number(item.kg).toFixed(2)}</td><td class="px-2 py-1 text-center"><button type="button" onclick="removeItem(${index})" class="text-red-500 hover:text-red-700"><i class="fa-solid fa-times"></i></button></td>`;
                 tbody.appendChild(tr);
             });
         }
