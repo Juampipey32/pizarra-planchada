@@ -1513,18 +1513,26 @@
                 const isBlocked = b.status === 'BLOCKED';
 
                 const card = document.createElement('div');
-                // Base Style from Example
-                let cardClass = "bg-white p-3 rounded-lg border border-gray-200 shadow-card hover:shadow-md transition-shadow cursor-pointer relative group mb-3";
 
-                // Conditional Borders/Accents instead of full background changes to maintain clean look
+                // Base Layout Classes (Padding, Shadow, Pointer, etc.)
+                let baseClasses = "p-3 rounded-lg shadow-card hover:shadow-md transition-shadow cursor-pointer relative group mb-3";
+                let colorClasses = "";
+
+                // Conditional Styling with Strict Separation
                 if (isBlocked) {
-                    cardClass += " !bg-red-50 !border-red-500 border-2";
+                    // STRONG RED for Blocked
+                    colorClasses = "bg-red-100 border-2 border-red-600";
                 }
-                else if (isMissing) cardClass += " border-l-4 !border-l-red-500";
-                else if (isScheduled) cardClass += " border-l-4 !border-l-emerald-500";
-                else if (isDuplicate) cardClass += " border-l-4 !border-l-orange-500 bg-orange-50";
+                else {
+                    // Standard White Background with Border Indicators
+                    colorClasses = "bg-white border border-gray-200";
 
-                card.className = cardClass;
+                    if (isMissing) colorClasses += " border-l-4 !border-l-red-500";
+                    else if (isScheduled) colorClasses += " border-l-4 !border-l-emerald-500";
+                    else if (isDuplicate) colorClasses += " border-l-4 !border-l-orange-500 bg-orange-50";
+                }
+
+                card.className = `${baseClasses} ${colorClasses}`;
                 card.setAttribute('data-id', b.id);
 
                 // Disable click for blocked items? Or allow to unblock? 
