@@ -309,6 +309,10 @@
 
                 <!-- Action Buttons -->
                 <div class="flex items-center gap-2">
+                    <button id="realStartPanelBtn" onclick="toggleRealStartPanel()"
+                        class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded shadow-sm flex items-center transition-all active:scale-95">
+                        <i class="fa-solid fa-stopwatch mr-1.5"></i> Hora real
+                    </button>
                     <button onclick="openModal()"
                         class="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded shadow-sm flex items-center transition-all active:scale-95">
                         <i class="fa-solid fa-plus mr-1.5"></i> Manual
@@ -363,6 +367,22 @@
                 <!-- Columns injected here -->
             </div>
         </main>
+    </div>
+    <!-- PANEL FLOtante: Hora real de carga -->
+    <div id="realStartPanel"
+        class="hidden fixed right-4 top-20 w-[420px] max-h-[70vh] bg-white border border-gray-200 rounded-xl shadow-2xl z-50 overflow-hidden">
+        <div class="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
+            <div class="flex items-center gap-2">
+                <i class="fa-solid fa-stopwatch text-indigo-500"></i>
+                <h4 class="font-bold text-gray-700">Hora real de carga (hoy)</h4>
+            </div>
+            <button onclick="toggleRealStartPanel()" class="text-gray-400 hover:text-gray-600">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <div class="p-3 overflow-y-auto max-h-[60vh]" id="realStartList">
+            <div class="text-center text-sm text-gray-400 py-8">Cargando...</div>
+        </div>
     </div>
     <!-- MODAL AVANZADO (Edición Completa) -->
     <div id="bookingModal"
@@ -554,6 +574,8 @@
 
             = AppConfig;
         const KG_PER_BLOCK = 1500;
+        const BLOCKERS = AppConfig.BLOCKERS || [];
+        const API = AppConfig.API || {};
 
         const ORDER_GUARD = {
             maxPlaceholders: 50
@@ -876,6 +898,7 @@
             setupDrawer();
             initBoardLayout();
             fetchData();
+            initSse();
         });
 
         function setupDateControl() {
@@ -967,10 +990,75 @@
 
                 renderBoard();
                 renderPending();
+                renderRealStartPanel();
             }
 
             catch (e) {
                 console.error('Error fetching data:', e);
+            }
+        }
+
+        function toggleRealStartPanel() {
+            const panel = document.getElementById('realStartPanel');
+            if (!panel) return;
+            panel.classList.toggle('hidden');
+            if (!panel.classList.contains('hidden')) {
+                renderRealStartPanel();
+            }
+        }
+
+        function renderRealStartPanel() {
+            const list = document.getElementById('realStartList');
+            if (!list) return;
+
+            const today = currentDate;
+            const todaysBoard = (bookings || []).filter(b => b.date === today && b.resourceId && b.resourceId !== 'PENDIENTE');
+
+            if (!todaysBoard.length) {
+                list.innerHTML = '<div class="text-center text-sm text-gray-400 py-8">No hay pedidos en pizarra hoy.</div>';
+                return;
+            }
+
+            list.innerHTML = todaysBoard.map(b => {
+                const hasReal = b.real_start_at || b.realStartTime;
+                const realLabel = b.real_start_at ? new Date(b.real_start_at).toLocaleTimeString() : (b.realStartTime || '--:--');
+                return `
+                    <div class="flex items-center justify-between border-b border-gray-100 py-2">
+                        <div>
+                            <div class="text-sm font-semibold text-gray-700">${b.client}</div>
+                            <div class="text-xs text-gray-400">#${b.orderNumber || '-'} • ${b.resourceId} • ${String(b.startTimeHour).padStart(2, '0')}:${String(b.startTimeMinute).padStart(2, '0')}</div>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span class="text-xs text-gray-500">${realLabel}</span>
+                            <button onclick="markRealStart(${b.id})"
+                                class="px-2 py-1 text-xs bg-indigo-600 hover:bg-indigo-700 text-white rounded">
+                                <i class="fa-solid fa-play"></i>
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        async function markRealStart(id) {
+            if (!id) return;
+            const token = localStorage.getItem('token');
+            try {
+                const res = await fetch(`${API_URL}/real-start.php`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+                    },
+                    body: JSON.stringify({ id, real_start_at: new Date().toISOString() })
+                });
+                if (!res.ok) {
+                    const data = await res.json().catch(() => ({}));
+                    throw new Error(data.error || 'No se pudo registrar la hora real');
+                }
+                fetchData();
+            } catch (e) {
+                Swal.fire('Error', e.message || 'No se pudo registrar la hora real', 'error');
             }
         }
 
@@ -1295,7 +1383,7 @@
 
         function createCardElement(b) {
             const el = document.createElement('div');
-            const isBlocked = b.status === 'BLOCKED';
+            const isBlocked = Boolean(b.is_blocked) || b.status === 'BLOCKED';
 
             // Exact style from example: event-card-gradient (Blue/Purple), text-white, shadow-xl
             // Removed absolute positioning logic from here because Sortable controls layout in cell
@@ -1521,7 +1609,7 @@
                 const isScheduled = Boolean(flags.alreadyScheduled);
                 const isMissing = Boolean(flags.missing);
                 const isDuplicate = Boolean(flags.duplicate) && !isScheduled;
-                const isBlocked = b.status === 'BLOCKED';
+                const isBlocked = Boolean(b.is_blocked) || b.status === 'BLOCKED';
 
                 const card = document.createElement('div');
 
@@ -1814,7 +1902,7 @@
             // Block Button Logic
             const blockBtn = document.getElementById('blockBtn');
             blockBtn.classList.remove('hidden');
-            if (booking.status === 'BLOCKED') {
+            if (booking.is_blocked || booking.status === 'BLOCKED') {
                 blockBtn.innerHTML = '<i class="fa-solid fa-unlock mr-2"></i>Desbloquear';
                 blockBtn.className = "text-emerald-400 hover:bg-emerald-900/20 px-4 py-2 rounded-lg text-sm font-bold transition-colors ml-2";
 
@@ -1843,6 +1931,10 @@
             document.getElementById('observations').value = booking.observations || '';
             document.getElementById('realStartTime').value = booking.realStartTime || '';
             document.getElementById('realEndTime').value = booking.realEndTime || '';
+            if (booking.real_start_at) {
+                const dt = new Date(booking.real_start_at);
+                document.getElementById('realStartTime').value = dt.toTimeString().slice(0, 5);
+            }
 
             // SAMPI COMPOSITION LOGIC
             const tableWrapper = document.getElementById('itemsTableBody').closest('.overflow-y-auto'); // Find scrollable wrapper
@@ -2217,35 +2309,89 @@
             const booking = bookings.find(b => b.id == currentModalBookingId) || pendingBookings.find(b => b.id == currentModalBookingId);
             if (!booking) return;
 
-            const isBlocked = booking.status === 'BLOCKED';
-            const newStatus = isBlocked
-                ? (booking.resourceId && booking.resourceId !== 'PENDIENTE' ? 'PLANNED' : 'PENDING')
-                : 'BLOCKED';
+            const isBlocked = Boolean(booking.is_blocked) || booking.status === 'BLOCKED';
 
             const actionVerb = isBlocked ? 'desbloquear' : 'bloquear';
             const confirmColor = isBlocked ? '#10b981' : '#ef4444';
 
+            const blockerOptions = BLOCKERS.map(b => `<option value="${b}">${b}</option>`).join('');
+            const formHtml = `
+                <div class="text-left">
+                    <label class="block text-xs font-semibold text-slate-500 mb-1">Bloqueante</label>
+                    <select id="blockerSelect" class="w-full border rounded px-2 py-1 text-sm">
+                        <option value="">Seleccionar...</option>
+                        ${blockerOptions}
+                    </select>
+                    <label class="block text-xs font-semibold text-slate-500 mt-3 mb-1">Monto adeudado</label>
+                    <input id="blockDebtAmount" type="number" step="0.01" class="w-full border rounded px-2 py-1 text-sm" placeholder="0.00" />
+                    <label class="block text-xs font-semibold text-slate-500 mt-3 mb-1">Motivo (opcional)</label>
+                    <textarea id="blockReason" class="w-full border rounded px-2 py-1 text-sm" rows="2"></textarea>
+                </div>
+            `;
+
+            const unblockHtml = `
+                <div class="text-left">
+                    <label class="block text-xs font-semibold text-slate-500 mb-1">Bloqueante</label>
+                    <select id="blockerSelect" class="w-full border rounded px-2 py-1 text-sm">
+                        <option value="">Seleccionar...</option>
+                        ${blockerOptions}
+                    </select>
+                    <label class="block text-xs font-semibold text-slate-500 mt-3 mb-1">Motivo (opcional)</label>
+                    <textarea id="blockReason" class="w-full border rounded px-2 py-1 text-sm" rows="2"></textarea>
+                </div>
+            `;
+
             const res = await Swal.fire({
                 title: `¿${actionVerb.charAt(0).toUpperCase() + actionVerb.slice(1)} Pedido?`,
-                text: isBlocked ? "El pedido volverá a estar disponible." : "El pedido quedará inhabilitado para tratamiento.",
+                html: isBlocked ? unblockHtml : formHtml,
                 icon: isBlocked ? 'question' : 'warning',
                 showCancelButton: true,
                 confirmButtonColor: confirmColor,
-                confirmButtonText: `Sí, ${actionVerb}`
+                confirmButtonText: `Sí, ${actionVerb}`,
+                preConfirm: () => {
+                    if (isBlocked) {
+                        const blocker = document.getElementById('blockerSelect')?.value || '';
+                        if (!blocker) {
+                            Swal.showValidationMessage('Selecciona un bloqueante');
+                            return false;
+                        }
+                        return { blocker, amount: 0, reason: document.getElementById('blockReason')?.value || '' };
+                    }
+                    const blocker = document.getElementById('blockerSelect')?.value || '';
+                    const amount = document.getElementById('blockDebtAmount')?.value || '';
+                    const reason = document.getElementById('blockReason')?.value || '';
+                    if (!blocker) {
+                        Swal.showValidationMessage('Selecciona un bloqueante');
+                        return false;
+                    }
+                    if (!amount || Number(amount) <= 0) {
+                        Swal.showValidationMessage('Monto adeudado obligatorio');
+                        return false;
+                    }
+                    return { blocker, amount, reason };
+                }
             });
 
             if (res.isConfirmed) {
-                await fetch(`${API_URL}/manage.php`, {
+                const token = localStorage.getItem('token');
+                const payload = res.value || {};
+                const endpoint = isBlocked ? 'unblock.php' : 'block.php';
+                const body = {
+                    id: currentModalBookingId,
+                    blocked_by: payload.blocker,
+                    blocked_reason: payload.reason || null
+                };
+                if (!isBlocked) {
+                    body.blocked_debt_amount = payload.amount;
+                }
+
+                await fetch(`${API_URL}/${endpoint}`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${localStorage.getItem('token')}`,
-                        'X-HTTP-Method-Override': 'PUT'
+                        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
                     },
-                    body: JSON.stringify({
-                        id: currentModalBookingId,
-                        status: newStatus
-                    })
+                    body: JSON.stringify(body)
                 });
 
                 closeModal();
@@ -2253,6 +2399,18 @@
                 Swal.fire(isBlocked ? 'Desbloqueado' : 'Bloqueado', `El pedido ha sido ${isBlocked ? 'desbloqueado' : 'bloqueado'}.`, 'success');
             }
         };
+
+        function initSse() {
+            try {
+                if (!window.EventSource) return;
+                const sse = new EventSource('/api/bookings/stream.php');
+                sse.addEventListener('bookings_update', () => {
+                    fetchData();
+                });
+            } catch (e) {
+                console.warn('SSE unavailable', e);
+            }
+        }
 
 
         async function updateBookingPosition(id, resourceId) {

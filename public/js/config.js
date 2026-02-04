@@ -88,7 +88,10 @@ const AppConfig = {
         INVITADO: 'INVITADO',
         PLANCHADA: 'PLANCHADA',
         VISUALIZADOR: 'VISUALIZADOR'
-    }
+    },
+
+    // Bloqueadores permitidos (selector fijo)
+    BLOCKERS: ['JUAMPI', 'MAURICIO', 'SANDRA']
 };
 
 // Hacer disponible globalmente

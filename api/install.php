@@ -12,6 +12,7 @@ try {
     echo "<p>Tabla 'Users' verificada/creada.</p>";
 
     // 2. Create Bookings Table
+    $pdo->exec("CREATE TABLE IF NOT EXISTS Bookings (
         id INT AUTO_INCREMENT PRIMARY KEY,
         client VARCHAR(255) NOT NULL,
         clientCode VARCHAR(50),
@@ -32,12 +33,36 @@ try {
         items JSON,
         sampi_time INT DEFAULT 0,
         sampi_on TINYINT(1) DEFAULT 0,
+        is_blocked TINYINT(1) DEFAULT 0,
+        blocked_by VARCHAR(50),
+        blocked_reason TEXT,
+        blocked_debt_amount DECIMAL(10,2),
+        blocked_at TIMESTAMP NULL,
+        prev_status VARCHAR(20),
+        prev_resourceId VARCHAR(50),
+        prev_color VARCHAR(50),
+        real_start_at DATETIME NULL,
         createdBy INT,
         createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         FOREIGN KEY (createdBy) REFERENCES Users(id) ON DELETE SET NULL
     )");
     echo "<p>Tabla 'Bookings' verificada/creada.</p>";
+
+    // 2b. Create Booking Block Audit Table
+    $pdo->exec("CREATE TABLE IF NOT EXISTS BookingBlockAudit (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        booking_id INT NOT NULL,
+        action ENUM('BLOCK', 'UNBLOCK') NOT NULL,
+        blocked_by VARCHAR(50) NOT NULL,
+        amount DECIMAL(10,2) NOT NULL,
+        reason TEXT,
+        actor_user_id INT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (booking_id) REFERENCES Bookings(id) ON DELETE CASCADE,
+        FOREIGN KEY (actor_user_id) REFERENCES Users(id) ON DELETE SET NULL
+    )");
+    echo "<p>Tabla 'BookingBlockAudit' verificada/creada.</p>";
 
     // 3. Create Products Table
     $pdo->exec("CREATE TABLE IF NOT EXISTS Products (

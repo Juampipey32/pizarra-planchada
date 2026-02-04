@@ -89,17 +89,17 @@ if ($requestMethod === 'GET') {
     exit;
 }
 
-// WRITE (ADMIN/VENTAS)
-if (!in_array($user['role'], ['ADMIN', 'VENTAS', 'LOGISTICA'])) { // Added LOGISTICA
-    http_response_code(403);
-    echo json_encode([
-        'error' => 'Access denied', 
-        'reason' => 'Role not allowed',
-        'current_role' => $user['role'],
-        'required_roles' => ['ADMIN', 'VENTAS', 'LOGISTICA']
-    ]);
-    exit;
-}
+    // WRITE (ADMIN/VENTAS)
+    if (!in_array($user['role'], ['ADMIN', 'VENTAS', 'LOGISTICA'])) { // Added LOGISTICA
+        http_response_code(403);
+        echo json_encode([
+            'error' => 'Access denied', 
+            'reason' => 'Role not allowed',
+            'current_role' => $user['role'],
+            'required_roles' => ['ADMIN', 'VENTAS', 'LOGISTICA']
+        ]);
+        exit;
+    }
 
     // Helper for Webhook
     require_once __DIR__ . '/unmet_demand_helper.php';
@@ -135,16 +135,22 @@ if (!in_array($user['role'], ['ADMIN', 'VENTAS', 'LOGISTICA'])) { // Added LOGIS
         $params = [];
         
         $oldBooking = null;
-        if ($requestMethod === 'PUT') {
-             $id = $input['id'] ?? $id ?? null; // Prefer input ID if passed in body
-             if (!$id) { http_response_code(400); echo json_encode(['error'=>'ID needed']); exit; }
-             $params[':id'] = $id;
+         if ($requestMethod === 'PUT') {
+              $id = $input['id'] ?? $id ?? null; // Prefer input ID if passed in body
+              if (!$id) { http_response_code(400); echo json_encode(['error'=>'ID needed']); exit; }
+              $params[':id'] = $id;
 
-             // Fetch Old State for Deviation/Unmet Demand Logic
-             $stmtOld = $pdo->prepare("SELECT * FROM Bookings WHERE id = :id");
-             $stmtOld->execute([':id' => $id]);
-             $oldBooking = $stmtOld->fetch(PDO::FETCH_ASSOC);
-        }
+              // Fetch Old State for Deviation/Unmet Demand Logic
+              $stmtOld = $pdo->prepare("SELECT * FROM Bookings WHERE id = :id");
+              $stmtOld->execute([':id' => $id]);
+              $oldBooking = $stmtOld->fetch(PDO::FETCH_ASSOC);
+
+              if ($oldBooking && !empty($oldBooking['is_blocked']) && $user['role'] !== 'ADMIN') {
+                   http_response_code(423);
+                   echo json_encode(['error' => 'Pedido bloqueado. Solo ADMIN puede modificarlo.']);
+                   exit;
+              }
+         }
 
         // Allowed fields
         $allowed = [
