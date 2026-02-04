@@ -715,6 +715,23 @@
             const scheduledNumbers = new Set();
             const numericUniverse = new Set();
 
+            // MERGE LOGIC: Add scheduled items to pending list if not already there
+            // This ensures they appear in the sidebar with "AGREGADO" status
+            if (scheduledList && Array.isArray(scheduledList)) {
+                scheduledList.forEach(b => {
+                    // Skip Sampi daily card or PENDING items (already in pendingList likely)
+                    if (b.orderNumber === 'SAMPI-DIA' || b.status === 'PENDING') return;
+
+                    // Check if already in pendingList (avoid duplicates)
+                    const exists = pendingList.some(p => p.id === b.id);
+                    if (!exists) {
+                        // Clone and push
+                        // We don't force flags here, the logic below will detect it's scheduled
+                        pendingList.push({ ...b });
+                    }
+                });
+            }
+
             pendingList.forEach(b => {
                 const num = extractNumericOrder(b.orderNumber);
                 b.orderNumeric = num;
@@ -742,13 +759,21 @@
             const duplicates = new Set();
 
             pendingList.forEach(b => {
-                if (b.orderNumeric !== null) {
-                    const isDuplicate = counts[b.orderNumeric] > 1;
-                    const alreadyScheduled = scheduledNumbers.has(b.orderNumeric);
+                // Explicitly check if this EXACT booking ID is in the scheduled list (for precise highlighting)
+                const isAllocated = (scheduledList || []).some(s => s.id === b.id && s.status !== 'PENDING');
+
+                if (b.orderNumeric !== null || isAllocated) {
+                    const isDuplicate = b.orderNumeric !== null && counts[b.orderNumeric] > 1;
+
+                    // Check by Order Number (legacy) OR exact ID match
+                    const alreadyScheduled = isAllocated || (b.orderNumeric !== null && scheduledNumbers.has(b.orderNumeric));
+
                     b.flags.duplicate = Boolean(isDuplicate);
+                    // Only mark as missing if NOT scheduled
+                    // But here we set alreadyScheduled flag
                     b.flags.alreadyScheduled = Boolean(alreadyScheduled);
 
-                    if (isDuplicate || alreadyScheduled) {
+                    if (isDuplicate) {
                         duplicates.add(b.orderNumber || b.orderNumeric);
                     }
                 }
