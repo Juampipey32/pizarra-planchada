@@ -1394,6 +1394,7 @@
             filtered.forEach(b => {
                 const flags = b.flags || {};
                 const isScheduled = Boolean(flags.alreadyScheduled);
+                const isMissing = Boolean(flags.missing);
                 const isDuplicate = Boolean(flags.duplicate) && !isScheduled;
 
                 const card = document.createElement('div');
