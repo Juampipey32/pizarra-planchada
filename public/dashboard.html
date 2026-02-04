@@ -293,6 +293,17 @@
                 </button>
             </div>
 
+            <div class="flex items-center gap-2">
+                <button onclick="openClientsModal()"
+                    class="px-2 py-1 bg-white border border-gray-300 text-gray-600 text-xs rounded hover:bg-gray-50">
+                    <i class="fa-solid fa-user-lock mr-1 text-red-400"></i>Clientes
+                </button>
+                <button onclick="openProductsByDateModal()"
+                    class="px-2 py-1 bg-white border border-gray-300 text-gray-600 text-xs rounded hover:bg-gray-50">
+                    <i class="fa-solid fa-scale-balanced mr-1 text-blue-400"></i>Acumulado
+                </button>
+            </div>
+
             <!-- Right: Actions & Tools -->
             <div class="flex items-center gap-4">
                 <!-- View Toggles -->
@@ -382,6 +393,78 @@
         </div>
         <div class="p-3 overflow-y-auto max-h-[60vh]" id="realStartList">
             <div class="text-center text-sm text-gray-400 py-8">Cargando...</div>
+        </div>
+    </div>
+    <!-- MODAL: CLIENTES BLOQUEABLES -->
+    <div id="clientsModal"
+        class="fixed inset-0 bg-black/60 hidden z-50 flex items-center justify-center backdrop-blur-sm transition-opacity opacity-0">
+        <div
+            class="bg-white rounded-2xl shadow-2xl w-full max-w-3xl mx-4 flex flex-col max-h-[90vh] overflow-hidden border border-gray-200">
+            <div class="px-6 py-4 bg-white border-b border-gray-200 flex justify-between items-center">
+                <div>
+                    <h3 class="text-lg font-black text-gray-800 flex items-center gap-2"><i
+                            class="fa-solid fa-user-lock text-red-500"></i><span>Clientes Bloqueables</span></h3>
+                    <p class="text-xs text-gray-500 mt-1">Bloqueo por cliente (impacta pedidos existentes y nuevos).</p>
+                </div>
+                <button onclick="closeClientsModal()"
+                    class="w-8 h-8 rounded-full hover:bg-gray-100 flex items-center justify-center text-gray-500 hover:text-gray-700 transition-colors"><i
+                        class="fa-solid fa-xmark text-xl"></i></button>
+            </div>
+            <div class="p-4 overflow-y-auto">
+                <div class="flex items-center gap-2 mb-4">
+                    <input id="clientSearch" type="text" placeholder="Buscar por código o razón social"
+                        class="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm"
+                        oninput="renderClientsTable()" />
+                    <button onclick="refreshClients()"
+                        class="px-3 py-2 bg-gray-100 border border-gray-300 rounded text-xs">Actualizar</button>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full text-sm">
+                        <thead class="bg-gray-50 border-b border-gray-200">
+                            <tr>
+                                <th class="text-left px-3 py-2">Código</th>
+                                <th class="text-left px-3 py-2">Razón Social</th>
+                                <th class="text-left px-3 py-2">Estado</th>
+                                <th class="text-left px-3 py-2">Monto</th>
+                                <th class="text-right px-3 py-2">Acción</th>
+                            </tr>
+                        </thead>
+                        <tbody id="clientsTableBody" class="divide-y divide-slate-100"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: ACUMULADO POR PRODUCTO -->
+    <div id="productsByDateModal"
+        class="fixed inset-0 bg-black/60 hidden z-50 flex items-center justify-center backdrop-blur-sm transition-opacity opacity-0">
+        <div
+            class="bg-white rounded-2xl shadow-2xl w-full max-w-3xl mx-4 flex flex-col max-h-[90vh] overflow-hidden border border-gray-200">
+            <div class="px-6 py-4 bg-white border-b border-gray-200 flex justify-between items-center">
+                <div>
+                    <h3 class="text-lg font-black text-gray-800 flex items-center gap-2"><i
+                            class="fa-solid fa-scale-balanced text-blue-500"></i><span>Acumulado por Producto</span>
+                    </h3>
+                    <p class="text-xs text-gray-500 mt-1">Fecha: <span id="productsByDateLabel"></span></p>
+                </div>
+                <button onclick="closeProductsByDateModal()"
+                    class="w-8 h-8 rounded-full hover:bg-gray-100 flex items-center justify-center text-gray-500 hover:text-gray-700 transition-colors"><i
+                        class="fa-solid fa-xmark text-xl"></i></button>
+            </div>
+            <div class="p-4 overflow-y-auto">
+                <div class="overflow-x-auto">
+                    <table class="min-w-full text-sm">
+                        <thead class="bg-gray-50 border-b border-gray-200">
+                            <tr>
+                                <th class="text-left px-3 py-2">Código</th>
+                                <th class="text-right px-3 py-2">Kg Total</th>
+                            </tr>
+                        </thead>
+                        <tbody id="productsByDateBody" class="divide-y divide-slate-100"></tbody>
+                    </table>
+                </div>
+            </div>
         </div>
     </div>
     <!-- MODAL AVANZADO (Edición Completa) -->
@@ -995,6 +1078,7 @@
                 const guardResult = applyOrderGuards(normalizedPending, bookings);
                 pendingBookings = guardResult.pending;
                 orderDiagnostics = guardResult.diagnostics;
+                applyDateToPendingList();
 
                 renderBoard();
                 renderPending();
@@ -1004,6 +1088,15 @@
             catch (e) {
                 console.error('Error fetching data:', e);
             }
+        }
+
+        function applyDateToPendingList() {
+            if (!Array.isArray(pendingBookings) || !currentDate) return;
+            pendingBookings.forEach(b => {
+                if (!b.date) {
+                    b.date = currentDate;
+                }
+            });
         }
 
         function toggleRealStartPanel() {
@@ -1046,6 +1139,153 @@
                     </div>
                 `;
             }).join('');
+        }
+
+        // --- CLIENTS MODAL ---
+        let clientsCache = [];
+
+        window.openClientsModal = async () => {
+            const modal = document.getElementById('clientsModal');
+            if (!modal) return;
+            modal.classList.remove('hidden');
+            requestAnimationFrame(() => modal.classList.remove('opacity-0'));
+            await refreshClients();
+        };
+
+        window.closeClientsModal = () => {
+            const modal = document.getElementById('clientsModal');
+            if (!modal) return;
+            modal.classList.add('opacity-0');
+            setTimeout(() => modal.classList.add('hidden'), 200);
+        };
+
+        async function refreshClients() {
+            const token = localStorage.getItem('token');
+            try {
+                const res = await fetch(AppConfig.API.CLIENTS, {
+                    headers: token ? { 'Authorization': `Bearer ${token}` } : undefined
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'No se pudo cargar clientes');
+                clientsCache = Array.isArray(data) ? data : [];
+                renderClientsTable();
+            } catch (e) {
+                Swal.fire('Error', e.message || 'No se pudo cargar clientes', 'error');
+            }
+        }
+
+        function renderClientsTable() {
+            const tbody = document.getElementById('clientsTableBody');
+            if (!tbody) return;
+            const query = (document.getElementById('clientSearch')?.value || '').toLowerCase();
+            tbody.innerHTML = '';
+
+            clientsCache
+                .filter(c => {
+                    const code = String(c.clientCode || '').toLowerCase();
+                    const name = String(c.clientName || '').toLowerCase();
+                    return !query || code.includes(query) || name.includes(query);
+                })
+                .forEach(c => {
+                    const tr = document.createElement('tr');
+                    const isBlocked = Boolean(Number(c.blocked));
+                    tr.innerHTML = `
+                        <td class="px-3 py-2 font-mono text-xs">${c.clientCode || ''}</td>
+                        <td class="px-3 py-2">${c.clientName || ''}</td>
+                        <td class="px-3 py-2">
+                            <span class="text-xs font-bold ${isBlocked ? 'text-red-600' : 'text-emerald-600'}">
+                                ${isBlocked ? 'BLOQUEADO' : 'OK'}
+                            </span>
+                        </td>
+                        <td class="px-3 py-2">
+                            <input type="number" step="0.01" value="${c.blocked_amount ?? ''}" class="w-24 px-2 py-1 text-xs border border-gray-300 rounded" />
+                        </td>
+                        <td class="px-3 py-2 text-right">
+                            <button class="px-2 py-1 text-xs ${isBlocked ? 'bg-emerald-50 text-emerald-600 border border-emerald-200' : 'bg-red-50 text-red-600 border border-red-200'} rounded">
+                                ${isBlocked ? 'Desbloquear' : 'Bloquear'}
+                            </button>
+                        </td>
+                    `;
+                    const amountInput = tr.querySelector('input');
+                    const btn = tr.querySelector('button');
+                    btn.onclick = () => toggleClientBlock(c, amountInput.value);
+                    tbody.appendChild(tr);
+                });
+        }
+
+        async function toggleClientBlock(client, amount) {
+            const token = localStorage.getItem('token');
+            const payload = {
+                clientCode: client.clientCode,
+                clientName: client.clientName,
+                blocked: client.blocked ? 0 : 1,
+                blocked_amount: amount !== '' ? Number(amount) : null,
+                blocked_reason: client.blocked ? null : 'Cliente bloqueado'
+            };
+            try {
+                const res = await fetch(AppConfig.API.CLIENTS, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+                    },
+                    body: JSON.stringify(payload)
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'No se pudo actualizar');
+                await refreshClients();
+                fetchData();
+                Swal.fire('Actualizado', 'Estado del cliente actualizado', 'success');
+            } catch (e) {
+                Swal.fire('Error', e.message || 'No se pudo actualizar', 'error');
+            }
+        }
+
+        // --- PRODUCTS BY DATE MODAL ---
+        window.openProductsByDateModal = async () => {
+            const modal = document.getElementById('productsByDateModal');
+            if (!modal) return;
+            modal.classList.remove('hidden');
+            requestAnimationFrame(() => modal.classList.remove('opacity-0'));
+            document.getElementById('productsByDateLabel').textContent = currentDate;
+            await fetchProductsByDate();
+        };
+
+        window.closeProductsByDateModal = () => {
+            const modal = document.getElementById('productsByDateModal');
+            if (!modal) return;
+            modal.classList.add('opacity-0');
+            setTimeout(() => modal.classList.add('hidden'), 200);
+        };
+
+        async function fetchProductsByDate() {
+            const token = localStorage.getItem('token');
+            const tbody = document.getElementById('productsByDateBody');
+            if (!tbody) return;
+            tbody.innerHTML = '<tr><td class="px-3 py-2" colspan="2">Cargando...</td></tr>';
+
+            try {
+                const res = await fetch(`${AppConfig.API.PRODUCTS_BY_DATE}?date=${currentDate}`, {
+                    headers: token ? { 'Authorization': `Bearer ${token}` } : undefined
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'No se pudo cargar');
+
+                tbody.innerHTML = '';
+                (data.products || []).forEach(row => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td class="px-3 py-2 font-mono text-xs">${row.code}</td>
+                        <td class="px-3 py-2 text-right font-bold">${Number(row.kg).toFixed(2)}</td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+                if ((data.products || []).length === 0) {
+                    tbody.innerHTML = '<tr><td class="px-3 py-2" colspan="2">Sin datos</td></tr>';
+                }
+            } catch (e) {
+                tbody.innerHTML = '<tr><td class="px-3 py-2" colspan="2">Error al cargar</td></tr>';
+            }
         }
 
         async function markRealStart(id) {

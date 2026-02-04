@@ -5,6 +5,7 @@ header('Content-Type: application/json');
 require_once '../cors.php';
 require_once '../db.php';
 require_once '../jwt_helper.php';
+require_once __DIR__ . '/helpers.php';
 
 // Method Override para Hostinger (no permite PUT/DELETE)
 $requestMethod = $_SERVER['REQUEST_METHOD'];
@@ -25,6 +26,9 @@ $WEBHOOK_SHEETS = defined('SHEET_WEBHOOK_URL') ? SHEET_WEBHOOK_URL : (getenv('WE
 
 $token = get_bearer_token();
 $user = verify_jwt($token, $SECRET_KEY);
+
+// Ensure schema for Clients table
+ensureClientsSchema($pdo);
 
 if (!$user) {
     if (defined('DEV_MODE') && DEV_MODE === true) {
@@ -133,6 +137,31 @@ if ($requestMethod === 'GET') {
         $input = json_decode(file_get_contents('php://input'), true);
         $fields = [];
         $params = [];
+
+        $clientCode = trim($input['clientCode'] ?? '');
+        $clientName = trim($input['client'] ?? '');
+
+        if ($clientCode) {
+            $stmtClient = $pdo->prepare("INSERT INTO Clients (clientCode, clientName)
+                VALUES (:code, :name)
+                ON DUPLICATE KEY UPDATE clientName = VALUES(clientName)");
+            $stmtClient->execute([
+                ':code' => $clientCode,
+                ':name' => $clientName ?: null
+            ]);
+        }
+
+        $clientBlocked = false;
+        $clientBlockedAmount = null;
+        if ($clientCode) {
+            $stmtClient = $pdo->prepare("SELECT blocked, blocked_amount FROM Clients WHERE clientCode = :code LIMIT 1");
+            $stmtClient->execute([':code' => $clientCode]);
+            $clientRow = $stmtClient->fetch(PDO::FETCH_ASSOC);
+            if ($clientRow && !empty($clientRow['blocked'])) {
+                $clientBlocked = true;
+                $clientBlockedAmount = $clientRow['blocked_amount'] ?? null;
+            }
+        }
         
         $oldBooking = null;
          if ($requestMethod === 'PUT') {
@@ -170,6 +199,18 @@ if ($requestMethod === 'GET') {
                      $params[":$key"] = $value;
                 }
             }
+        }
+
+        if ($clientBlocked) {
+            $fields[] = "is_blocked = 1";
+            $fields[] = "blocked_by = 'CLIENT'";
+            $fields[] = "blocked_reason = 'Cliente bloqueado'";
+            $fields[] = "blocked_debt_amount = :blocked_debt_amount";
+            $fields[] = "blocked_at = NOW()";
+            $fields[] = "status = 'BLOCKED'";
+            $fields[] = "resourceId = 'PENDIENTE'";
+            $fields[] = "color = 'red'";
+            $params[':blocked_debt_amount'] = $clientBlockedAmount;
         }
         
         // Auto status update if pending moved to board

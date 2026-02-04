@@ -16,8 +16,29 @@ function ensureBookingColumns($pdo) {
         if (in_array('kg', $cols)) {
             $pdo->exec("ALTER TABLE Bookings MODIFY kg DECIMAL(10,3) DEFAULT 0");
         }
+        if (in_array('status', $cols)) {
+            $pdo->exec("ALTER TABLE Bookings MODIFY status ENUM('PENDING','PLANNED','IN_PROGRESS','COMPLETED','CANCELLED','BLOCKED') DEFAULT 'PENDING'");
+        }
     } catch (PDOException $e) {
         error_log("ensureBookingColumns error: " . $e->getMessage());
+    }
+}
+
+function ensureClientsSchema($pdo) {
+    try {
+        $pdo->exec("CREATE TABLE IF NOT EXISTS Clients (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            clientCode VARCHAR(50) NOT NULL UNIQUE,
+            clientName VARCHAR(255),
+            blocked TINYINT(1) DEFAULT 0,
+            blocked_amount DECIMAL(10,2) DEFAULT NULL,
+            blocked_reason TEXT,
+            blocked_at TIMESTAMP NULL,
+            createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+        )");
+    } catch (PDOException $e) {
+        error_log("ensureClientsSchema error: " . $e->getMessage());
     }
 }
 

@@ -93,7 +93,7 @@ try {
         blocked_at = NOW(),
         prev_status = :prev_status,
         prev_resourceId = :prev_resourceId,
-        status = 'PENDING',
+        status = 'BLOCKED',
         resourceId = 'PENDIENTE',
         color = 'red',
         prev_color = :prev_color,

@@ -9,6 +9,17 @@ require_once '../db.php';
 require_once '../jwt_helper.php';
 require_once __DIR__ . '/helpers.php';
 
+// Ensure schema for Clients table
+ensureClientsSchema($pdo);
+
+function excelSerialToDate($serial) {
+    if ($serial === null || $serial === '') return null;
+    if (!is_numeric($serial)) return null;
+    $base = new DateTime('1899-12-30');
+    $base->modify('+' . intval($serial) . ' days');
+    return $base->format('Y-m-d');
+}
+
 // Try to load Sampi helpers if it exists
 if (file_exists(__DIR__ . '/sampi_helpers.php')) {
     require_once __DIR__ . '/sampi_helpers.php';
@@ -204,10 +215,43 @@ function processBulkUpload($bookings, $pdo, $user) {
             }
 
             // Prepare booking data - Enhanced Mapping
+            $clientName = $booking['cliente'] ?? $booking['client'] ?? $booking['razon_social'] ?? 'Sin cliente';
+            $clientCode = $booking['clientcode'] ?? $booking['client_code'] ?? $booking['código tango cliente'] ?? $booking['codigo tango cliente'] ?? '';
+            $orderDate = $booking['fecha'] ?? $booking['orderdate'] ?? $booking['order_date'] ?? $booking['fecha pedido'] ?? $booking['fecha_pedido'] ?? null;
+            if ($orderDate instanceof DateTime) {
+                $orderDate = $orderDate->format('Y-m-d');
+            } else if (is_numeric($orderDate)) {
+                $orderDate = excelSerialToDate($orderDate);
+            } else if (is_string($orderDate) && strlen($orderDate) > 0) {
+                $orderDate = date('Y-m-d', strtotime($orderDate));
+            }
+
+            if ($clientCode) {
+                $stmtClient = $pdo->prepare("INSERT INTO Clients (clientCode, clientName)
+                    VALUES (:code, :name)
+                    ON DUPLICATE KEY UPDATE clientName = VALUES(clientName)");
+                $stmtClient->execute([
+                    ':code' => $clientCode,
+                    ':name' => $clientName
+                ]);
+            }
+
+            $clientBlocked = false;
+            $clientBlockedAmount = null;
+            if ($clientCode) {
+                $stmtClient = $pdo->prepare("SELECT blocked, blocked_amount FROM Clients WHERE clientCode = :code LIMIT 1");
+                $stmtClient->execute([':code' => $clientCode]);
+                $clientRow = $stmtClient->fetch(PDO::FETCH_ASSOC);
+                if ($clientRow && !empty($clientRow['blocked'])) {
+                    $clientBlocked = true;
+                    $clientBlockedAmount = $clientRow['blocked_amount'] ?? null;
+                }
+            }
+
             $bookingData = [
-                'client' => $booking['cliente'] ?? $booking['client'] ?? $booking['razon_social'] ?? 'Sin cliente',
+                'client' => $clientName,
                 'orderNumber' => $booking['ordernumber'] ?? $booking['order_number'] ?? $booking['n° pedido'] ?? $booking['n_pedido'] ?? $booking['nº pedido'] ?? '',
-                'clientCode' => $booking['clientcode'] ?? $booking['client_code'] ?? $booking['código tango cliente'] ?? $booking['codigo tango cliente'] ?? '',
+                'clientCode' => $clientCode,
                 'description' => $booking['descripcion'] ?? $booking['description'] ?? $booking['detalle de lo solicitado'] ?? '',
                 'kg' => $totalKg,
                 'duration' => $regularDuration + $sampiCalc['totalMinutes'],
@@ -215,7 +259,14 @@ function processBulkUpload($bookings, $pdo, $user) {
                 'sampi_time' => $sampiCalc['totalMinutes'],
                 'sampi_pallets' => json_encode($sampiCalc['detail']),
                 'items' => json_encode($items),
-                'status' => 'PENDING',
+                'status' => $clientBlocked ? 'BLOCKED' : 'PENDING',
+                'date' => $orderDate,
+                'is_blocked' => $clientBlocked ? 1 : 0,
+                'blocked_by' => $clientBlocked ? 'CLIENT' : null,
+                'blocked_reason' => $clientBlocked ? 'Cliente bloqueado' : null,
+                'blocked_debt_amount' => $clientBlocked ? $clientBlockedAmount : null,
+                'resourceId' => 'PENDIENTE',
+                'color' => $clientBlocked ? 'red' : 'blue',
                 'createdBy' => $user['id'],
                 'createdAt' => date('Y-m-d H:i:s'),
                 'updatedAt' => date('Y-m-d H:i:s')
@@ -239,9 +290,9 @@ function processBulkUpload($bookings, $pdo, $user) {
             // Insert into database
             $stmt = $pdo->prepare("
                 INSERT INTO Bookings
-                (client, orderNumber, clientCode, description, kg, duration, sampi_on, sampi_time, sampi_pallets, items, status, createdBy, createdAt, updatedAt)
+                (client, orderNumber, clientCode, description, kg, duration, sampi_on, sampi_time, sampi_pallets, items, status, date, is_blocked, blocked_by, blocked_reason, blocked_debt_amount, resourceId, color, createdBy, createdAt, updatedAt)
                 VALUES
-                (:client, :orderNumber, :clientCode, :description, :kg, :duration, :sampi_on, :sampi_time, :sampi_pallets, :items, :status, :createdBy, :createdAt, :updatedAt)
+                (:client, :orderNumber, :clientCode, :description, :kg, :duration, :sampi_on, :sampi_time, :sampi_pallets, :items, :status, :date, :is_blocked, :blocked_by, :blocked_reason, :blocked_debt_amount, :resourceId, :color, :createdBy, :createdAt, :updatedAt)
             ");
 
             $stmt->execute($bookingData);

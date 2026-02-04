@@ -7,7 +7,11 @@ require_once '../db.php';
 require_once '../jwt_helper.php';
 require_once '../lib/pdf2text.php'; // Native PDF Library
 require_once '../settings.php'; // Keys
+require_once __DIR__ . '/helpers.php';
 require_once 'sampi_helpers.php'; // New Sampi V2 logic
+
+// Ensure schema for Clients table
+ensureClientsSchema($pdo);
 
 // Auth Check
 $SECRET_KEY = defined('JWT_SECRET') ? JWT_SECRET : getenv('JWT_SECRET');
@@ -58,16 +62,36 @@ $regularDuration = $regularKg > 0 ? calculateDuration($regularKg) : 0;
 
 // 6. Save to DB
 try {
+    $clientBlocked = false;
+    $clientBlockedAmount = null;
+    if (!empty($parsedData['clientCode'])) {
+        $stmtClient = $pdo->prepare("INSERT INTO Clients (clientCode, clientName)
+            VALUES (:code, :name)
+            ON DUPLICATE KEY UPDATE clientName = VALUES(clientName)");
+        $stmtClient->execute([
+            ':code' => $parsedData['clientCode'],
+            ':name' => $parsedData['client'] ?? null
+        ]);
+
+        $stmtClient = $pdo->prepare("SELECT blocked, blocked_amount FROM Clients WHERE clientCode = :code LIMIT 1");
+        $stmtClient->execute([':code' => $parsedData['clientCode']]);
+        $clientRow = $stmtClient->fetch(PDO::FETCH_ASSOC);
+        if ($clientRow && !empty($clientRow['blocked'])) {
+            $clientBlocked = true;
+            $clientBlockedAmount = $clientRow['blocked_amount'] ?? null;
+        }
+    }
+
     $stmt = $pdo->prepare("INSERT INTO Bookings (
         client, clientCode, orderNumber, description, kg, duration,
         items, sampi_on, sampi_time, sampi_pallets,
         resourceId, date, startTimeHour, startTimeMinute,
-        status, priority, createdBy, createdAt, updatedAt
+        status, priority, is_blocked, blocked_by, blocked_reason, blocked_debt_amount, createdBy, createdAt, updatedAt
     ) VALUES (
         :client, :clientCode, :orderNumber, :desc, :kg, :duration,
         :items, :sampiOn, :sampiTime, :sampiPallets,
         'PENDIENTE', CURDATE(), 8, 0,
-        'PENDING', 'Normal', :createdBy, NOW(), NOW()
+        :status, 'Normal', :is_blocked, :blocked_by, :blocked_reason, :blocked_debt_amount, :createdBy, NOW(), NOW()
     )");
 
     $stmt->execute([
@@ -81,7 +105,12 @@ try {
         ':sampiOn' => $sampiCalc['hasSampi'] ? 1 : 0,
         ':sampiTime' => $sampiCalc['totalMinutes'],
         ':sampiPallets' => json_encode($sampiCalc['detail']),
-        ':createdBy' => $user['id']
+        ':createdBy' => $user['id'],
+        ':status' => $clientBlocked ? 'BLOCKED' : 'PENDING',
+        ':is_blocked' => $clientBlocked ? 1 : 0,
+        ':blocked_by' => $clientBlocked ? 'CLIENT' : null,
+        ':blocked_reason' => $clientBlocked ? 'Cliente bloqueado' : null,
+        ':blocked_debt_amount' => $clientBlocked ? $clientBlockedAmount : null
     ]);
 
     echo json_encode([

@@ -32,7 +32,9 @@ const AppConfig = {
         PDF_UPLOAD: '/api/bookings/upload-pdf.php',
         BULK_UPLOAD: '/api/bookings/bulk-upload.php',
         UNMET_DEMAND: '/api/unmet-demand',
-        DEVIATIONS: '/api/deviations'
+        DEVIATIONS: '/api/deviations',
+        CLIENTS: '/api/clients',
+        PRODUCTS_BY_DATE: '/api/reports/products-by-date.php'
     },
 
     // Coeficientes de productos (código => coeficiente)

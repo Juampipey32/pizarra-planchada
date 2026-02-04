@@ -21,7 +21,7 @@ try {
         "ADD COLUMN IF NOT EXISTS prev_resourceId VARCHAR(50)",
         "ADD COLUMN IF NOT EXISTS prev_color VARCHAR(50)",
         "ADD COLUMN IF NOT EXISTS real_start_at DATETIME NULL",
-        "MODIFY COLUMN status ENUM('PENDING', 'PLANNED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED') DEFAULT 'PENDING'"
+        "MODIFY COLUMN status ENUM('PENDING', 'PLANNED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED', 'BLOCKED') DEFAULT 'PENDING'"
     ];
 
     foreach ($columnsToAdd as $sql) {
@@ -51,6 +51,24 @@ try {
         echo "<p>Tabla 'BookingBlockAudit' verificada/creada.</p>";
     } catch (PDOException $e) {
         echo "<p style='color:orange'>Nota sobre BookingBlockAudit: " . $e->getMessage() . "</p>";
+    }
+
+    // 3. Create Clients Table
+    try {
+        $pdo->exec("CREATE TABLE IF NOT EXISTS Clients (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            clientCode VARCHAR(50) NOT NULL UNIQUE,
+            clientName VARCHAR(255),
+            blocked TINYINT(1) DEFAULT 0,
+            blocked_amount DECIMAL(10,2) DEFAULT NULL,
+            blocked_reason TEXT,
+            blocked_at TIMESTAMP NULL,
+            createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+        )");
+        echo "<p>Tabla 'Clients' verificada/creada.</p>";
+    } catch (PDOException $e) {
+        echo "<p style='color:orange'>Nota sobre Clients: " . $e->getMessage() . "</p>";
     }
 
     echo "<h3>Actualización completada.</h3>";

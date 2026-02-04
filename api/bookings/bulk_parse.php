@@ -13,6 +13,9 @@ $SECRET_KEY = getenv('JWT_SECRET') ?: 'secret_key_change_me';
 $token = get_bearer_token();
 $user = verify_jwt($token, $SECRET_KEY);
 
+// Ensure schema for Clients table
+ensureClientsSchema($pdo);
+
 if (!$user) {
     http_response_code(401);
     echo json_encode(['error' => 'Unauthorized']);
@@ -242,19 +245,48 @@ try {
         }
 
         [$items, $kg] = parseDetailString($detailText, $productMap);
+        $orderDate = isset($colMap['Fecha']) ? excelSerialToDate($row[$colMap['Fecha']] ?? null) : null;
+
+        $clientCode = $row[$colMap['Código Tango Cliente']] ?? null;
+        $clientName = $row[$colMap['Cliente']] ?? ('Pedido ' . $orderNumber);
+
+        if ($clientCode) {
+            $stmtClient = $pdo->prepare("INSERT INTO Clients (clientCode, clientName)
+                VALUES (:code, :name)
+                ON DUPLICATE KEY UPDATE clientName = VALUES(clientName)");
+            $stmtClient->execute([
+                ':code' => $clientCode,
+                ':name' => $clientName
+            ]);
+        }
+
+        $clientBlocked = false;
+        $clientBlockedAmount = null;
+        if ($clientCode) {
+            $stmtClient = $pdo->prepare("SELECT blocked, blocked_amount FROM Clients WHERE clientCode = :code LIMIT 1");
+            $stmtClient->execute([':code' => $clientCode]);
+            $clientRow = $stmtClient->fetch(PDO::FETCH_ASSOC);
+            if ($clientRow && !empty($clientRow['blocked'])) {
+                $clientBlocked = true;
+                $clientBlockedAmount = $clientRow['blocked_amount'] ?? null;
+            }
+        }
+
         $orders[] = [
             'row' => $i + 1,
             'orderNumber' => trim($orderNumber),
             'status' => $row[$colMap['Estado']] ?? null,
-            'clientCode' => $row[$colMap['Código Tango Cliente']] ?? null,
-            'client' => $row[$colMap['Cliente']] ?? 'Pedido ' . $orderNumber,
-            'orderDate' => isset($colMap['Fecha']) ? excelSerialToDate($row[$colMap['Fecha']] ?? null) : null,
+            'clientCode' => $clientCode,
+            'client' => $clientName,
+            'orderDate' => $orderDate,
             'tangoOrder' => $row[$colMap['N° Pedido en Tango']] ?? null,
             'kg' => $kg,
             'duration' => suggestDurationMinutes($kg),
             'description' => buildDescriptionFromItems($items),
             'items' => $items,
-            'sampiInfo' => detectSampiInfo($items, $kg)
+            'sampiInfo' => detectSampiInfo($items, $kg),
+            'clientBlocked' => $clientBlocked,
+            'clientBlockedAmount' => $clientBlockedAmount
         ];
     }
 

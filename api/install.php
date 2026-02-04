@@ -27,7 +27,7 @@ try {
         startTimeMinute INT NOT NULL,
         realStartTime VARCHAR(10),
         realEndTime VARCHAR(10),
-        status ENUM('PENDING', 'PLANNED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED') DEFAULT 'PENDING',
+        status ENUM('PENDING', 'PLANNED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED', 'BLOCKED') DEFAULT 'PENDING',
         priority ENUM('Normal', 'Urgente', 'Lista', 'Espera') DEFAULT 'Normal',
         observations TEXT,
         items JSON,
@@ -74,6 +74,20 @@ try {
         updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
     )");
     echo "<p>Tabla 'Products' verificada/creada.</p>";
+
+    // 3c. Create Clients Table
+    $pdo->exec("CREATE TABLE IF NOT EXISTS Clients (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        clientCode VARCHAR(50) NOT NULL UNIQUE,
+        clientName VARCHAR(255),
+        blocked TINYINT(1) DEFAULT 0,
+        blocked_amount DECIMAL(10,2) DEFAULT NULL,
+        blocked_reason TEXT,
+        blocked_at TIMESTAMP NULL,
+        createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    )");
+    echo "<p>Tabla 'Clients' verificada/creada.</p>";
 
     // 3b. Seed product coefficients (idempotente)
     $seed = [
