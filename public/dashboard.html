@@ -386,50 +386,49 @@
     </div>
     <!-- MODAL AVANZADO (Edición Completa) -->
     <div id="bookingModal"
-        class="fixed inset-0 bg-black/80 hidden z-50 flex items-center justify-center backdrop-blur-sm transition-opacity opacity-0">
-        <div class="bg-[#1e293b] rounded-2xl shadow-2xl w-full max-w-4xl mx-4 flex flex-col max-h-[95vh] overflow-hidden transform scale-95 transition-transform border border-slate-700"
+        class="fixed inset-0 bg-black/60 hidden z-50 flex items-center justify-center backdrop-blur-sm transition-opacity opacity-0">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-4xl mx-4 flex flex-col max-h-[95vh] overflow-hidden transform scale-95 transition-transform border border-gray-200"
             id="modalContent">
             <!-- Modal Header -->
-            <div class="px-6 py-4 bg-[#0f172a] border-b border-slate-700 flex justify-between items-center">
+            <div class="px-6 py-4 bg-white border-b border-gray-200 flex justify-between items-center">
                 <div>
-                    <h3 class="text-xl font-black text-slate-100 flex items-center gap-2"><i
+                    <h3 class="text-xl font-black text-gray-800 flex items-center gap-2"><i
                             class="fa-solid fa-clipboard-list text-blue-500"></i><span id="modalTitle">Detalle de
                             Carga</span></h3>
-                    <p class="text-xs text-slate-400 mt-1">Gestión completa de pedido y cálculo de
+                    <p class="text-xs text-gray-500 mt-1">Gestión completa de pedido y cálculo de
                         tiempos.</p>
                 </div><button onclick="closeModal()"
-                    class="w-8 h-8 rounded-full hover:bg-slate-700 flex items-center justify-center text-slate-400 hover:text-white transition-colors"><i
+                    class="w-8 h-8 rounded-full hover:bg-gray-100 flex items-center justify-center text-gray-500 hover:text-gray-700 transition-colors"><i
                         class="fa-solid fa-xmark text-xl"></i></button>
             </div>
             <!-- Modal Body -->
-            <div class="flex-1 overflow-y-auto p-6 bg-[#0f172a]/50">
+            <div class="flex-1 overflow-y-auto p-6 bg-white">
                 <form id="bookingForm" class="grid grid-cols-12 gap-6"><input type="hidden" id="bookingId">
                     <!-- Left Column: Primary Info -->
                     <div class="col-span-12 md:col-span-4 space-y-4">
-                        <div class="bg-[#1e293b] p-4 rounded-xl border border-slate-700 shadow-sm">
-                            <h4 class="text-xs font-bold text-slate-500 uppercase mb-3">
+                        <div class="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
+                            <h4 class="text-xs font-bold text-gray-500 uppercase mb-3">
                                 Información General</h4>
                             <div class="space-y-3">
-                                <div><label
-                                        class="block text-xs font-semibold text-slate-400 mb-1">Cliente</label><input
+                                <div><label class="block text-xs font-semibold text-gray-600 mb-1">Cliente</label><input
                                         type="text" id="clientName"
-                                        class="w-full px-3 py-2 rounded-lg border-slate-700 bg-[#0f172a] text-slate-200 text-sm font-medium focus:ring-2 ring-blue-500 outline-none transition-all placeholder-slate-400"
+                                        class="w-full px-3 py-2 rounded-lg border-gray-300 bg-white text-gray-800 text-sm font-medium focus:ring-2 ring-blue-500 outline-none transition-all placeholder-gray-400"
                                         placeholder="Ej: Supermercado X"></div>
                                 <div class="grid grid-cols-2 gap-2">
                                     <div><label
-                                            class="block text-xs font-semibold text-slate-400 mb-1">Cód.</label><input
+                                            class="block text-xs font-semibold text-gray-600 mb-1">Cód.</label><input
                                             type="text" id="clientCode"
-                                            class="w-full px-3 py-2 rounded-lg border-slate-700 bg-[#0f172a] text-slate-200 text-sm">
+                                            class="w-full px-3 py-2 rounded-lg border-gray-300 bg-white text-gray-800 text-sm">
                                     </div>
-                                    <div><label class="block text-xs font-semibold text-slate-400 mb-1">N°
+                                    <div><label class="block text-xs font-semibold text-gray-600 mb-1">N°
                                             Pedido</label><input type="text" id="orderNumber"
-                                            class="w-full px-3 py-2 rounded-lg border-slate-700 bg-[#0f172a] text-slate-200 text-sm">
+                                            class="w-full px-3 py-2 rounded-lg border-gray-300 bg-white text-gray-800 text-sm">
                                     </div>
                                 </div>
                                 <div><label
-                                        class="block text-xs font-semibold text-slate-400 mb-1">Prioridad</label><select
+                                        class="block text-xs font-semibold text-gray-600 mb-1">Prioridad</label><select
                                         id="priority"
-                                        class="w-full px-3 py-2 rounded-lg border-slate-700 bg-[#0f172a] text-slate-200 text-sm focus:ring-2 ring-blue-500 outline-none">
+                                        class="w-full px-3 py-2 rounded-lg border-gray-300 bg-white text-gray-800 text-sm focus:ring-2 ring-blue-500 outline-none">
                                         <option value="Normal">Normal 🟦</option>
                                         <option value="Urgente">Urgente 🟥</option>
                                         <option value="Lista">Lista 🟩</option>
@@ -437,34 +436,34 @@
                                     </select></div>
                             </div>
                         </div>
-                        <div class="bg-[#1e293b] p-4 rounded-xl border border-slate-700 shadow-sm">
-                            <h4 class="text-xs font-bold text-slate-500 uppercase mb-3">
+                        <div class="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
+                            <h4 class="text-xs font-bold text-gray-500 uppercase mb-3">
                                 Logística</h4>
                             <div class="space-y-3">
-                                <div><label class="block text-xs font-semibold text-slate-400 mb-1">Recurso
+                                <div><label class="block text-xs font-semibold text-gray-600 mb-1">Recurso
                                         (Puerta)</label><select id="resourceSelect"
-                                        class="w-full px-3 py-2 rounded-lg border-slate-700 bg-[#0f172a] text-slate-200 text-sm font-medium focus:ring-2 ring-blue-500 outline-none">
+                                        class="w-full px-3 py-2 rounded-lg border-gray-300 bg-white text-gray-800 text-sm font-medium focus:ring-2 ring-blue-500 outline-none">
                                         <!-- Options JS -->
                                     </select></div>
                                 <div class="grid grid-cols-2 gap-2">
-                                    <div><label class="block text-xs font-semibold text-slate-400 mb-1">Hora
+                                    <div><label class="block text-xs font-semibold text-gray-600 mb-1">Hora
                                             Inicio</label><select id="startTime"
-                                            class="w-full px-3 py-2 rounded-lg border-slate-700 bg-[#0f172a] text-slate-200 text-sm font-bold">
+                                            class="w-full px-3 py-2 rounded-lg border-gray-300 bg-white text-gray-800 text-sm font-bold">
                                             <!-- Options JS -->
                                         </select>
                                     </div>
                                     <div class="relative"><label
-                                            class="block text-xs font-semibold text-slate-400 mb-1">Duración
+                                            class="block text-xs font-semibold text-gray-600 mb-1">Duración
                                             (min)</label><input type="number" id="duration" readonly
-                                            class="w-full px-3 py-2 rounded-lg border-slate-700 bg-slate-800 text-slate-500 text-sm font-bold cursor-not-allowed"
+                                            class="w-full px-3 py-2 rounded-lg border-gray-200 bg-gray-100 text-gray-500 text-sm font-bold cursor-not-allowed"
                                             title="Auto-calculado"><i
-                                            class="fa-solid fa-calculator absolute right-3 top-8 text-slate-600 text-xs"></i>
+                                            class="fa-solid fa-calculator absolute right-3 top-8 text-gray-400 text-xs"></i>
                                     </div>
                                 </div>
                                 <div><label
-                                        class="block text-xs font-semibold text-slate-400 mb-1">Observaciones</label><textarea
+                                        class="block text-xs font-semibold text-gray-600 mb-1">Observaciones</label><textarea
                                         id="observations" rows="2"
-                                        class="w-full px-3 py-2 rounded-lg border-slate-700 bg-[#0f172a] text-slate-200 text-xs resize-none placeholder-slate-400"></textarea>
+                                        class="w-full px-3 py-2 rounded-lg border-gray-300 bg-white text-gray-800 text-xs resize-none placeholder-gray-400"></textarea>
                                 </div>
                             </div>
                         </div>
@@ -473,42 +472,42 @@
                     <div class="col-span-12 md:col-span-8 flex flex-col gap-4">
                         <!-- Calculations Panel -->
                         <div
-                            class="bg-slate-800 text-white p-4 rounded-xl shadow-lg border border-slate-700 flex justify-between items-center">
+                            class="bg-gray-50 text-gray-700 p-4 rounded-xl shadow-sm border border-gray-200 flex justify-between items-center">
                             <div class="text-center">
-                                <p class="text-xs text-slate-400 uppercase tracking-wide">
+                                <p class="text-xs text-gray-500 uppercase tracking-wide">
                                     Total Kg</p>
-                                <p class="text-2xl font-black text-blue-400" id="calcTotalKg">0.00</p>
+                                <p class="text-2xl font-black text-blue-600" id="calcTotalKg">0.00</p>
                             </div>
-                            <div class="h-8 w-px bg-slate-600"></div>
+                            <div class="h-8 w-px bg-gray-200"></div>
                             <div class="text-center">
-                                <p class="text-xs text-slate-400 uppercase tracking-wide">
+                                <p class="text-xs text-gray-500 uppercase tracking-wide">
                                     Estimado</p>
                                 <p class="text-xl font-bold" id="calcDuration">0 min
                                 </p>
                             </div>
-                            <div class="h-8 w-px bg-slate-600"></div>
+                            <div class="h-8 w-px bg-gray-200"></div>
                             <div class="text-center">
-                                <p class="text-xs text-slate-400 uppercase tracking-wide">
+                                <p class="text-xs text-gray-500 uppercase tracking-wide">
                                     Sampi Kg</p>
-                                <p class="text-xl font-bold text-purple-400" id="calcSampiKg">0.00</p>
+                                <p class="text-xl font-bold text-purple-600" id="calcSampiKg">0.00</p>
                             </div>
                             <div class="text-center"><span id="sampiBadge"
-                                    class="px-3 py-1 rounded-full text-xs font-bold bg-slate-700 text-slate-500">SAMPI
+                                    class="px-3 py-1 rounded-full text-xs font-bold bg-gray-200 text-gray-500">SAMPI
                                     OFF</span></div>
                         </div>
                         <!-- Items Table -->
                         <div
-                            class="bg-[#1e293b] rounded-xl border border-slate-700 shadow-sm flex-1 flex flex-col overflow-hidden">
-                            <div class="p-3 border-b border-slate-700 bg-[#0f172a] flex justify-between items-center">
-                                <h4 class="text-xs font-bold text-slate-500 uppercase">
+                            class="bg-white rounded-xl border border-gray-200 shadow-sm flex-1 flex flex-col overflow-hidden">
+                            <div class="p-3 border-b border-gray-200 bg-gray-50 flex justify-between items-center">
+                                <h4 class="text-xs font-bold text-gray-500 uppercase">
                                     Detalle de Productos</h4><button type="button" onclick="addItemRow()"
-                                    class="text-xs bg-blue-900/30 text-blue-400 hover:bg-blue-900/50 px-3 py-1 rounded font-bold transition-colors border border-blue-500/30"><i
+                                    class="text-xs bg-blue-50 text-blue-600 hover:bg-blue-100 px-3 py-1 rounded font-bold transition-colors border border-blue-200"><i
                                         class="fa-solid fa-plus mr-1"></i>Agregar
                                     Item </button>
                             </div>
                             <div class="overflow-y-auto flex-1 p-0">
                                 <table class="w-full text-left text-sm">
-                                    <thead class="bg-slate-800 text-slate-400 text-xs uppercase sticky top-0 z-10">
+                                    <thead class="bg-gray-100 text-gray-500 text-xs uppercase sticky top-0 z-10">
                                         <tr>
                                             <th class="px-4 py-2 font-semibold">
                                                 Cód.</th>
@@ -528,18 +527,18 @@
                         </div>
                         <!-- Real Time Tracking (Solo visual por ahora) -->
                         <div
-                            class="bg-[#1e293b] p-4 rounded-xl border border-slate-700 shadow-sm flex gap-4 items-center opacity-70 hover:opacity-100 transition-opacity">
-                            <i class="fa-solid fa-stopwatch text-slate-500 text-2xl"></i>
+                            class="bg-gray-50 p-4 rounded-xl border border-gray-200 shadow-sm flex gap-4 items-center opacity-90 hover:opacity-100 transition-opacity">
+                            <i class="fa-solid fa-stopwatch text-gray-400 text-2xl"></i>
                             <div class="flex-1 grid grid-cols-2 gap-4">
-                                <div><label class="block text-xs font-semibold text-slate-500">Inicio
+                                <div><label class="block text-xs font-semibold text-gray-500">Inicio
                                         Real</label><select id="realStartTime"
-                                        class="w-full bg-transparent border-0 border-b-2 border-slate-700 focus:border-blue-500 text-sm px-0 py-1 text-slate-200">
+                                        class="w-full bg-transparent border-0 border-b-2 border-gray-300 focus:border-blue-500 text-sm px-0 py-1 text-gray-700">
                                         <!-- Options JS -->
                                     </select>
                                 </div>
-                                <div><label class="block text-xs font-semibold text-slate-500">Fin
+                                <div><label class="block text-xs font-semibold text-gray-500">Fin
                                         Real</label><select id="realEndTime"
-                                        class="w-full bg-transparent border-0 border-b-2 border-slate-700 focus:border-blue-500 text-sm px-0 py-1 text-slate-200">
+                                        class="w-full bg-transparent border-0 border-b-2 border-gray-300 focus:border-blue-500 text-sm px-0 py-1 text-gray-700">
                                         <!-- Options JS -->
                                     </select>
                                 </div>
@@ -549,9 +548,9 @@
                 </form>
             </div>
             <!-- Modal Footer -->
-            <div class="px-6 py-4 bg-[#0f172a] border-t border-slate-700 flex justify-between items-center">
+            <div class="px-6 py-4 bg-white border-t border-gray-200 flex justify-between items-center">
                 <button type="button" id="deleteBtn" onclick="deleteBooking()"
-                    class="text-red-400 hover:bg-red-900/20 px-4 py-2 rounded-lg text-sm font-bold transition-colors"><i
+                    class="text-red-600 hover:bg-red-50 px-4 py-2 rounded-lg text-sm font-bold transition-colors"><i
                         class="fa-solid fa-trash-can mr-2"></i>Eliminar </button>
 
                 <button type="button" id="blockBtn" onclick="toggleBlockBooking()"
@@ -559,9 +558,9 @@
                     <i class="fa-solid fa-lock mr-2"></i>Bloquear
                 </button>
                 <div class="flex gap-3"><button onclick="closeModal()"
-                        class="px-6 py-2 rounded-lg text-sm font-bold text-slate-400 hover:text-white hover:bg-slate-800 transition-colors">Cancelar</button><button
+                        class="px-6 py-2 rounded-lg text-sm font-bold text-gray-500 hover:text-gray-700 hover:bg-gray-100 transition-colors">Cancelar</button><button
                         onclick="saveBooking()"
-                        class="bg-blue-600 hover:bg-blue-500 text-white px-8 py-2 rounded-lg text-sm font-bold shadow-lg shadow-blue-500/30 transition-all transform active:scale-95 border border-blue-500"><i
+                        class="bg-blue-600 hover:bg-blue-500 text-white px-8 py-2 rounded-lg text-sm font-bold shadow-lg shadow-blue-500/20 transition-all transform active:scale-95 border border-blue-500"><i
                             class="fa-solid fa-save mr-2"></i>Guardar Carga </button></div>
             </div>
         </div>
