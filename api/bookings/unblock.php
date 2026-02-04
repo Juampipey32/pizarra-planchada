@@ -74,25 +74,22 @@ try {
         exit;
     }
 
-    $prevStatus = $booking['prev_status'] ?: 'PENDING';
-    $prevResourceId = $booking['prev_resourceId'] ?: 'PENDIENTE';
-    $prevColor = $booking['prev_color'] ?: 'blue';
-
-    $newColor = $prevColor ?: 'blue';
+    $newColor = 'blue';
 
     $stmt = $pdo->prepare("UPDATE Bookings SET
         is_blocked = 0,
         blocked_at = NULL,
-        status = :status,
-        resourceId = :resourceId,
+        status = 'PENDING',
+        resourceId = 'PENDIENTE',
         color = :color,
+        startTimeHour = NULL,
+        startTimeMinute = NULL,
+        date = NULL,
         updatedAt = NOW()
         WHERE id = :id
     ");
 
     $stmt->execute([
-        ':status' => $prevStatus,
-        ':resourceId' => $prevResourceId,
         ':color' => $newColor,
         ':id' => $id
     ]);
