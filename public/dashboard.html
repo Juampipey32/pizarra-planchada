@@ -472,26 +472,33 @@
                     <div class="col-span-12 md:col-span-8 flex flex-col gap-4">
                         <!-- Calculations Panel -->
                         <div
-                            class="bg-gray-50 text-gray-700 p-3 rounded-xl shadow-sm border border-gray-200 grid grid-cols-2 gap-2 md:grid-cols-4 items-center">
-                            <div class="text-center">
-                                <p class="text-[10px] text-gray-500 uppercase tracking-wide">
-                                    Total Kg</p>
-                                <p class="text-base font-black text-blue-600" id="calcTotalKg">0.00</p>
+                            class="bg-gray-50 text-gray-700 p-3 rounded-xl shadow-sm border border-gray-200 flex flex-col gap-2">
+                            <div class="grid grid-cols-2 gap-2">
+                                <div class="text-center">
+                                    <p class="text-[10px] text-gray-500 uppercase tracking-wide">
+                                        Total Kg</p>
+                                    <p class="text-base font-black text-blue-600" id="calcTotalKg">0.00</p>
+                                </div>
+                                <div class="text-center">
+                                    <p class="text-[10px] text-gray-500 uppercase tracking-wide">
+                                        Estimado</p>
+                                    <p class="text-sm font-bold" id="calcDuration">0 min</p>
+                                </div>
+                            </div>
+                            <div class="grid grid-cols-2 gap-2">
+                                <div class="text-center">
+                                    <p class="text-[10px] text-gray-500 uppercase tracking-wide">
+                                        Sampi Kg</p>
+                                    <p class="text-sm font-bold text-purple-600" id="calcSampiKg">0.00</p>
+                                </div>
+                                <div class="text-center">
+                                    <span id="sampiBadge"
+                                        class="inline-flex items-center justify-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-gray-200 text-gray-500">SAMPI
+                                        OFF</span>
+                                </div>
                             </div>
                             <div class="text-center">
-                                <p class="text-[10px] text-gray-500 uppercase tracking-wide">
-                                    Estimado</p>
-                                <p class="text-sm font-bold" id="calcDuration">0 min</p>
-                            </div>
-                            <div class="text-center">
-                                <p class="text-[10px] text-gray-500 uppercase tracking-wide">
-                                    Sampi Kg</p>
-                                <p class="text-sm font-bold text-purple-600" id="calcSampiKg">0.00</p>
-                            </div>
-                            <div class="text-center">
-                                <span id="sampiBadge"
-                                    class="inline-flex items-center justify-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-gray-200 text-gray-500">SAMPI
-                                    OFF</span>
+                                <span id="sampiDetail" class="text-[10px] text-gray-400"></span>
                             </div>
                         </div>
                         <!-- Items Table -->
@@ -2059,8 +2066,10 @@
             document.getElementById('calcTotalKg').textContent = '0.00';
             document.getElementById('calcDuration').textContent = '0 min';
             document.getElementById('calcSampiKg').textContent = '0.00';
-            document.getElementById('sampiBadge').className = 'px-3 py-1 rounded-full text-xs font-bold bg-slate-700 text-slate-500';
+            document.getElementById('sampiBadge').className = 'inline-flex items-center justify-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-gray-200 text-gray-500';
             document.getElementById('sampiBadge').textContent = 'SAMPI OFF';
+            const sampiDetail = document.getElementById('sampiDetail');
+            if (sampiDetail) sampiDetail.textContent = '';
 
             // Popular select de recursos
             const resourceSelect = document.getElementById('resourceSelect');
@@ -2150,14 +2159,19 @@
 
             const badge = document.getElementById('sampiBadge');
 
+            const sampiDetail = document.getElementById('sampiDetail');
             if (metrics.requiresSampi) {
-                badge.className = 'px-3 py-1 rounded-full text-xs font-bold bg-purple-900/50 text-purple-300 animate-pulse border border-purple-500/50';
-                badge.innerHTML = `<i class="fa-solid fa-bolt mr-1"></i>SAMPI ${metrics.sampiPallets} pallet${metrics.sampiPallets > 1 ? 's' : ''} (${metrics.sampiDuration}m)`;
+                badge.className = 'inline-flex items-center justify-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-purple-700 border border-purple-200';
+                badge.innerHTML = `<i class="fa-solid fa-bolt mr-1"></i>SAMPI ON`;
+                if (sampiDetail) {
+                    sampiDetail.textContent = `${metrics.sampiPallets} pallets · ${metrics.sampiDuration}m`;
+                }
             }
 
             else {
-                badge.className = 'px-3 py-1 rounded-full text-xs font-bold bg-slate-700 text-slate-400';
+                badge.className = 'inline-flex items-center justify-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-gray-200 text-gray-500';
                 badge.textContent = 'SAMPI OFF';
+                if (sampiDetail) sampiDetail.textContent = '';
             }
         }
 
