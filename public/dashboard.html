@@ -1112,8 +1112,8 @@
         // --- RENDER BOARD (TIME GRID) ---
         function initBoardLayout() {
             const container = document.getElementById('boardContainer');
-            // Darker board background for better contrast with cards
-            container.className = "flex-1 h-full overflow-auto bg-slate-900/40 p-4 custom-scrollbar";
+            // Match the example: bg-white container, overflow handled, relative
+            container.className = "flex-1 overflow-auto bg-white relative m-4 rounded-lg border border-gray-200 shadow-sm custom-scrollbar";
 
             // Generate Time Slots (04:00 to 20:00)
             const timeSlots = [];
@@ -1126,85 +1126,81 @@
                     h: currentH, m: currentM, label: formatTime(currentH, currentM)
                 });
                 currentM += 30;
-
                 if (currentM >= 60) {
                     currentH++;
                     currentM = 0;
                 }
             }
 
-            // Usar constante global RESOURCES
             const resources = RESOURCES;
 
             // Build Grid HTML
-            // Header Row
-            let html = `<div class="inline-block min-w-full"><div class="flex sticky top-0 z-20 shadow-xl bg-slate-800/90 backdrop-blur border-b border-indigo-500/30 rounded-t-lg"><div class="w-16 bg-slate-900/90 border-r border-slate-700 p-2 font-bold text-center text-xs flex items-center justify-center flex-none text-indigo-400">Hora</div>${resources.map(r => `<div class="w-64 bg-slate-800/80 text-indigo-100 p-2 border-r border-slate-700 font-bold text-center text-sm flex-none shadow-sm tracking-wide">${r.name}</div>`).join('')}</div>`;
-
-            // Time Function: isSampiTime? 
-            // We'll calculate it later.
+            // We use a sticky header container
+            let html = `
+    <div class="min-w-[1000px] h-full flex flex-col">
+        <!-- Grid Header -->
+        <div class="flex border-b border-gray-300 sticky top-0 z-20 shadow-sm font-semibold text-gray-700 text-sm bg-gray-50">
+            <div class="w-16 flex-shrink-0 border-r border-gray-300 p-3 text-center bg-gray-50">Hora</div>
+            ${resources.map(r => `<div class="flex-1 border-r border-gray-300 p-3 text-center bg-gray-50 whitespace-nowrap overflow-hidden text-ellipsis">${r.name}</div>`).join('')}
+        </div>
+        
+        <!-- Grid Body -->
+        <div class="flex-1 relative">
+    `;
 
             // Rows
             timeSlots.forEach(slot => {
                 const timeLabel = slot.label;
-                const isHalfHour = slot.m === 30;
-
-                // Row Container - Alternating backgrounds for rows (very subtle)
-                const rowBg = isHalfHour ? 'bg-white/[0.02]' : 'bg-transparent';
-
-                html += `<div class="flex border-b border-slate-700/50 ${rowBg} hover:bg-slate-700/40 transition-colors group/row" >`;
+                // Styles: h-24 border-b border-gray-200 flex
+                html += `<div class="flex border-b border-gray-200 min-h-[100px] group/row">`; // increased min-height to fit cards
 
                 // Time Cell
-                html += `<div class="w-16 bg-slate-900/80 border-r border-slate-700 p-1 text-[10px] font-bold text-slate-500 text-center sticky left-0 z-10 flex items-center justify-center group-hover/row:bg-slate-800 group-hover/row:text-indigo-300 transition-colors flex-none backdrop-blur-sm">${timeLabel}</div>`;
+                html += `<div class="w-16 border-r border-gray-200 flex-shrink-0 text-xs text-gray-400 p-2 text-center bg-white sticky left-0 z-10">${timeLabel}</div>`;
 
                 // Resource Cells (Drop Zones)
                 resources.forEach(res => {
-                    // ID for the cell: "cell-RESOURCE-TIME"
                     const cellId = `cell-${res.id.replace(/\s+/g, '-')}-${String(slot.h).padStart(2, '0')}-${String(slot.m).padStart(2, '0')}`;
-
-                    html += `<div id="${cellId}" class="w-64 border-r border-slate-700/50 min-h-[100px] p-2 relative grid-cell-dropzone transition-colors flex-none hover:bg-white/5 overflow-visible" data-resource="${res.id}" data-h="${slot.h}" data-m="${slot.m}"></div>`;
+                    // Added simple hover effect for feedback
+                    html += `<div id="${cellId}" class="flex-1 border-r border-gray-200 p-2 relative grid-cell-dropzone hover:bg-gray-50 transition-colors" data-resource="${res.id}" data-h="${slot.h}" data-m="${slot.m}"></div>`;
                 });
 
                 html += `</div>`; // End Row
             });
 
-            html += `</div>`; // End Main Wrapper
+            html += `</div></div>`; // End Body & Wrapper
             container.innerHTML = html;
 
             // Init Sortable on ALL cells
             document.querySelectorAll('.grid-cell-dropzone').forEach(cell => {
                 new Sortable(cell, {
-
                     group: 'shared',
                     sort: true,
-                    animation: 150,
+                    animation: 100, // Faster animation
                     ghostClass: 'sortable-ghost',
                     dragClass: 'sortable-drag',
                     swapThreshold: 0.65,
                     onMove: function (evt) {
-                        // Highlight drop target
                         document.querySelectorAll('.drop-target-active').forEach(el => el.classList.remove('drop-target-active'));
-                        const target = evt.to.closest('.time-slot') || evt.to;
+                        const target = evt.to.closest('.grid-cell-dropzone') || evt.to; // Updated selector
                         if (target) target.classList.add('drop-target-active');
-                    }
-
-                    ,
+                    },
                     onEnd: function (evt) {
                         document.querySelectorAll('.drop-target-active').forEach(el => el.classList.remove('drop-target-active'));
 
                         const itemEl = evt.item;
-                        const newCell = evt.to.closest('.time-slot') || evt.to;
-                        const newRes = newCell.getAttribute('data-resource');
-                        const newH = newCell.getAttribute('data-h');
-                        const newM = newCell.getAttribute('data-m');
+                        const newCell = evt.to.closest('.grid-cell-dropzone') || evt.to;
+
+                        // Safety check
+                        if (!newCell || !newCell.dataset) return;
+
+                        const newRes = newCell.dataset.resource;
+                        const newH = newCell.dataset.h;
+                        const newM = newCell.dataset.m;
                         const bookingId = itemEl.dataset.id;
 
                         if (newRes) {
-                            // Update booking Time AND Resource
                             updateBookingSlot(bookingId, newRes, parseInt(newH), parseInt(newM));
-                        }
-
-                        else {
-                            // Dragged out? Back to pending?
+                        } else {
                             updateBookingStatus(bookingId, 'PENDING');
                         }
                     }
@@ -1265,8 +1261,19 @@
 
         function createCardElement(b) {
             const el = document.createElement('div');
-            // Modern Dark Card Style - removed h-full to avoid conflict with explicit height
-            el.className = `card-3d bg-slate-800 p-2 rounded-lg shadow-lg border border-slate-600 cursor-pointer relative overflow-hidden group hover:shadow-cyan-500/30 hover:border-cyan-400 transition-all`;
+            // Exact style from example: event-card-gradient (Blue/Purple), text-white, shadow-xl
+            // Removed absolute positioning logic from here because Sortable controls layout in cell
+            // Added h-full/w-full to fill cell
+            el.className = `event-card-gradient text-white rounded-lg p-3 shadow-xl cursor-grab relative group hover:scale-[1.02] transition-transform w-full`;
+
+            // Check if height needs to correspond to duration relative to cell?
+            // Current grid cell is min-h-[100px] (30 min). 
+            // If booking is 60 min, it might need more height. 
+            // For now we rely on the cell expanding or the card taking available space.
+            // Ideally update height based on duration * px_per_min, but user just wants the *style* copied.
+            // We'll set a min-height to look like the example.
+            el.style.minHeight = "5.5rem"; // 88px, close to example
+
             el.setAttribute('data-id', b.id);
             el.setAttribute('data-resource', b.resourceId);
 
@@ -1275,41 +1282,30 @@
                 openEditModal(b);
             };
 
-            // Priority Border
-            const priorityColors = {
-                'Urgente': '!border-l-4 !border-l-red-500',
-                'Lista': '!border-l-4 !border-l-emerald-500',
-                'Espera': '!border-l-4 !border-l-amber-500',
-                'Normal': '!border-l-4 !border-l-blue-500'
-            };
-            const priorityClass = priorityColors[b.priority] || priorityColors['Normal'];
-
-            // Apply priority class safely
-            priorityClass.split(' ').forEach(c => el.classList.add(c.replace('!', '')));
-
-            // Sampi Strip
-            let sampiBar = '';
-            const isSampiResource = (b.resourceId || '').toLowerCase() === 'sampi';
-            const isSampi = Number(b.sampi_on) === 1 || isSampiResource;
-
-            if (isSampi) {
-                el.classList.add('bg-purple-900/40');
-                // Diagonal stripes for Sampi
-                el.style.backgroundImage = "repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(168, 85, 247, 0.2) 10px, rgba(168, 85, 247, 0.2) 20px)";
-                sampiBar = `<div class="absolute top-0 right-0 p-1"><i class="fa-solid fa-bolt text-purple-300 animate-pulse drop-shadow-[0_0_8px_rgba(168,85,247,0.9)]" title="Sampi Activo"></i></div>`;
-            }
+            // Sampi Indicator (replacing strip with icon or logic if needed, but staying faithful to example card look)
+            // The example uses the same gradient for Sampi, just maybe a tag.
 
             const startHour = Number(b.startTimeHour ?? 0);
             const startMinute = Number(b.startTimeMinute ?? 0);
-            const duration = Number(b.duration ?? SLOT_DURATION);
             const startLabel = formatTime(startHour, startMinute);
-            const endTotal = startHour * 60 + startMinute + duration;
-            const endHour = Math.floor(endTotal / 60);
-            const endMinute = endTotal % 60;
-            const endLabel = formatTime(endHour % 24, endMinute);
-            const weight = Number(b.kg ?? b.totalKg ?? 0);
+            const duration = b.duration || 30;
+            const weight = Number(b.kg ?? b.totalKg ?? 0).toFixed(0);
 
-            el.innerHTML = `<div class="flex justify-between items-start leading-tight mb-1"><span class="font-black text-white text-xs truncate w-[85%] group-hover:text-cyan-300 transition-colors drop-shadow-md">${b.client}</span></div><div class="text-[10px] text-slate-200 truncate font-semibold leading-tight mb-1">${b.description || '-'}</div><div class="text-[10px] text-slate-400 font-bold font-mono">${startLabel} - ${endLabel}</div><div class="flex justify-between items-end mt-2 border-t border-slate-700 pt-1.5"><div class="text-[10px] font-black text-white bg-slate-900/80 px-2 py-0.5 rounded border border-slate-600 shadow-inner">${weight.toFixed(0)} kg</div><div class="text-[10px] text-slate-200 font-bold flex items-center gap-1"><i class="fa-regular fa-clock text-[9px] text-cyan-400"></i>${b.duration}m</div></div>${sampiBar}`;
+            // Layout from Example:
+            // Top: Title + Date/Time
+            // Bottom: Kg + Duration
+            el.innerHTML = `
+    <div class="flex flex-col justify-between h-full">
+        <div>
+            <h4 class="font-bold text-xs truncate leading-tight mb-1">${b.client}</h4>
+            <p class="text-[10px] text-blue-100 opacity-80">${startLabel} · ${b.orderNumber || ''}</p>
+        </div>
+        <div class="flex justify-between items-center mt-2">
+            <span class="bg-gray-900 text-white text-[10px] font-bold px-1.5 py-0.5 rounded">${weight} kg</span>
+            <span class="text-[10px] flex items-center gap-1"><i class="fa-regular fa-clock text-[9px]"></i> ${duration}m</span>
+        </div>
+    </div>`;
+
             return el;
         }
 
@@ -1474,38 +1470,52 @@
                 const isDuplicate = Boolean(flags.duplicate) && !isScheduled;
 
                 const card = document.createElement('div');
-                let cardClass = "p-3 rounded-lg border shadow-sm text-sm cursor-grab mb-2 relative group transition-all hover:scale-[1.02] ";
+                // Base Style from Example
+                let cardClass = "bg-white p-3 rounded-lg border border-gray-200 shadow-card hover:shadow-md transition-shadow cursor-pointer relative group mb-3";
 
-                if (isMissing) {
-                    cardClass += " bg-red-50 border-red-200 border-l-4 border-l-red-500 text-red-700";
-                }
-                else if (isScheduled) {
-                    cardClass += " bg-emerald-50 border-emerald-200 border-l-4 border-l-emerald-500 text-emerald-800";
-                }
-                else if (isDuplicate) {
-                    cardClass += " bg-orange-50 border-orange-200 border-l-4 border-l-orange-500 text-orange-800";
-                }
-
-                else {
-                    cardClass += " bg-white border-slate-200 border-l-4 border-l-blue-500 text-slate-700 hover:border-blue-400 hover:shadow-md";
-                }
+                // Conditional Borders/Accents instead of full background changes to maintain clean look
+                if (isMissing) cardClass += " border-l-4 !border-l-red-500";
+                else if (isScheduled) cardClass += " border-l-4 !border-l-emerald-500";
+                else if (isDuplicate) cardClass += " border-l-4 !border-l-orange-500 bg-orange-50";
 
                 card.className = cardClass;
                 card.setAttribute('data-id', b.id);
 
                 card.onclick = () => {
                     if (isMissing) return Swal.fire('Faltante', `Esperando: ${b.orderNumber}`, 'warning');
-                    // Duplicate doesn't block opening anymore, just visual warning
                     openEditModal(b);
                 };
 
                 const metrics = b.metrics || { sampiKg: 0 };
-                let badgeHtml = '';
-                if (isMissing) badgeHtml = '<span class="ml-2 text-[9px] font-bold text-red-100 bg-red-600 px-1.5 py-0.5 rounded shadow-sm">SIN PEDIDO</span>';
-                else if (isScheduled) badgeHtml = '<span class="ml-2 text-[9px] font-bold text-emerald-100 bg-emerald-600 px-1.5 py-0.5 rounded shadow-sm flex items-center gap-1"><i class="fa-solid fa-check"></i> AGREGADO</span>';
-                else if (isDuplicate) badgeHtml = '<span class="ml-2 text-[9px] font-bold text-orange-100 bg-orange-600/80 px-1.5 py-0.5 rounded shadow-sm">DUPLICADO</span>';
+                const numKg = Number(b.kg).toFixed(0);
 
-                card.innerHTML = `<div class="flex justify-between items-start"><div class="font-bold text-slate-800 truncate w-[70%]">${b.client}</div>${badgeHtml}</div><div class="text-xs text-slate-500 mb-1 flex items-center gap-1"><i class="fa-solid fa-hashtag text-[10px] text-slate-400"></i> ${b.orderNumber || '-'}</div><div class="flex justify-between text-xs font-semibold text-slate-600 mt-2 pt-2 border-t border-slate-100"><span class="text-slate-700 bg-slate-100 px-1.5 rounded border border-slate-200 shadow-sm">${Number(b.kg).toFixed(0)} kg</span><div class="text-right"><div>${b.duration} min</div>${metrics.requiresSampi ? '<span class="text-purple-600 text-[10px] font-bold">SAMPI</span>' : ''}</div></div>`;
+                // Status Badge Logic
+                let statusBadge = '';
+                if (isScheduled) statusBadge = '<span class="text-[10px] text-emerald-600 font-bold bg-emerald-50 px-1 rounded ml-auto">AGREGADO</span>';
+                else if (isDuplicate) statusBadge = '<span class="text-[10px] text-orange-600 font-bold ml-auto">DUP</span>';
+
+                // Additional Sampi Tag logic from example (if needed in pending?) 
+                // Example has "SAMPI" at bottom right.
+                const sampiTag = metrics.requiresSampi ? `<span class="block text-[10px] text-gray-400 uppercase font-bold mt-0.5">SAMPI</span>` : '';
+
+                card.innerHTML = `
+            <div class="flex justify-between items-start mb-1">
+                <h3 class="text-sm font-bold text-gray-800 truncate pr-2 w-full flex items-center gap-2">
+                    ${b.client}
+                    ${statusBadge}
+                </h3>
+            </div>
+            <p class="text-xs text-gray-500 mb-3 flex items-center gap-1">
+                <i class="fa-solid fa-hashtag text-[10px]"></i> ${b.orderNumber || '-'}
+            </p>
+            <div class="flex justify-between items-end">
+                <span class="bg-gray-200 text-gray-700 text-xs font-semibold px-2 py-0.5 rounded">${numKg} kg</span>
+                <div class="text-right">
+                    <span class="block text-xs text-gray-500">${b.duration} min</span>
+                    ${sampiTag}
+                </div>
+            </div>`;
+
                 list.appendChild(card);
             });
         }
@@ -1625,15 +1635,9 @@
             if (sampiMinutes <= 0) return;
 
             const token = localStorage.getItem('token');
-
-            // First, try to find existing Sampi card for today
-            const existingSampi = bookings.find(b =>
-                b.resourceId === 'Sampi' &&
-                b.orderNumber === 'SAMPI-DIA'
-            );
+            const existingSampi = bookings.find(b => b.resourceId === 'Sampi' && b.orderNumber === 'SAMPI-DIA');
 
             if (existingSampi) {
-                // Update existing card - add time
                 const newDuration = Number(existingSampi.duration || 0) + sampiMinutes;
                 const currentObs = existingSampi.observations || '';
                 const newObs = currentObs + (currentObs ? '\n' : '') + `+${sampiMinutes}min (#${orderNumber})`;
@@ -1652,7 +1656,6 @@
                     })
                 });
             } else {
-                // Create new daily Sampi card
                 await fetch(`${API_URL}/manage.php`, {
                     method: 'POST',
                     headers: {
@@ -1674,6 +1677,49 @@
                         sampi_on: 1,
                         kg: 0,
                         items: []
+                    })
+                });
+            }
+        }
+
+        async function removeFromDailySampiCard(minutesToRemove, orderNumber) {
+            const token = localStorage.getItem('token');
+            const existingSampi = bookings.find(b => b.resourceId === 'Sampi' && b.orderNumber === 'SAMPI-DIA');
+
+            if (!existingSampi) return;
+
+            let newDuration = Number(existingSampi.duration || 0) - minutesToRemove;
+            if (newDuration < 0) newDuration = 0;
+
+            // Remove logic from observations: regex to remove the specific entry
+            // Entry format: "+Xmin (#ORDER)" or similar
+            // We'll use a simple replace for now, ensuring we handle newlines
+            let newObs = existingSampi.observations || '';
+            const entryToRemove = `+${minutesToRemove}min (#${orderNumber})`;
+            newObs = newObs.replace(entryToRemove, '').replace(/\n\n/g, '\n').trim();
+
+            if (newDuration <= 0) {
+                // Delete if empty
+                await fetch(`${API_URL}/manage.php?id=${existingSampi.id}`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'X-HTTP-Method-Override': 'DELETE'
+                    }
+                });
+            } else {
+                // Update
+                await fetch(`${API_URL}/manage.php`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-HTTP-Method-Override': 'PUT',
+                        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+                    },
+                    body: JSON.stringify({
+                        id: existingSampi.id,
+                        duration: newDuration,
+                        observations: newObs
                     })
                 });
             }
@@ -1707,6 +1753,44 @@
             document.getElementById('observations').value = booking.observations || '';
             document.getElementById('realStartTime').value = booking.realStartTime || '';
             document.getElementById('realEndTime').value = booking.realEndTime || '';
+
+            // SAMPI COMPOSITION LOGIC
+            const tableWrapper = document.getElementById('itemsTableBody').closest('.overflow-y-auto'); // Find scrollable wrapper
+            const parentContainer = tableWrapper.parentElement;
+
+            // Check if it's the Daily Sampi Card
+            if (booking.orderNumber === 'SAMPI-DIA') {
+                // Hide Standard Items Table Wrapper
+                tableWrapper.classList.add('hidden');
+
+                // Show Sampi Composition
+                let compositionHtml = '<div id="sampiComposition" class="mt-4 flex-1 overflow-y-auto min-h-0"><h4 class="font-bold text-slate-300 mb-2 text-xs">Composición del Día</h4><div class="bg-slate-800 rounded border border-slate-700 overflow-hidden"><table class="w-full text-sm text-left text-slate-300"><thead class="bg-slate-900 font-bold text-xs uppercase text-slate-400"><tr><th class="p-2">Pedido #</th><th class="p-2 text-right">Tiempo</th></tr></thead><tbody class="divide-y divide-slate-700">';
+
+                // Parse observations: "+Xmin (#ORDER)"
+                const lines = (booking.observations || '').split('\n');
+                lines.forEach(line => {
+                    const match = line.match(/\+(\d+)min \(#(.+)\)/);
+                    if (match) {
+                        compositionHtml += `<tr class="border-b border-slate-700 last:border-0 hover:bg-slate-700/50"><td class="p-2 font-mono text-blue-400 font-semibold">#${match[2]}</td><td class="p-2 text-right font-bold text-slate-200">${match[1]} min</td></tr>`;
+                    }
+                });
+
+                compositionHtml += '</tbody></table></div></div>';
+
+                // Inject if not exists
+                if (!document.getElementById('sampiComposition')) {
+                    const compDiv = document.createElement('div');
+                    compDiv.id = 'sampiComposition';
+                    // Use a wrapper div/container to ensure structure fits
+                    compDiv.innerHTML = compositionHtml.replace('<div id="sampiComposition"', '<div'); // Avoid duplicate ID in innerHTML
+                    parentContainer.insertBefore(compDiv, tableWrapper);
+                }
+            } else {
+                // Restore standard view
+                tableWrapper.classList.remove('hidden');
+                const comp = document.getElementById('sampiComposition');
+                if (comp) comp.remove();
+            }
 
             // Populate Items - use the calculated items if available
             try {
@@ -1956,19 +2040,55 @@
             if (!currentModalBookingId) return;
 
             const res = await Swal.fire({
-                title: '¿Eliminar?', icon: 'warning', showCancelButton: true, confirmButtonColor: '#ef4444'
+                title: '¿Enviar a Pendientes?',
+                text: "El pedido saldrá de la pizarra.",
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#f59e0b',
+                confirmButtonText: 'Sí, enviar',
+                cancelButtonText: 'Cancelar'
             });
 
             if (res.isConfirmed) {
-                await fetch(`${API_URL}/manage.php?id=${currentModalBookingId}`, {
+                // Check if current booking is a Sampi contributor
+                const booking = bookings.find(b => b.id == currentModalBookingId);
+
+                if (booking) {
+                    // Calculate if it had Sampi time
+                    let sampiMinutesVal = 0;
+                    if (booking.items) {
+                        const rawItems = typeof booking.items === 'string' ? JSON.parse(booking.items) : booking.items;
+                        const m = getMetricsFromItems(rawItems);
+                        if (m.requiresSampi) sampiMinutesVal = m.sampiDuration;
+                    }
+
+                    // Remove from Sampi Card if applicable
+                    if (sampiMinutesVal > 0) {
+                        await removeFromDailySampiCard(sampiMinutesVal, booking.orderNumber);
+                    }
+                }
+
+                // Soft Delete: Update Status to PENDING, remove resource/time
+                await fetch(`${API_URL}/manage.php`, {
                     method: 'POST',
                     headers: {
+                        'Content-Type': 'application/json',
                         'Authorization': `Bearer ${localStorage.getItem('token')}`,
-                        'X-HTTP-Method-Override': 'DELETE'
-                    }
+                        'X-HTTP-Method-Override': 'PUT'
+                    },
+                    body: JSON.stringify({
+                        id: currentModalBookingId,
+                        status: 'PENDING',
+                        resourceId: null,      // Clear resource
+                        startTimeHour: null,   // Clear time
+                        startTimeMinute: null, // Clear time
+                        date: null             // Optional: Keep date if we want it to stay in "pending for that day" or null to be general pending
+                    })
                 });
+
                 closeModal();
                 fetchData();
+                Swal.fire('Movido', 'El pedido volvió a la lista de pendientes.', 'success');
             }
         };
 
