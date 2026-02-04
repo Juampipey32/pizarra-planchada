@@ -497,9 +497,6 @@
                                         OFF</span>
                                 </div>
                             </div>
-                            <div class="text-center">
-                                <span id="sampiDetail" class="text-[10px] text-gray-400"></span>
-                            </div>
                         </div>
                         <!-- Items Table -->
                         <div
@@ -2068,8 +2065,6 @@
             document.getElementById('calcSampiKg').textContent = '0.00';
             document.getElementById('sampiBadge').className = 'inline-flex items-center justify-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-gray-200 text-gray-500';
             document.getElementById('sampiBadge').textContent = 'SAMPI OFF';
-            const sampiDetail = document.getElementById('sampiDetail');
-            if (sampiDetail) sampiDetail.textContent = '';
 
             // Popular select de recursos
             const resourceSelect = document.getElementById('resourceSelect');
@@ -2159,19 +2154,14 @@
 
             const badge = document.getElementById('sampiBadge');
 
-            const sampiDetail = document.getElementById('sampiDetail');
             if (metrics.requiresSampi) {
-                badge.className = 'inline-flex items-center justify-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-purple-700 border border-purple-200';
+                badge.className = 'inline-flex items-center justify-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-700 border border-blue-200';
                 badge.innerHTML = `<i class="fa-solid fa-bolt mr-1"></i>SAMPI ON`;
-                if (sampiDetail) {
-                    sampiDetail.textContent = `${metrics.sampiPallets} pallets · ${metrics.sampiDuration}m`;
-                }
             }
 
             else {
                 badge.className = 'inline-flex items-center justify-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-gray-200 text-gray-500';
                 badge.textContent = 'SAMPI OFF';
-                if (sampiDetail) sampiDetail.textContent = '';
             }
         }
 
