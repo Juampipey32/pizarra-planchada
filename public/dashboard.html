@@ -2025,6 +2025,32 @@
                 itemsList = [];
             }
 
+            if (Array.isArray(itemsList)) {
+                console.debug('[KG][modal] booking', {
+                    id: booking.id,
+                    orderNumber: booking.orderNumber,
+                    kg: booking.kg,
+                    itemsType: typeof booking.items
+                });
+                itemsList.forEach((item, idx) => {
+                    const code = (item.code || '').toUpperCase();
+                    const qty = Number(item.qty ?? 0);
+                    const coef = Number(item.coef ?? (COEFFICIENTS[code] || 1));
+                    const computedKg = qty * coef;
+                    console.debug('[KG][modal] item', {
+                        idx,
+                        code,
+                        qty,
+                        coef,
+                        itemKg: Number(item.kg ?? 0),
+                        computedKg,
+                        configCoef: COEFFICIENTS[code]
+                    });
+                });
+            } else {
+                console.debug('[KG][modal] itemsList not array', itemsList);
+            }
+
             if (!itemsList || itemsList.length === 0) {
 
                 // Dummy load fallback
