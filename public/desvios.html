@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Desvíos | Logística 3.0</title>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+    <link rel="stylesheet" href="/css/tailwind-lite.css">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="/js/config.js"></script>
+</head>
+
+<body class="bg-slate-100 min-h-screen">
+    <header class="bg-white shadow-sm border-b border-slate-200 p-4 flex flex-wrap gap-3 justify-between items-center">
+        <div class="flex items-center gap-2">
+            <a href="/dashboard.html" class="text-blue-600 underline text-sm">Volver a Pizarra</a>
+            <h1 class="text-lg font-semibold text-slate-800">Desvíos (Comercial + Logístico)</h1>
+        </div>
+        <div class="flex flex-wrap gap-3 items-end">
+            <div class="flex flex-col">
+                <label class="text-xs text-slate-500">Desde</label>
+                <input id="startDate" type="date" class="border rounded px-2 py-1 text-sm">
+            </div>
+            <div class="flex flex-col">
+                <label class="text-xs text-slate-500">Hasta</label>
+                <input id="endDate" type="date" class="border rounded px-2 py-1 text-sm">
+            </div>
+            <div class="flex flex-col">
+                <label class="text-xs text-slate-500">Cliente</label>
+                <input id="clientFilter" type="text" placeholder="Nombre o código"
+                    class="border rounded px-2 py-1 text-sm">
+            </div>
+            <button id="applyFilters"
+                class="bg-blue-600 text-white px-3 py-2 rounded text-sm font-semibold">Aplicar</button>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto p-4 space-y-6">
+        <section class="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div class="bg-white p-4 rounded shadow border border-slate-200">
+                <p class="text-xs text-slate-500">Total eventos comerciales</p>
+                <p id="commercialTotal" class="text-2xl font-bold text-slate-800">0</p>
+                <p class="text-xs text-slate-400">Kg incumplidos</p>
+                <p id="commercialKg" class="text-lg font-semibold text-red-600">0</p>
+            </div>
+            <div class="bg-white p-4 rounded shadow border border-slate-200">
+                <p class="text-xs text-slate-500">Total eventos logísticos</p>
+                <p id="logisticTotal" class="text-2xl font-bold text-slate-800">0</p>
+                <p class="text-xs text-slate-400">Desvío promedio</p>
+                <p id="logisticAvg" class="text-lg font-semibold text-indigo-600">0 min</p>
+            </div>
+            <div class="bg-white p-4 rounded shadow border border-slate-200">
+                <p class="text-xs text-slate-500">Minutos de retraso</p>
+                <p id="logisticDelay" class="text-2xl font-bold text-amber-600">0</p>
+                <p class="text-xs text-slate-400">Minutos de adelanto</p>
+                <p id="logisticEarly" class="text-lg font-semibold text-emerald-600">0</p>
+            </div>
+            <div class="bg-white p-4 rounded shadow border border-slate-200">
+                <p class="text-xs text-slate-500">Desvío absoluto promedio</p>
+                <p id="logisticAbsAvg" class="text-2xl font-bold text-slate-800">0 min</p>
+                <p class="text-xs text-slate-400">Tipo más frecuente</p>
+                <p id="logisticTopType" class="text-lg font-semibold text-slate-600">-</p>
+            </div>
+        </section>
+
+        <section class="bg-white p-4 rounded shadow border border-slate-200">
+            <div class="flex items-center justify-between mb-3">
+                <h2 class="font-semibold text-slate-800">Desvíos Comerciales (Demanda Insatisfecha)</h2>
+                <span id="commercialRange" class="text-xs text-slate-500"></span>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="min-w-full text-sm">
+                    <thead class="bg-slate-50 border-b border-slate-200">
+                        <tr>
+                            <th class="text-left px-3 py-2">Fecha</th>
+                            <th class="text-left px-3 py-2">Cliente</th>
+                            <th class="text-left px-3 py-2">Pedido</th>
+                            <th class="text-left px-3 py-2">Producto</th>
+                            <th class="text-right px-3 py-2">Kg incumplidos</th>
+                            <th class="text-left px-3 py-2">Motivo</th>
+                        </tr>
+                    </thead>
+                    <tbody id="commercialTable" class="divide-y divide-slate-100"></tbody>
+                </table>
+            </div>
+        </section>
+
+        <section class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div class="bg-white p-4 rounded shadow border border-slate-200">
+                <h3 class="font-semibold text-slate-800 mb-2">Ranking clientes - peores desvíos</h3>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full text-sm">
+                        <thead class="bg-slate-50 border-b border-slate-200">
+                            <tr>
+                                <th class="text-left px-3 py-2">Cliente</th>
+                                <th class="text-right px-3 py-2">Promedio abs (min)</th>
+                                <th class="text-right px-3 py-2">Eventos</th>
+                            </tr>
+                        </thead>
+                        <tbody id="worstClients" class="divide-y divide-slate-100"></tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="bg-white p-4 rounded shadow border border-slate-200">
+                <h3 class="font-semibold text-slate-800 mb-2">Ranking clientes - mejores desvíos</h3>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full text-sm">
+                        <thead class="bg-slate-50 border-b border-slate-200">
+                            <tr>
+                                <th class="text-left px-3 py-2">Cliente</th>
+                                <th class="text-right px-3 py-2">Promedio abs (min)</th>
+                                <th class="text-right px-3 py-2">Eventos</th>
+                            </tr>
+                        </thead>
+                        <tbody id="bestClients" class="divide-y divide-slate-100"></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <section class="bg-white p-4 rounded shadow border border-slate-200">
+            <div class="flex items-center justify-between mb-3">
+                <h2 class="font-semibold text-slate-800">Desvíos Logísticos</h2>
+                <span id="logisticRange" class="text-xs text-slate-500"></span>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="min-w-full text-sm">
+                    <thead class="bg-slate-50 border-b border-slate-200">
+                        <tr>
+                            <th class="text-left px-3 py-2">Fecha</th>
+                            <th class="text-left px-3 py-2">Cliente</th>
+                            <th class="text-left px-3 py-2">Pedido</th>
+                            <th class="text-left px-3 py-2">Puerta</th>
+                            <th class="text-right px-3 py-2">Desvío (min)</th>
+                            <th class="text-left px-3 py-2">Tipo</th>
+                        </tr>
+                    </thead>
+                    <tbody id="logisticTable" class="divide-y divide-slate-100"></tbody>
+                </table>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        const token = localStorage.getItem('token');
+        if (!token) window.location.href = '/index.html';
+
+        const commercialTable = document.getElementById('commercialTable');
+        const logisticTable = document.getElementById('logisticTable');
+        const worstClients = document.getElementById('worstClients');
+        const bestClients = document.getElementById('bestClients');
+
+        function setDefaultDates() {
+            const end = new Date();
+            const start = new Date();
+            start.setDate(end.getDate() - 30);
+            document.getElementById('startDate').value = start.toISOString().split('T')[0];
+            document.getElementById('endDate').value = end.toISOString().split('T')[0];
+        }
+
+        function buildQuery() {
+            const startDate = document.getElementById('startDate').value;
+            const endDate = document.getElementById('endDate').value;
+            const client = document.getElementById('clientFilter').value.trim();
+            const params = new URLSearchParams({ start_date: startDate, end_date: endDate });
+            if (client) params.append('client', client);
+            return params.toString();
+        }
+
+        async function loadCommercial() {
+            const query = buildQuery();
+            const res = await fetch(`/api/unmet-demand/index.php?${query}`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            const data = await res.json();
+            if (!res.ok || !data.success) throw new Error(data.error || 'Error');
+
+            document.getElementById('commercialTotal').textContent = data.stats.total_records || 0;
+            document.getElementById('commercialKg').textContent = Number(data.stats.total_unmet_kg || 0).toFixed(2);
+            document.getElementById('commercialRange').textContent = `${data.filters.start_date} a ${data.filters.end_date}`;
+
+            commercialTable.innerHTML = '';
+            if (!data.records.length) {
+                commercialTable.innerHTML = '<tr><td class="px-3 py-3 text-slate-400" colspan="6">Sin registros</td></tr>';
+                return;
+            }
+            data.records.slice(0, 200).forEach(r => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td class="px-3 py-2">${r.date || '-'}</td>
+                    <td class="px-3 py-2">${r.client || '-'}</td>
+                    <td class="px-3 py-2 font-mono text-xs">${r.orderNumber || r.booking_id || '-'}</td>
+                    <td class="px-3 py-2">${r.product_code || ''} ${r.product_name ? '- ' + r.product_name : ''}</td>
+                    <td class="px-3 py-2 text-right font-semibold text-red-600">${Number(r.unmet_kg || 0).toFixed(2)}</td>
+                    <td class="px-3 py-2">${r.reason || '-'}</td>
+                `;
+                commercialTable.appendChild(tr);
+            });
+        }
+
+        function fillRankingRows(target, rows) {
+            target.innerHTML = '';
+            if (!rows.length) {
+                target.innerHTML = '<tr><td class="px-3 py-3 text-slate-400" colspan="3">Sin datos</td></tr>';
+                return;
+            }
+            rows.forEach(row => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td class="px-3 py-2">${row.client}</td>
+                    <td class="px-3 py-2 text-right">${row.avg_abs_deviation}</td>
+                    <td class="px-3 py-2 text-right">${row.count}</td>
+                `;
+                target.appendChild(tr);
+            });
+        }
+
+        async function loadLogistic() {
+            const query = buildQuery();
+            const res = await fetch(`/api/deviations/index.php?${query}`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            const data = await res.json();
+            if (!res.ok || !data.success) throw new Error(data.error || 'Error');
+
+            const stats = data.stats || {};
+            document.getElementById('logisticTotal').textContent = stats.total_records || 0;
+            document.getElementById('logisticAvg').textContent = `${stats.avg_deviation_minutes || 0} min`;
+            document.getElementById('logisticAbsAvg').textContent = `${stats.avg_abs_deviation_minutes || 0} min`;
+            document.getElementById('logisticDelay').textContent = stats.total_delay_minutes || 0;
+            document.getElementById('logisticEarly').textContent = stats.total_early_minutes || 0;
+            document.getElementById('logisticRange').textContent = `${data.filters.start_date} a ${data.filters.end_date}`;
+
+            const byType = stats.by_type || {};
+            const topType = Object.entries(byType).sort((a, b) => b[1] - a[1])[0]?.[0] || '-';
+            document.getElementById('logisticTopType').textContent = topType;
+
+            fillRankingRows(worstClients, stats.worst_clients || []);
+            fillRankingRows(bestClients, stats.best_clients || []);
+
+            logisticTable.innerHTML = '';
+            const records = data.records || [];
+            if (!records.length) {
+                logisticTable.innerHTML = '<tr><td class="px-3 py-3 text-slate-400" colspan="6">Sin registros</td></tr>';
+                return;
+            }
+            records.slice(0, 200).forEach(r => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td class="px-3 py-2">${r.date || r.booking_date || '-'}</td>
+                    <td class="px-3 py-2">${r.client || '-'}</td>
+                    <td class="px-3 py-2 font-mono text-xs">${r.orderNumber || r.booking_id || '-'}</td>
+                    <td class="px-3 py-2">${r.real_door || r.planned_door || r.resourceId || '-'}</td>
+                    <td class="px-3 py-2 text-right font-semibold">${r.deviation_minutes ?? '-'}</td>
+                    <td class="px-3 py-2">${r.deviation_type}</td>
+                `;
+                logisticTable.appendChild(tr);
+            });
+        }
+
+        async function loadAll() {
+            try {
+                await Promise.all([loadCommercial(), loadLogistic()]);
+            } catch (e) {
+                Swal.fire('Error', e.message || 'No se pudo cargar', 'error');
+            }
+        }
+
+        document.getElementById('applyFilters').onclick = loadAll;
+        setDefaultDates();
+        loadAll();
+    </script>
+</body>
+
+</html>

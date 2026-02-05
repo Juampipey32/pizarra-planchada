@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Demanda Insatisfecha | Logística 3.0</title>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+    <link rel="stylesheet" href="/css/tailwind-lite.css">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="/js/config.js"></script>
+</head>
+
+<body class="bg-slate-100 min-h-screen">
+    <header class="bg-white shadow-sm border-b border-slate-200 p-4 flex flex-wrap gap-3 justify-between items-center">
+        <div class="flex items-center gap-2">
+            <a href="/dashboard.html" class="text-blue-600 underline text-sm">Volver a Pizarra</a>
+            <h1 class="text-lg font-semibold text-slate-800">Demanda Insatisfecha</h1>
+        </div>
+        <div class="flex flex-wrap gap-3 items-end">
+            <div class="flex flex-col">
+                <label class="text-xs text-slate-500">Desde</label>
+                <input id="startDate" type="date" class="border rounded px-2 py-1 text-sm">
+            </div>
+            <div class="flex flex-col">
+                <label class="text-xs text-slate-500">Hasta</label>
+                <input id="endDate" type="date" class="border rounded px-2 py-1 text-sm">
+            </div>
+            <div class="flex flex-col">
+                <label class="text-xs text-slate-500">Cliente</label>
+                <input id="clientFilter" type="text" placeholder="Cliente" class="border rounded px-2 py-1 text-sm">
+            </div>
+            <div class="flex flex-col">
+                <label class="text-xs text-slate-500">Pedido</label>
+                <input id="orderFilter" type="text" placeholder="# pedido" class="border rounded px-2 py-1 text-sm">
+            </div>
+            <button id="applyFilters"
+                class="bg-blue-600 text-white px-3 py-2 rounded text-sm font-semibold">Aplicar</button>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto p-4 space-y-6">
+        <section class="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div class="bg-white p-4 rounded shadow border border-slate-200">
+                <p class="text-xs text-slate-500">Total registros</p>
+                <p id="totalRecords" class="text-2xl font-bold text-slate-800">0</p>
+            </div>
+            <div class="bg-white p-4 rounded shadow border border-slate-200">
+                <p class="text-xs text-slate-500">Kg incumplidos</p>
+                <p id="totalKg" class="text-2xl font-bold text-red-600">0</p>
+            </div>
+            <div class="bg-white p-4 rounded shadow border border-slate-200">
+                <p class="text-xs text-slate-500">Cantidad incumplida</p>
+                <p id="totalQty" class="text-2xl font-bold text-slate-800">0</p>
+            </div>
+            <div class="bg-white p-4 rounded shadow border border-slate-200">
+                <p class="text-xs text-slate-500">Top cliente (kg)</p>
+                <p id="topClient" class="text-lg font-semibold text-slate-700">-</p>
+            </div>
+        </section>
+
+        <section class="bg-white p-4 rounded shadow border border-slate-200">
+            <div class="flex items-center justify-between mb-3">
+                <h2 class="font-semibold text-slate-800">Detalle de demanda insatisfecha</h2>
+                <span id="rangeLabel" class="text-xs text-slate-500"></span>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="min-w-full text-sm">
+                    <thead class="bg-slate-50 border-b border-slate-200">
+                        <tr>
+                            <th class="text-left px-3 py-2">Fecha</th>
+                            <th class="text-left px-3 py-2">Cliente</th>
+                            <th class="text-left px-3 py-2">Pedido</th>
+                            <th class="text-left px-3 py-2">Producto</th>
+                            <th class="text-right px-3 py-2">Kg incumplidos</th>
+                            <th class="text-left px-3 py-2">Motivo</th>
+                        </tr>
+                    </thead>
+                    <tbody id="recordsTable" class="divide-y divide-slate-100"></tbody>
+                </table>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        const token = localStorage.getItem('token');
+        if (!token) window.location.href = '/index.html';
+
+        const recordsTable = document.getElementById('recordsTable');
+
+        function setDefaultDates() {
+            const end = new Date();
+            const start = new Date();
+            start.setDate(end.getDate() - 30);
+            document.getElementById('startDate').value = start.toISOString().split('T')[0];
+            document.getElementById('endDate').value = end.toISOString().split('T')[0];
+        }
+
+        function buildQuery() {
+            const params = new URLSearchParams({
+                start_date: document.getElementById('startDate').value,
+                end_date: document.getElementById('endDate').value
+            });
+            const client = document.getElementById('clientFilter').value.trim();
+            if (client) params.append('client', client);
+            return params.toString();
+        }
+
+        async function loadData() {
+            const query = buildQuery();
+            const res = await fetch(`/api/unmet-demand/index.php?${query}`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            const data = await res.json();
+            if (!res.ok || !data.success) {
+                return Swal.fire('Error', data.error || 'No se pudo cargar', 'error');
+            }
+
+            const stats = data.stats || {};
+            document.getElementById('totalRecords').textContent = stats.total_records || 0;
+            document.getElementById('totalKg').textContent = Number(stats.total_unmet_kg || 0).toFixed(2);
+            document.getElementById('totalQty').textContent = Number(stats.total_unmet_qty || 0).toFixed(2);
+            document.getElementById('rangeLabel').textContent = `${data.filters.start_date} a ${data.filters.end_date}`;
+
+            const byClient = stats.by_client || {};
+            const topClient = Object.entries(byClient).sort((a, b) => b[1].unmet_kg - a[1].unmet_kg)[0]?.[0] || '-';
+            document.getElementById('topClient').textContent = topClient;
+
+            const orderFilter = document.getElementById('orderFilter').value.trim();
+            const records = orderFilter
+                ? (data.records || []).filter(r => String(r.orderNumber || '').includes(orderFilter))
+                : (data.records || []);
+
+            recordsTable.innerHTML = '';
+            if (!records.length) {
+                recordsTable.innerHTML = '<tr><td class="px-3 py-3 text-slate-400" colspan="6">Sin registros</td></tr>';
+                return;
+            }
+            records.slice(0, 200).forEach(r => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td class="px-3 py-2">${r.date || '-'}</td>
+                    <td class="px-3 py-2">${r.client || '-'}</td>
+                    <td class="px-3 py-2 font-mono text-xs">${r.orderNumber || r.booking_id || '-'}</td>
+                    <td class="px-3 py-2">${r.product_code || ''} ${r.product_name ? '- ' + r.product_name : ''}</td>
+                    <td class="px-3 py-2 text-right font-semibold text-red-600">${Number(r.unmet_kg || 0).toFixed(2)}</td>
+                    <td class="px-3 py-2">${r.reason || '-'}</td>
+                `;
+                recordsTable.appendChild(tr);
+            });
+        }
+
+        document.getElementById('applyFilters').onclick = loadData;
+        setDefaultDates();
+        loadData();
+    </script>
+</body>
+
+</html>
