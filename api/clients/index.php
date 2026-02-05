@@ -81,13 +81,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // Apply to existing bookings for this client
         if ($blocked) {
             $update = $pdo->prepare("UPDATE Bookings SET
+                prev_status = CASE WHEN IFNULL(is_blocked, 0) = 0 THEN status ELSE prev_status END,
+                prev_resourceId = CASE WHEN IFNULL(is_blocked, 0) = 0 THEN resourceId ELSE prev_resourceId END,
+                prev_color = CASE WHEN IFNULL(is_blocked, 0) = 0 THEN color ELSE prev_color END,
                 is_blocked = 1,
                 blocked_by = 'CLIENT',
                 blocked_reason = :reason,
                 blocked_debt_amount = :amount,
                 blocked_at = NOW(),
                 status = 'BLOCKED',
-                resourceId = 'PENDIENTE',
                 color = 'red',
                 updatedAt = NOW()
                 WHERE clientCode = :code");
@@ -103,9 +105,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 blocked_reason = NULL,
                 blocked_debt_amount = NULL,
                 blocked_at = NULL,
-                status = 'PENDING',
-                resourceId = 'PENDIENTE',
-                color = 'blue',
+                status = CASE
+                    WHEN prev_status IS NOT NULL THEN prev_status
+                    WHEN resourceId IS NOT NULL AND resourceId != 'PENDIENTE' THEN 'PLANNED'
+                    ELSE 'PENDING'
+                END,
+                resourceId = CASE
+                    WHEN prev_resourceId IS NOT NULL THEN prev_resourceId
+                    ELSE resourceId
+                END,
+                color = CASE
+                    WHEN prev_color IS NOT NULL THEN prev_color
+                    ELSE 'blue'
+                END,
                 updatedAt = NOW()
                 WHERE clientCode = :code");
             $update->execute([':code' => $clientCode]);

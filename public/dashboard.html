@@ -1816,6 +1816,10 @@
             list.innerHTML = '';
 
             let filtered = pendingBookings.filter(b => {
+                const isBlocked = Boolean(b.is_blocked) || b.status === 'BLOCKED';
+                const isAssigned = b.resourceId && b.resourceId !== 'PENDIENTE';
+                if (isBlocked && isAssigned) return false;
+
                 if (filterType === 'SAMPI' && !b.metrics?.requiresSampi) return false;
                 if (filterClient && !b.client.toLowerCase().includes(filterClient) && !String(b.orderNumber || '').includes(filterClient)) return false;
 
