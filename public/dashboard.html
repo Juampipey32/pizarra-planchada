@@ -344,14 +344,14 @@
                 </div>
 
                 <!-- Admin Menu (Settings) -->
-                <div class="relative group">
-                    <button
+                <div class="relative">
+                    <button id="settingsBtn"
                         class="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 text-gray-600 text-sm">
                         <i class="fa-solid fa-gear"></i>
                     </button>
                     <!-- Dropdown preserved -->
-                    <div
-                        class="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-2xl py-2 hidden group-hover:block border border-gray-100 ring-1 ring-black ring-opacity-5 z-50">
+                    <div id="settingsMenu"
+                        class="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-2xl py-2 hidden border border-gray-100 ring-1 ring-black ring-opacity-5 z-50">
                         <div class="px-4 py-2 border-b border-gray-100">
                             <p class="text-xs text-gray-400">Logueado como</p>
                             <p class="font-bold text-gray-700 truncate" id="userInfo">User</p>
@@ -996,6 +996,20 @@
             initBoardLayout();
             fetchData();
             initSse();
+
+            const settingsBtn = document.getElementById('settingsBtn');
+            const settingsMenu = document.getElementById('settingsMenu');
+            if (settingsBtn && settingsMenu) {
+                settingsBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    settingsMenu.classList.toggle('hidden');
+                });
+                document.addEventListener('click', (e) => {
+                    if (!settingsMenu.contains(e.target) && !settingsBtn.contains(e.target)) {
+                        settingsMenu.classList.add('hidden');
+                    }
+                });
+            }
         });
 
         function setupDateControl() {
